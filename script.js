@@ -1,84 +1,130 @@
-const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw7Xr0WbIYM81C-rc_raJeQ5nzNBOSA1ZcOQb0VVbKH1FCXHsfWGuCu-xl30tAgO_U4gg/exec";
-const SECRET = "SECRET_HERE";
 
-// ----- CONFIG ---------
+const WEBAPP_URL = "WEBAPP_URL_HERE"; // <-- REPLACE with your Apps Script Web App URL (see README below)
+const SECRET = "SECRET_HERE";         // <-- REPLACE with the same secret string you set in Apps Script
+const DAYS_TO_SHOW = 14;             // number of consecutive days to offer (change as needed)
 const timeSlots = [
   "10am-12pm",
   "12pm-2pm",
   "2pm-4pm",
   "4pm-6pm"
 ];
+// ======================================
 
-// Example: Next 14 days
-function generateDates(days = 14) {
-  const arr = [];
-  const now = new Date();
-  for (let i = 0; i < days; i++) {
-    const d = new Date(now);
-    d.setDate(now.getDate() + i);
-    arr.push(d.toISOString().split("T")[0]);
+/* Utility: format date as YYYY-MM-DD and readable label */
+function isoDate(d){ return d.toISOString().split("T")[0]; }
+function prettyDate(d){
+  // Example: Tue, Dec 2
+  return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});
+}
+
+/* Build date list */
+function generateDates(n){
+  const a = [];
+  const today = new Date();
+  // start from today (change to offset if you want to skip today)
+  for(let i=0;i<n;i++){
+    const d = new Date(today);
+    d.setDate(today.getDate()+i);
+    a.push(d);
   }
+  return a;
+}
+
+/* Render UI */
+function renderDates(){
+  const container = document.getElementById('datesSection');
+  const dates = generateDates(DAYS_TO_SHOW);
+  container.innerHTML = '';
+
+  dates.forEach(d => {
+    const iso = isoDate(d);
+    const card = document.createElement('div');
+    card.className = 'date-card';
+
+    const left = document.createElement('div');
+    left.className = 'date-left';
+    left.innerHTML = `<div class="date-title">${prettyDate(d)}</div><div class="muted">${iso}</div>`;
+
+    const slotsWrap = document.createElement('div');
+    slotsWrap.className = 'slots';
+    timeSlots.forEach(slot => {
+      const id = `cb_${iso}_${slot.replace(/\s|:/g,'')}`;
+      const label = document.createElement('label');
+      label.className = 'slot';
+      label.innerHTML = `<input id="${id}" type="checkbox" data-date="${iso}" data-slot="${slot}" /> <span>${slot}</span>`;
+      slotsWrap.appendChild(label);
+    });
+
+    card.appendChild(left);
+    card.appendChild(slotsWrap);
+    container.appendChild(card);
+  });
+}
+
+/* Read selections */
+function getSelections(){
+  const arr = [];
+  document.querySelectorAll('input[type="checkbox"][data-date]').forEach(cb=>{
+    if(cb.checked){
+      arr.push({ date: cb.dataset.date, slot: cb.dataset.slot });
+    }
+  });
   return arr;
 }
 
-const dates = generateDates(14);
-
-// Render dates with checkboxes
-const div = document.getElementById("dates");
-
-dates.forEach(date => {
-  const section = document.createElement("div");
-  section.className = "date-block";
-  section.innerHTML = `<h3>${date}</h3>`;
-
-  timeSlots.forEach(slot => {
-    const id = `${date}-${slot}`;
-    section.innerHTML += `
-      <label>
-        <input type="checkbox" name="slot" data-date="${date}" data-slot="${slot}">
-        ${slot}
-      </label><br>
-    `;
-  });
-
-  div.appendChild(section);
-});
-
-// Handle form submission
-document.getElementById("infoForm").onsubmit = async (e) => {
-  e.preventDefault();
-
-  const name = document.getElementById("name").value;
-  const email = document.getElementById("email").value;
-  const phone = document.getElementById("phone").value;
-
-  const selections = [];
-  document.querySelectorAll("input[name='slot']:checked").forEach(cb => {
-    selections.push({
-      date: cb.dataset.date,
-      slot: cb.dataset.slot
-    });
-  });
-
-  if (selections.length === 0) {
-    document.getElementById("msg").innerText = "Please select at least one date/slot.";
-    return;
-  }
-
-  const payload = {
-    secret: SECRET,
-    name, email, phone,
-    selections
-  };
-
+/* Submit to Apps Script web app */
+async function submitSelections(payload){
   const res = await fetch(WEBAPP_URL, {
     method: "POST",
-    body: JSON.stringify(payload),
-    headers: { "Content-Type": "application/json" }
+    mode: "cors",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
   });
+  return res.json();
+}
 
-  const json = await res.json();
-  document.getElementById("msg").innerText = json.ok ?
-    "Thank you! Your selections were submitted." :
-    "Error: " + json.error;
-};
+/* Wiring */
+document.addEventListener('DOMContentLoaded', ()=>{
+  renderDates();
+
+  const form = document.getElementById('signupForm');
+  const msg = document.getElementById('msg');
+  const clearBtn = document.getElementById('clearBtn');
+
+  clearBtn.onclick = ()=>{
+    document.querySelectorAll('input[type="checkbox"][data-date]').forEach(cb => cb.checked = false);
+    msg.textContent = '';
+  };
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    msg.textContent = '';
+
+    const name = document.getElementById('name').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const phone = document.getElementById('phone').value.trim();
+
+    if(!name || !email){ msg.textContent = 'Please fill name and email.'; return; }
+
+    const selections = getSelections();
+    if(selections.length === 0){ msg.textContent = 'Please select at least one date/time slot.'; return; }
+
+    // Prepare payload expected by Apps Script
+    const payload = { secret: SECRET, name, email, phone, selections };
+
+    try{
+      const result = await submitSelections(payload);
+      if(result && result.ok){
+        msg.textContent = 'Thank you — your selections were submitted!';
+        // Optionally clear form
+        form.reset();
+        document.querySelectorAll('input[type="checkbox"][data-date]').forEach(cb => cb.checked = false);
+      } else {
+        msg.textContent = 'Error: ' + (result && result.error ? result.error : 'unknown error');
+      }
+    } catch(err){
+      console.error(err);
+      msg.textContent = 'Network error. Could not contact backend.';
+    }
+  });
+});
