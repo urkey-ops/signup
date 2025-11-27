@@ -1,4 +1,4 @@
-<!DOCTYPEhtml>
+<!DOCTYPE html>
 <html>
 <head>
   <title>Signup</title>
@@ -6,20 +6,16 @@
 </head>
 <body>
   <h1>Group Sign-Up</h1>
-
   <div id="slots"></div>
-
   <form id="signupForm" style="display:none;">
     <h2>Your Info</h2>
     <input placeholder="Name" id="name" required><br>
-    <input placeholder="Email" id="email" required><br>
-    <input placeholder="Phone" id="phone"><br>
+    <input placeholder="Email" id="email" type="email" required><br>
+    <input placeholder="Phone" id="phone" type="tel"><br>
     <textarea placeholder="Notes" id="notes"></textarea><br>
     <button type="submit">Submit</button>
   </form>
-
   <p id="msg"></p>
-
   <script src="script.js"></script>
 </body>
 </html>
