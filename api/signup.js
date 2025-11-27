@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+const { google } = require("googleapis");
 
 // In-memory slots for demo
 const slots = [
@@ -7,8 +7,9 @@ const slots = [
 { slotId: "3", slotLabel: "4PM-6PM", capacity: 2, taken: 0 },
 ];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
 try {
+// GET: return available slots
 if (req.method === "GET") {
 const formatted = slots.map((slot) => ({
 ...slot,
@@ -18,10 +19,10 @@ return res.status(200).json(formatted);
 }
 
 ```
+// POST: save signup to Google Sheet
 if (req.method === "POST") {
   const { name, email, phone, notes, slotId } = req.body;
 
-  // Validate required fields
   if (!name || !email || !slotId) {
     return res
       .status(400)
@@ -37,7 +38,7 @@ if (req.method === "POST") {
 
   selectedSlot.taken += 1; // update locally for demo
 
-  // Parse Google Service Account safely
+  // Parse Google Service Account
   let credentials;
   try {
     credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
@@ -90,6 +91,9 @@ return res
 
 } catch (err) {
 console.error("API Error:", err);
-return res.status(500).json({ ok: false, error: "Server error", details: err.message });
+return res
+.status(500)
+.json({ ok: false, error: "Server error", details: err.message });
 }
-}
+};
+
