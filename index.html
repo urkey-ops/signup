@@ -1,25 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Multi-Date Signup</title>
-  <link rel="stylesheet" href="style.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Group Signup</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <main class="container">
+    <h1>Sign Up — choose dates & time slots</h1>
 
-<h1>Choose Your Dates & Time Slots</h1>
+    <p class="intro">Select any combination of dates and time slots below, then enter your contact info and submit once.</p>
 
-<div id="dates"></div>
+    <section id="datesSection" aria-label="Dates and time slots"></section>
 
-<h2>Your Info</h2>
-<form id="infoForm">
-  <input id="name" placeholder="Name" required><br>
-  <input id="email" placeholder="Email" required><br>
-  <input id="phone" placeholder="Phone"><br>
-  <button type="submit">Submit</button>
-</form>
+    <section id="formSection">
+      <h2>Your Info</h2>
+      <form id="signupForm">
+        <label>
+          Name (required)
+          <input id="name" type="text" required />
+        </label>
 
-<p id="msg"></p>
+        <label>
+          Email (required)
+          <input id="email" type="email" required />
+        </label>
 
-<script src="script.js"></script>
+        <label>
+          Phone
+          <input id="phone" type="tel" />
+        </label>
+
+        <div class="actions">
+          <button id="submitBtn" type="submit">Submit</button>
+          <button id="clearBtn" type="button">Clear selections</button>
+        </div>
+      </form>
+
+      <p id="msg" role="status"></p>
+    </section>
+
+    <footer>
+      <small>Slots: 10am–12pm, 12pm–2pm, 2pm–4pm, 4pm–6pm</small>
+    </footer>
+  </main>
+
+  <script src="script.js"></script>
 </body>
 </html>
