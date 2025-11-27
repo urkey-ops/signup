@@ -27,7 +27,13 @@ async function loadSlots() {
       };
       
       label.appendChild(input);
-      label.innerHTML += ` <strong>${escapeHtml(s.slotLabel)}</strong> (${s.taken}/${s.capacity}) `;
+      
+      // FIX: Create text nodes instead of using innerHTML
+      label.appendChild(document.createTextNode(" "));
+      const strong = document.createElement("strong");
+      strong.textContent = s.slotLabel;
+      label.appendChild(strong);
+      label.appendChild(document.createTextNode(` (${s.taken}/${s.capacity}) `));
       
       if (disabled) {
         const fullSpan = document.createElement("span");
