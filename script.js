@@ -8,31 +8,48 @@ async function loadSlots() {
     const slots = await res.json();
     const div = document.getElementById("slots");
     div.innerHTML = "";
-
+    
     slots.forEach(s => {
-      const disabled = s.available <= 0 ? "disabled" : "";
-      div.innerHTML += `
-        <div class="slot">
-          <label>
-            <input type="radio" name="slot" value="${s.slotId}" ${disabled}>
-            <strong>${s.slotLabel}</strong>
-            (${s.taken}/${s.capacity})
-            ${s.available <= 0 ? "<span style='color:red'>FULL</span>" : ""}
-          </label>
-        </div>
-      `;
-    });
-
-    document.querySelectorAll("input[name=slot]").forEach(el => {
-      el.onchange = () => {
-        selectedSlot = el.value;
+      const disabled = s.available <= 0;
+      const slotDiv = document.createElement("div");
+      slotDiv.className = "slot";
+      
+      const label = document.createElement("label");
+      const input = document.createElement("input");
+      input.type = "radio";
+      input.name = "slot";
+      input.value = s.slotId;
+      input.disabled = disabled;
+      
+      input.onchange = () => {
+        selectedSlot = input.value;
         document.getElementById("signupForm").style.display = "block";
       };
+      
+      label.appendChild(input);
+      label.innerHTML += ` <strong>${escapeHtml(s.slotLabel)}</strong> (${s.taken}/${s.capacity}) `;
+      
+      if (disabled) {
+        const fullSpan = document.createElement("span");
+        fullSpan.style.color = "red";
+        fullSpan.textContent = "FULL";
+        label.appendChild(fullSpan);
+      }
+      
+      slotDiv.appendChild(label);
+      div.appendChild(slotDiv);
     });
   } catch (err) {
     console.error("Failed to load slots:", err);
     document.getElementById("slots").innerText = "Failed to load slots.";
   }
+}
+
+// Helper function to prevent XSS
+function escapeHtml(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 loadSlots();
@@ -41,15 +58,15 @@ loadSlots();
 document.getElementById("signupForm").onsubmit = async e => {
   e.preventDefault();
   if (!selectedSlot) return alert("Please select a slot");
-
+  
   const payload = {
     slotId: selectedSlot,
-    name: document.getElementById("name").value,
-    email: document.getElementById("email").value,
-    phone: document.getElementById("phone").value,
-    notes: document.getElementById("notes").value,
+    name: document.getElementById("name").value.trim(),
+    email: document.getElementById("email").value.trim(),
+    phone: document.getElementById("phone").value.trim(),
+    notes: document.getElementById("notes").value.trim(),
   };
-
+  
   try {
     const res = await fetch(API_URL, {
       method: "POST",
@@ -57,10 +74,19 @@ document.getElementById("signupForm").onsubmit = async e => {
       body: JSON.stringify(payload),
     });
     const data = await res.json();
-    document.getElementById("msg").innerText = data.ok ? data.message : data.error;
-    if (data.ok) document.getElementById("signupForm").reset();
+    const msgEl = document.getElementById("msg");
+    msgEl.innerText = data.ok ? data.message : data.error;
+    msgEl.style.color = data.ok ? "green" : "red";
+    
+    if (data.ok) {
+      document.getElementById("signupForm").reset();
+      selectedSlot = null;
+      document.getElementById("signupForm").style.display = "none";
+      loadSlots(); // Refresh slots to show updated availability
+    }
   } catch (err) {
     console.error("Submission error:", err);
     document.getElementById("msg").innerText = "Failed to submit. Try again.";
+    document.getElementById("msg").style.color = "red";
   }
 };
