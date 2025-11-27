@@ -1,7 +1,16 @@
 {
   "name": "slot-booking",
   "version": "1.0.0",
+  "description": "Slot booking system with Google Sheets integration",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel"
+  },
   "dependencies": {
     "googleapis": "^118.0.0"
+  },
+  "engines": {
+    "node": ">=18.x"
   }
 }
