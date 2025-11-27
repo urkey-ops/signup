@@ -1,51 +1,69 @@
 import { google } from "googleapis";
 
+const slots = [
+  { slotId: "1", slotLabel: "10AM-12PM", capacity: 2, taken: 0 },
+  { slotId: "2", slotLabel: "2PM-4PM", capacity: 2, taken: 1 },
+  { slotId: "3", slotLabel: "4PM-6PM", capacity: 2, taken: 0 },
+];
+
 export default async function handler(req, res) {
-    if (req.method !== "POST") {
-        return res.status(405).json({ error: "Method not allowed" });
+  try {
+    if (req.method === "GET") {
+      // Return available slots
+      const formatted = slots.map(s => ({
+        ...s,
+        available: s.capacity - s.taken
+      }));
+      return res.status(200).json(formatted);
     }
 
-    try {
-        // Load Google Service Account credentials
-        const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+    if (req.method === "POST") {
+      const { name, email, phone, notes, slotId } = req.body;
 
-        // Authenticate
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-        });
+      if (!name || !email || !slotId) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
 
-        const sheets = google.sheets({ version: "v4", auth });
+      const selectedSlot = slots.find(s => s.slotId === slotId);
+      if (!selectedSlot) return res.status(400).json({ error: "Invalid slot" });
+      if (selectedSlot.taken >= selectedSlot.capacity) {
+        return res.status(400).json({ error: "Slot is full" });
+      }
 
-        const { name, email, phone, selections } = req.body;
+      // Update taken count locally (optional: fetch from sheet for live updates)
+      selectedSlot.taken += 1;
 
-        if (!name || !email || !phone || !selections) {
-            return res.status(400).json({ error: "Missing fields" });
-        }
+      // Append to Google Sheet
+      const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+      const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+      });
+      const sheets = google.sheets({ version: "v4", auth });
 
-        // Prepare row data
-        const row = [
-            new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
-            name,
-            email,
-            phone,
-            selections.join(", ")
-        ];
+      const row = [
+        new Date().toLocaleString("en-US", { timeZone: "America/New_York" }),
+        selectedSlot.slotLabel,
+        name,
+        email,
+        phone || "",
+        notes || "",
+      ];
 
-        // Append to the sheet
-        await sheets.spreadsheets.values.append({
-            spreadsheetId: process.env.SHEET_ID,
-            range: "Sheet1!A1",
-            valueInputOption: "RAW",
-            requestBody: {
-                values: [row],
-            },
-        });
+      await sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SHEET_ID,
+        range: "Sheet1!A1",
+        valueInputOption: "RAW",
+        requestBody: { values: [row] },
+      });
 
-        return res.status(200).json({ message: "Signup saved!" });
-
-    } catch (err) {
-        console.error("API Error:", err);
-        return res.status(500).json({ error: "Failed to save data" });
+      return res.status(200).json({ ok: true, message: "Signup saved!" });
     }
+
+    res.setHeader("Allow", ["GET", "POST"]);
+    return res.status(405).end(`Method ${req.method} Not Allowed`);
+  } catch (err) {
+    console.error("API Error:", err);
+    return res.status(500).json({ error: "Server error" });
+  }
 }
