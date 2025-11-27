@@ -1,7 +1,7 @@
 const WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw7Xr0WbIYM81C-rc_raJeQ5nzNBOSA1ZcOQb0VVbKH1FCXHsfWGuCu-xl30tAgO_U4gg/exec";
 const SECRET = "SECRET_HERE";
 
-// ----- CONFIG -----
+// ----- CONFIG ---------
 const timeSlots = [
   "10am-12pm",
   "12pm-2pm",
