@@ -1,23 +1,12 @@
-:root{--max:900px;--gap:14px}
-*{box-sizing:border-box}
-body{font-family:Inter,system-ui,Segoe UI,Arial;line-height:1.4;margin:0;padding:20px;background:#f6f7fb;color:#111}
-.container{max-width:var(--max);margin:0 auto;background:#fff;padding:22px;border-radius:10px;box-shadow:0 6px 18px rgba(20,20,50,0.06)}
-h1{margin-top:0;font-size:1.6rem}
-.intro{margin-top:0;color:#444}
-.date-card{border:1px solid #e6e8ef;padding:12px;border-radius:8px;margin-bottom:12px;display:flex;gap:12px;align-items:center;justify-content:space-between}
-.date-left{display:flex;flex-direction:column}
-.date-title{font-weight:600}
-.slots{display:flex;gap:8px;flex-wrap:wrap}
-.slot{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;border:1px solid #e0e3f0;background:#fcfdff}
-.slot input{margin-right:6px}
-#formSection{margin-top:16px}
-label{display:block;margin-bottom:10px}
-input[type="text"],input[type="email"],input[type="tel"],textarea{width:100%;padding:8px;border-radius:6px;border:1px solid #dfe3ee}
-.actions{display:flex;gap:8px;margin-top:8px}
-button{padding:8px 12px;border-radius:8px;border:none;background:#2563eb;color:#fff;cursor:pointer}
-button[type="button"]{background:#6b7280}
-#msg{margin-top:12px;color:#064e3b}
-footer{margin-top:18px;color:#6b7280}
-@media(min-width:720px){
-  .slots{gap:12px}
+body {
+  font-family: sans-serif;
+  max-width: 600px;
+  margin: auto;
+  padding: 20px;
+}
+
+.slot {
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin-bottom: 8px;
 }
