@@ -1,4 +1,4 @@
-const API_URL = "api/signup"; // FIX: Corrected API path to match your 'signup.js' back-end file
+const API_URL = "/api/signup";
 
 // Global variables to hold the selected slot data
 let selectedDate = null;
@@ -109,14 +109,12 @@ function showSignupForm(date, slotLabel, rowId) {
     selectedSlotLabel = slotLabel;
     selectedRowId = rowId;
 
-    // Display Slot Summary 
+    // Display Slot Summary above the form inputs
     const summaryEl = document.getElementById('selectedSlotSummary');
     summaryEl.innerHTML = `
-        ✅ **You Are Booking:**
-        <br>
-        📅 Date: **${date}**
-        <br>
-        🕰️ Time: **${slotLabel}**
+        <strong>📋 You Are Booking:</strong><br>
+        📅 Date: <strong>${date}</strong><br>
+        🕰️ Time: <strong>${slotLabel}</strong>
     `;
     summaryEl.style.display = 'block';
 
@@ -131,6 +129,7 @@ async function submitSignup() {
     const name = document.getElementById("nameInput").value;
     const email = document.getElementById("emailInput").value;
     const phone = document.getElementById("phoneInput").value;
+    const notes = document.getElementById("notesInput").value;
 
     if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
@@ -150,6 +149,7 @@ async function submitSignup() {
         name,
         email,
         phone,
+        notes,
         slotIds: [selectedRowId] 
     };
 
@@ -165,15 +165,16 @@ async function submitSignup() {
         if (data.ok) {
             document.getElementById("signupSection").style.display = "none";
             document.getElementById("confirmationDetails").innerHTML = `
-                Thank you, **${name}**! Your spot has been reserved for:
+                Thank you, <strong>${name}</strong>! Your spot has been reserved for:
                 <br><br>
-                📅 **${selectedDate}** at 🕰️ **${selectedSlotLabel}**.
+                📅 <strong>${selectedDate}</strong> at 🕰️ <strong>${selectedSlotLabel}</strong>.
             `;
             document.getElementById("successMessage").style.display = "block";
             // Clear input fields
             document.getElementById("nameInput").value = "";
             document.getElementById("emailInput").value = "";
             document.getElementById("phoneInput").value = "";
+            document.getElementById("notesInput").value = "";
         } else {
             showMessage("signupMsg", data.error || "Booking failed. Please try again.", true);
             document.getElementById("submitSignupBtn").disabled = false;
