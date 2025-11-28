@@ -30,7 +30,7 @@
                 <div id="slotCheckboxes">
                 </div>
                 
-                <button onclick="submitNewSlots()" class="btn primary-btn">Save Date & Slots</button>
+                <button onclick="submitNewSlots()" id="submitSlotsBtn" class="btn primary-btn">Save Date & Slots</button>
                 <p id="addMsg" class="msg-box"></p>
             </div>
 
@@ -47,7 +47,7 @@
         let adminToken = null;
         let existingDateSet = new Set(); // Stores dates (MM/DD/YYYY) already in the sheet
         
-        // --- NEW: Multi-Delete State ---
+        // --- Multi-Delete State ---
         let slotsToDelete = []; // Stores row IDs (numbers)
         
         const DEFAULT_SLOT_LABELS = [
@@ -64,13 +64,13 @@
             el.className = isError ? "msg-box error" : "msg-box success";
         }
 
-        // --- Q2: Set minimum date to today ---
+        // --- Set minimum date to today ---
         function setCalendarMinDate() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById("newDate").setAttribute('min', today);
         }
 
-        // --- Q1: Multi-Delete State Management ---
+        // --- Multi-Delete State Management ---
         function toggleSlotSelection(rowId, isChecked) {
             if (isChecked) {
                 if (!slotsToDelete.includes(rowId)) {
@@ -85,7 +85,7 @@
         function updateDeleteButton() {
             const deleteBtn = document.getElementById('deleteSelectedBtn');
             const count = slotsToDelete.length;
-            if (deleteBtn) { // Check if the button exists before manipulating
+            if (deleteBtn) {
                 if (count > 0) {
                     deleteBtn.textContent = `Delete Selected Slots (${count})`;
                     deleteBtn.style.display = 'inline-block';
@@ -123,9 +123,14 @@
         }
 
         async function login() {
-            const password = document.getElementById("adminPassword").value;
-            adminToken = password;
+            const password = document.getElementById("adminPassword").value.trim();
             
+            if (!password) {
+                showMessage("loginMsg", "Please enter a password", true);
+                return;
+            }
+            
+            adminToken = password;
             showMessage("loginMsg", "Logging in...", false);
             
             try {
@@ -138,30 +143,43 @@
                     document.getElementById("loginSection").style.display = "none";
                     document.getElementById("adminSection").style.display = "block";
                     showMessage("loginMsg", "Login successful!", false);
-                    setCalendarMinDate(); // NEW: Sets calendar minimum date
+                    setCalendarMinDate();
                     loadSlots();
                 } else {
                     showMessage("loginMsg", "Invalid password", true);
+                    adminToken = null;
                 }
             } catch (err) {
                 showMessage("loginMsg", "Login failed", true);
+                adminToken = null;
             }
         }
 
         async function submitNewSlots() {
             const dateInput = document.getElementById("newDate").value;    
             const checkboxes = document.querySelectorAll(".slot-checkbox");
+            const submitBtn = document.getElementById("submitSlotsBtn");
             
             if (!dateInput) {
                 showMessage("addMsg", "Please select a date.", true);
                 return;
             }
             
-            // Converts YYYY-MM-DD to MM/DD/YYYY for the backend/comparison
+            // Validate date is not in the past
+            const selectedDate = new Date(dateInput);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+            
+            if (selectedDate < today) {
+                showMessage("addMsg", "Cannot add slots for past dates.", true);
+                return;
+            }
+            
+            // Convert YYYY-MM-DD to MM/DD/YYYY
             const [year, month, day] = dateInput.split('-');
             const dateMMDDYYYY = `${month.padStart(2, '0')}/${day.padStart(2, '0')}/${year}`; 
 
-            // --- Q2: Validation Check against existing dates ---
+            // Check against existing dates
             if (existingDateSet.has(dateMMDDYYYY)) {
                 showMessage("addMsg", `Slots for ${dateMMDDYYYY} already exist. Please choose a different date or delete the existing slots.`, true);
                 return;
@@ -176,9 +194,10 @@
                 
                 if (cb.checked) {
                     slotsSelected = true;
+                    const capacity = Math.max(1, parseInt(capacityInput.value) || 6);
                     slots.push({
                         label: DEFAULT_SLOT_LABELS[index],
-                        capacity: Math.max(1, parseInt(capacityInput.value) || 6) 
+                        capacity: capacity
                     });
                 }
             });
@@ -188,6 +207,9 @@
                 return;
             }
 
+            // Disable button during submission
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Adding...";
             showMessage("addMsg", "Adding slots...", false);
 
             try {
@@ -205,21 +227,25 @@
                 if (data.ok) {
                     showMessage("addMsg", data.message, false);
                     document.getElementById("newDate").value = "";
-                    renderCheckboxes(); // Reset the capacity inputs and checks
+                    renderCheckboxes(); // Reset
                     loadSlots();
                 } else {
                     showMessage("addMsg", data.error, true);
                 }
             } catch (err) {
                 showMessage("addMsg", "Failed to add slots", true);
+                console.error("Submit error:", err);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Save Date & Slots";
             }
         }
 
         async function loadSlots() {
             document.getElementById("slotsDisplay").innerHTML = "<p>Loading slots...</p>";
             slotsToDelete = []; // Reset selection on load
-            updateDeleteButton(); // Hide button
-            existingDateSet = new Set(); // Clear existing dates set
+            updateDeleteButton();
+            existingDateSet = new Set();
             
             try {
                 const res = await fetch(API_URL, {
@@ -237,7 +263,7 @@
                 data.slots.forEach(slot => {
                     if (!grouped[slot.date]) grouped[slot.date] = [];
                     grouped[slot.date].push(slot);
-                    existingDateSet.add(slot.date); // Populate set for Q2 validation
+                    existingDateSet.add(slot.date);
                 });
 
                 let html = "";
@@ -245,12 +271,16 @@
                 if (Object.keys(grouped).length === 0) {
                     html = "<p>No slots added yet.</p>";
                 } else {
-                    // --- Q1: Master Delete Button ---
+                    // Master Delete Button
                     html += '<div style="text-align: right; margin-bottom: 10px;">';
                     html += '<button id="deleteSelectedBtn" onclick="deleteSelectedSlots()" class="btn-delete" style="display: none;">Delete Selected Slots</button></div>';
 
-                    // Sort and render dates
-                    Object.keys(grouped).sort().forEach(date => {
+                    // Sort dates chronologically (FIXED)
+                    const sortedDates = Object.keys(grouped).sort((a, b) => {
+                        return new Date(a) - new Date(b);
+                    });
+                    
+                    sortedDates.forEach(date => {
                         html += `
                             <div class="date-group">
                                 <h3>${date}</h3>
@@ -258,7 +288,8 @@
                                     <table class="slots-table">
                                         <thead>
                                             <tr>
-                                                <th><input type="checkbox" onchange="toggleSelectAll(this.checked, '${date}')"></th> <th>Time Slot</th>
+                                                <th><input type="checkbox" onchange="toggleSelectAll(this.checked, '${date}')"></th>
+                                                <th>Time Slot</th>
                                                 <th>Capacity</th>
                                                 <th>Taken</th>
                                                 <th>Available</th>
@@ -294,10 +325,11 @@
                 updateDeleteButton(); 
             } catch (err) {
                 document.getElementById("slotsDisplay").innerHTML = "<p class='msg-box error'>Error loading slots</p>";
+                console.error("Load slots error:", err);
             }
         }
         
-        // --- NEW: Helper for Toggle All for a specific date (optional but useful) ---
+        // Helper for Toggle All for a specific date
         function toggleSelectAll(isChecked, date) {
             const checkboxes = document.querySelectorAll(`tbody[data-date="${date}"] input[type="checkbox"]`);
             checkboxes.forEach(cb => {
@@ -306,17 +338,21 @@
             });
         }
 
-
-        // --- Q1: Multi-Delete Execution ---
+        // Multi-Delete Execution
         async function deleteSelectedSlots() {
             if (slotsToDelete.length === 0) {
                 alert("Please select at least one slot to delete.");
                 return;
             }
 
-            if (!confirm(`Are you sure you want to delete ${slotsToDelete.length} slot(s)? This will also delete any associated signups.`)) return;
+            if (!confirm(`Are you sure you want to delete ${slotsToDelete.length} slot(s)? This will also delete any associated signups.`)) {
+                return;
+            }
             
-            document.getElementById("slotsDisplay").innerHTML = "<p>Deleting selected slots...</p>";
+            const deleteBtn = document.getElementById('deleteSelectedBtn');
+            const originalText = deleteBtn.textContent;
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = "Deleting...";
 
             try {
                 const res = await fetch(API_URL, {
@@ -325,21 +361,23 @@
                         "Content-Type": "application/json",
                         "Authorization": `Bearer ${adminToken}`
                     },
-                    // Send an array of row IDs
                     body: JSON.stringify({ rowIds: slotsToDelete }) 
                 });
                 
                 const data = await res.json();
                 if (data.ok) {
-                    document.getElementById("slotsDisplay").innerHTML = `<p class="msg-box success">${data.message}</p>`;
-                    setTimeout(loadSlots, 1000); 
+                    alert(data.message);
+                    loadSlots();
                 } else {
                     alert("Failed to delete: " + data.error);
-                    loadSlots();
+                    deleteBtn.disabled = false;
+                    deleteBtn.textContent = originalText;
                 }
             } catch (err) {
-                alert("Failed to delete slots");
-                loadSlots();
+                alert("Failed to delete slots: " + err.message);
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = originalText;
+                console.error("Delete error:", err);
             }
         }
 
