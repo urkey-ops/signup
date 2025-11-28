@@ -114,8 +114,13 @@ async function loadSlots() {
             sortedDates.forEach(date => {
                 const dateSlots = groupedSlotsByDate[date];
                 
-                // Filter slots that are actually available (> 0) for this date
-                const availableSlotsForDate = dateSlots.filter(slot => slot.available > 0);
+                // Filter and sort slots by time
+                const availableSlotsForDate = dateSlots
+                    .filter(slot => slot.available > 0)
+                    .sort((a, b) => {
+                        // Sort by slot label (time) to ensure chronological order
+                        return a.slotLabel.localeCompare(b.slotLabel);
+                    });
                 
                 if (availableSlotsForDate.length > 0) {
                     html += `
