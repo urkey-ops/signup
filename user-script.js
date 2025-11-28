@@ -1,9 +1,7 @@
 const API_URL = "/api/signup";
 
-// Global variables to hold the selected slot data
-let selectedDate = null;
-let selectedSlotLabel = null;
-let selectedRowId = null;
+// Array to hold multiple selected slots
+let selectedSlots = [];
 
 // --- Helper for message display ---
 function showMessage(elementId, message, isError) {
@@ -13,16 +11,53 @@ function showMessage(elementId, message, isError) {
     el.style.display = message ? "block" : "none";
 }
 
+// --- Update floating button ---
+function updateFloatingButton() {
+    const btnContainer = document.getElementById("floatingSignupBtnContainer");
+    const btn = document.getElementById("floatingSignupBtn");
+    const count = selectedSlots.length;
+    
+    if (count > 0) {
+        btnContainer.style.display = "block";
+        btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
+    } else {
+        btnContainer.style.display = "none";
+    }
+}
+
+// --- Toggle slot selection ---
+function toggleSlot(date, slotLabel, rowId, buttonElement) {
+    const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
+    
+    if (existingIndex > -1) {
+        // Remove slot
+        selectedSlots.splice(existingIndex, 1);
+        buttonElement.classList.remove("slot-btn-selected");
+    } else {
+        // Add slot
+        selectedSlots.push({
+            id: rowId,
+            date: date,
+            label: slotLabel
+        });
+        buttonElement.classList.add("slot-btn-selected");
+    }
+    
+    updateFloatingButton();
+}
+
 // --- Navigation Functions ---
-function resetSelection() {
+function backToSlotSelection() {
     document.getElementById("signupSection").style.display = "none";
     document.getElementById("slotsDisplay").style.display = "block";
-    document.getElementById("selectedSlotSummary").style.display = 'none'; 
+    document.getElementById("floatingSignupBtnContainer").style.display = "block";
 }
 
 function resetPage() {
+    selectedSlots = [];
     document.getElementById("successMessage").style.display = "none";
     document.getElementById("loadingMsg").style.display = "block";
+    document.getElementById("floatingSignupBtnContainer").style.display = "none";
     loadSlots();
 }
 
@@ -75,9 +110,13 @@ async function loadSlots() {
                     `;
                     
                     availableSlotsForDate.forEach(slot => {
+                        const isSelected = selectedSlots.some(s => s.id === slot.id);
+                        const selectedClass = isSelected ? 'slot-btn-selected' : '';
+                        
                         html += `
-                            <button class="btn secondary-btn" 
-                                    onclick="showSignupForm('${slot.date}', '${slot.slotLabel}', ${slot.id})">
+                            <button class="btn secondary-btn ${selectedClass}" 
+                                    id="slot-btn-${slot.id}"
+                                    onclick="toggleSlot('${slot.date}', '${slot.slotLabel}', ${slot.id}, this)">
                                 ${slot.slotLabel} (${slot.available} available)
                             </button>
                         `;
@@ -98,6 +137,7 @@ async function loadSlots() {
 
         document.getElementById("loadingMsg").style.display = "none";
         document.getElementById("slotsDisplay").style.display = "block";
+        updateFloatingButton();
 
     } catch (err) {
         document.getElementById("loadingMsg").textContent = "An error occurred while connecting to the server. Check console for details.";
@@ -105,25 +145,39 @@ async function loadSlots() {
     }
 }
 
-// Function to handle the selection and open the signup form
-function showSignupForm(date, slotLabel, rowId) {
-    selectedDate = date;
-    selectedSlotLabel = slotLabel;
-    selectedRowId = rowId;
+// Function to show signup form with selected slots summary
+function showSignupForm() {
+    if (selectedSlots.length === 0) {
+        alert("Please select at least one time slot.");
+        return;
+    }
 
-    // Display Slot Summary above the form inputs
+    // Display selected slots summary
     const summaryEl = document.getElementById('selectedSlotSummary');
-    summaryEl.innerHTML = `
-        <strong>📋 You Are Booking:</strong><br>
-        📅 Date: <strong>${date}</strong><br>
-        🕰️ Time: <strong>${slotLabel}</strong>
-    `;
-    summaryEl.style.display = 'block';
+    let summaryHTML = `<strong>📋 You Are Booking ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:</strong><br><br>`;
+    
+    // Group by date for better display
+    const slotsByDate = {};
+    selectedSlots.forEach(slot => {
+        if (!slotsByDate[slot.date]) {
+            slotsByDate[slot.date] = [];
+        }
+        slotsByDate[slot.date].push(slot.label);
+    });
+    
+    Object.keys(slotsByDate).sort().forEach(date => {
+        summaryHTML += `<div class="selected-slot-item">`;
+        summaryHTML += `📅 <strong>${date}</strong><br>`;
+        summaryHTML += `🕰️ ${slotsByDate[date].join(', ')}`;
+        summaryHTML += `</div>`;
+    });
+    
+    summaryEl.innerHTML = summaryHTML;
 
-    // Show the signup form and hide the slots display
+    // Show signup form and hide slots display
     document.getElementById("slotsDisplay").style.display = "none";
+    document.getElementById("floatingSignupBtnContainer").style.display = "none";
     document.getElementById("signupSection").style.display = "block";
-    document.getElementById("submitSignupBtn").disabled = false;
     showMessage("signupMsg", "", false);
 }
 
@@ -138,21 +192,23 @@ async function submitSignup() {
         return;
     }
 
-    if (!selectedRowId) {
-        showMessage("signupMsg", "Error: No slot selected.", true);
+    if (selectedSlots.length === 0) {
+        showMessage("signupMsg", "Error: No slots selected.", true);
         return;
     }
 
     showMessage("signupMsg", "Submitting your booking...", false);
     document.getElementById("submitSignupBtn").disabled = true;
 
-    // Send slotIds as an array, as the back-end POST handler expects it.
+    // Extract slot IDs for backend
+    const slotIds = selectedSlots.map(slot => slot.id);
+
     const signupData = {
         name,
         email,
         phone,
         notes,
-        slotIds: [selectedRowId] 
+        slotIds: slotIds
     };
 
     try {
@@ -165,18 +221,33 @@ async function submitSignup() {
         const data = await res.json();
         
         if (data.ok) {
+            // Build confirmation message
+            let confirmationHTML = `Thank you, <strong>${name}</strong>! Your spot${selectedSlots.length > 1 ? 's have' : ' has'} been reserved for:<br><br>`;
+            
+            const slotsByDate = {};
+            selectedSlots.forEach(slot => {
+                if (!slotsByDate[slot.date]) {
+                    slotsByDate[slot.date] = [];
+                }
+                slotsByDate[slot.date].push(slot.label);
+            });
+            
+            Object.keys(slotsByDate).sort().forEach(date => {
+                confirmationHTML += `📅 <strong>${date}</strong><br>`;
+                confirmationHTML += `🕰️ ${slotsByDate[date].join(', ')}<br><br>`;
+            });
+            
             document.getElementById("signupSection").style.display = "none";
-            document.getElementById("confirmationDetails").innerHTML = `
-                Thank you, <strong>${name}</strong>! Your spot has been reserved for:
-                <br><br>
-                📅 <strong>${selectedDate}</strong> at 🕰️ <strong>${selectedSlotLabel}</strong>.
-            `;
+            document.getElementById("confirmationDetails").innerHTML = confirmationHTML;
             document.getElementById("successMessage").style.display = "block";
-            // Clear input fields
+            
+            // Clear form and selections
             document.getElementById("nameInput").value = "";
             document.getElementById("emailInput").value = "";
             document.getElementById("phoneInput").value = "";
             document.getElementById("notesInput").value = "";
+            selectedSlots = [];
+            document.getElementById("submitSignupBtn").disabled = false;
         } else {
             showMessage("signupMsg", data.error || "Booking failed. Please try again.", true);
             document.getElementById("submitSignupBtn").disabled = false;
@@ -220,13 +291,13 @@ async function lookupBookings() {
         let html = '<div class="bookings-list">';
         bookings.forEach(booking => {
             html += `
-                <div class="booking-item">
+                <div class="booking-item" style="margin: 10px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
                     <strong>📅 ${booking.date}</strong> at <strong>🕰️ ${booking.slotLabel}</strong><br>
                     <small>Name: ${booking.name}</small><br>
                     ${booking.phone ? `<small>Phone: ${booking.phone}</small><br>` : ''}
                     ${booking.notes ? `<small>Notes: ${booking.notes}</small><br>` : ''}
                     <button onclick="cancelBooking(${booking.signupRowId}, ${booking.slotRowId}, '${booking.date}', '${booking.slotLabel}')" 
-                            class="btn cancel-btn" style="margin-top: 8px;">
+                            class="btn secondary-btn" style="margin-top: 8px; background: #f44336; color: white;">
                         Cancel This Booking
                     </button>
                 </div>
