@@ -3,41 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Group Sign-Up</title>
-    <link rel="stylesheet" href="style.css" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <title>Booking Sign Up</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>Group Sign-Up</h1>
-            <p class="description">Select a date and time slot below:</p>
-        </header>
+        <h1>Book Your Appointment</h1>
+        <p class="description">Select the date(s) and time slot(s) that work best for you. You can select multiple slots across different dates.</p>
 
-        <div id="datesContainer" class="dates-container">
-            </div>
+        <div id="datesContainer">
+            <p>Loading available slots...</p>
+        </div>
 
-        <form id="signupForm" class="card signup-form" style="display:none;">
-            <h2>Your Info</h2>
-            <input type="text" placeholder="Name *" id="name" required class="form-input">
-            <input type="email" placeholder="Email *" id="email" required class="form-input">
-            <input type="tel" placeholder="Phone" id="phone" class="form-input">
-            <textarea placeholder="Notes (Optional)" id="notes" rows="3" class="form-input"></textarea>
-            <button type="submit" class="btn primary-btn">Submit Signup</button>
-        </form>
+        <div id="floatingSignupBtnContainer" style="display:none;">
+            <button id="floatingSignupBtn" class="btn primary-btn">
+                Continue to Sign Up (0 Slots Selected)
+            </button>
+        </div>
 
-        <p id="msg" class="message"></p>
+        <div class="card" id="signupForm" style="display:none;">
+            <h2>📝 Your Details</h2>
+            <form>
+                <input type="text" id="name" class="form-input" placeholder="Your Full Name" required>
+                <input type="email" id="email" class="form-input" placeholder="Your Email Address" required>
+                <input type="tel" id="phone" class="form-input" placeholder="Phone Number (Optional)">
+                <textarea id="notes" class="form-input" placeholder="Any special notes or comments (Optional)"></textarea>
+                
+                <p id="msg" class="msg-box" style="display: none;"></p>
+                
+                <button type="submit" class="btn secondary-btn">Submit Signup</button>
+            </form>
+        </div>
 
-        <div id="lookupSection" class="card lookup-section">
-            <h2>View / Manage My Signups 🔍</h2>
+        <hr>
+
+        <div class="card lookup-section">
+            <h2>🔍 Look Up / Cancel Booking</h2>
             <div class="lookup-controls">
-                <input type="email" placeholder="Enter your email to view bookings" id="lookupEmail" required class="form-input lookup-input">
-                <button onclick="lookupBookings()" class="btn secondary-btn">View</button>
+                <input type="email" id="lookupEmail" class="form-input lookup-input" placeholder="Enter your email to look up bookings">
+                <button onclick="lookupBookings()" class="btn secondary-btn">Search</button>
             </div>
-            <div id="userBookingsDisplay" class="bookings-display"></div>
+            <div id="userBookingsDisplay" style="margin-top: 15px;"></div>
         </div>
     </div>
-    
+
     <script src="user-script.js"></script>
 </body>
 </html>
