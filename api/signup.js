@@ -27,7 +27,7 @@ module.exports = async function handler(req, res) {
 
             // --- Handle User Booking Lookup (if email is provided) ---
             if (req.query.email) {
-                const lookupEmail = req.query.email.toLowerCase();
+                const lookupEmail = req.query.email.trim().toLowerCase();
 
                 try {
                     // Read Signups sheet (A2:H assumes the 8th column, H, is the Slot Row ID)
@@ -43,13 +43,15 @@ module.exports = async function handler(req, res) {
                         date: row[1],
                         slotLabel: row[2],
                         name: row[3],
-                        email: row[4],
+                        email: row[4], // Keep original case for display
                         phone: row[5],
                         notes: row[6],
-                        // NEW/IMPROVED: Get Slot Row ID directly from the sheet (index 7 = column H)
                         slotRowId: parseInt(row[7]) || null 
                     }))
-                    .filter(booking => booking.email.toLowerCase() === lookupEmail && booking.slotRowId !== null);
+                    .filter(booking => 
+                        booking.email.trim().toLowerCase() === lookupEmail && 
+                        booking.slotRowId !== null
+                    );
 
                     return res.status(200).json({ ok: true, bookings: userBookings });
 
@@ -93,21 +95,32 @@ module.exports = async function handler(req, res) {
         }
 
         // ------------------------------------------------------------------------------------------------
-        // --- POST: save signup to Google Sheet (Multi-Slot Logic) ---
+        // --- POST: save signup to Google Sheet (Multi-Slot Logic with Duplicate Prevention) ---
         // ------------------------------------------------------------------------------------------------
         if (req.method === "POST") {
             const { name, email, phone, notes, slotIds } = req.body;
 
-            if (!name || !email || !slotIds || !Array.isArray(slotIds) || slotIds.length === 0) {
+            // Trim and validate inputs
+            const trimmedName = name?.trim();
+            const trimmedEmail = email?.trim().toLowerCase();
+
+            if (!trimmedName || !trimmedEmail || !slotIds || !Array.isArray(slotIds) || slotIds.length === 0) {
                 return res.status(400).json({ ok: false, error: "Missing required fields or selected slots" });
             }
 
             // --- 1. Fetch All Slots for Validation and Data Collection ---
-            const response = await sheets.spreadsheets.values.get({
+            const slotsResponse = await sheets.spreadsheets.values.get({
                 spreadsheetId: process.env.SHEET_ID,
                 range: "Slots!A2:E",
             });
-            const allRows = response.data.values || [];
+            const allRows = slotsResponse.data.values || [];
+
+            // --- 2. Fetch Existing Signups for Duplicate Check ---
+            const signupsResponse = await sheets.spreadsheets.values.get({
+                spreadsheetId: process.env.SHEET_ID,
+                range: "Signups!A2:H",
+            });
+            const existingSignups = signupsResponse.data.values || [];
 
             // Map slotId (row number) to slot data for easy lookup
             const slotDataMap = new Map();
@@ -125,12 +138,25 @@ module.exports = async function handler(req, res) {
             const signupRows = [];
             const now = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
 
-            // --- 2. Validation and Prepare Updates/Signups ---
+            // --- 3. Validation, Duplicate Check, and Prepare Updates/Signups ---
             for (const slotId of slotIds) {
                 const slot = slotDataMap.get(slotId.toString());
 
                 if (!slot) {
                     return res.status(400).json({ ok: false, error: `Slot ID ${slotId} not found.` });
+                }
+
+                // Check for duplicate booking
+                const duplicateBooking = existingSignups.find(row => 
+                    row[4]?.trim().toLowerCase() === trimmedEmail && 
+                    parseInt(row[7]) === slotId
+                );
+
+                if (duplicateBooking) {
+                    return res.status(400).json({ 
+                        ok: false, 
+                        error: `You already have a booking for ${slot.label} on ${slot.date}. Please check your existing bookings.` 
+                    });
                 }
 
                 if (slot.taken >= slot.capacity) {
@@ -145,20 +171,20 @@ module.exports = async function handler(req, res) {
                     values: [[newTaken]]
                 });
 
-                // Prepare row for the Signups sheet
+                // Prepare row for the Signups sheet (store original email case for display)
                 signupRows.push([
                     now,
                     slot.date,
                     slot.label,
-                    name,
-                    email,
-                    phone || "",
-                    notes || "",
+                    trimmedName,
+                    email.trim(), // Keep original case
+                    phone?.trim() || "",
+                    notes?.trim() || "",
                     slotId, // <--- IMPORTANT: Persist the Slot Row ID for easy cancellation lookup
                 ]);
             }
 
-            // --- 3. Execute Batch Updates (Atomicity) ---
+            // --- 4. Execute Batch Updates (Atomicity) ---
             try {
                 // A. Update ALL 'Taken' counts in a single batch request
                 await sheets.spreadsheets.values.batchUpdate({
@@ -178,7 +204,7 @@ module.exports = async function handler(req, res) {
                     requestBody: { values: signupRows },
                 });
 
-                const message = `Signed up for ${slotIds.length} slot${slotIds.length === 1 ? '' : 's'}!`;
+                const message = `Successfully booked ${slotIds.length} slot${slotIds.length === 1 ? '' : 's'}!`;
                 return res.status(200).json({ ok: true, message: message });
             } catch (err) {
                 console.error("Error writing batch updates/signups:", err);
@@ -241,10 +267,10 @@ module.exports = async function handler(req, res) {
                 // Run both updates concurrently to act as a single unit
                 await Promise.all([updateTaken, deleteSignupRow]);
 
-                return res.status(200).json({ ok: true, message: "Slot successfully cancelled! Your slots list will now refresh." });
+                return res.status(200).json({ ok: true, message: "Booking cancelled successfully!" });
             } catch (err) {
                 console.error("Error cancelling slot:", err);
-                return res.status(500).json({ ok: false, error: "Failed to cancel slot", details: err.message });
+                return res.status(500).json({ ok: false, error: "Failed to cancel booking", details: err.message });
             }
         }
 
