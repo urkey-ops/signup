@@ -1,137 +1,174 @@
-const { google } = require("googleapis");
+const API_URL = "/api/user";
 
-// Simple authentication - replace with your secret
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your-secret-password";
-// IMPORTANT: Confirm the GID of your Slots sheet. 0 is the default first sheet.
-const SLOTS_GID = 0; 
+// Global variables to hold the selected slot data
+let selectedDate = null;
+let selectedSlotLabel = null;
+let selectedRowId = null;
 
-module.exports = async function handler(req, res) {
+// --- Helper for message display ---
+function showMessage(elementId, message, isError) {
+    const el = document.getElementById(elementId);
+    el.textContent = message;
+    el.className = isError ? "msg-box error" : "msg-box success";
+}
+
+// --- Navigation Functions ---
+function resetSelection() {
+    document.getElementById("signupSection").style.display = "none";
+    document.getElementById("slotsDisplay").style.display = "block";
+    document.getElementById("selectedSlotSummary").style.display = 'none'; 
+}
+
+function resetPage() {
+    document.getElementById("successMessage").style.display = "none";
+    document.getElementById("loadingMsg").style.display = "block";
+    loadSlots();
+}
+
+// --- Core Logic ---
+
+async function loadSlots() {
+    document.getElementById("loadingMsg").textContent = "Loading available slots...";
+    document.getElementById("slotsDisplay").style.display = "none";
+    document.getElementById("signupSection").style.display = "none";
+
     try {
-        // Check admin password
-        const authHeader = req.headers.authorization;
-        if (!authHeader || authHeader !== `Bearer ${ADMIN_PASSWORD}`) {
-            return res.status(401).json({ ok: false, error: "Unauthorized" });
+        const res = await fetch(API_URL);
+        const data = await res.json();
+        
+        if (!data.ok) {
+            document.getElementById("loadingMsg").textContent = "Error: Failed to fetch available slots.";
+            return;
         }
 
-        // Parse Google Service Account
-        let credentials;
-        try {
-            credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
-        } catch (err) {
-            console.error("Invalid GOOGLE_SERVICE_ACCOUNT JSON:", err);
-            return res.status(500).json({ ok: false, error: "Invalid Google service account" });
-        }
+        // --- FIX 1: Access data.dates instead of data.slots ---
+        const groupedSlotsByDate = data.dates || {};
+        
+        let html = "";
+        const sortedDates = Object.keys(groupedSlotsByDate).sort();
 
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-        });
-        const sheets = google.sheets({ version: "v4", auth });
+        if (sortedDates.length === 0) {
+            html = "<p>No available slots at this time. Please check back later!</p>";
+            document.getElementById("datesContainer").innerHTML = html;
+        } else {
+            sortedDates.forEach(date => {
+                html += `
+                    <div class="date-section">
+                        <h4>📅 ${date}</h4>
+                        <div class="slot-buttons">
+                `;
+                
+                // Get the slots array for this specific date
+                const dateSlots = groupedSlotsByDate[date];
 
-        // --- GET: Fetch all dates and slots ---
-        if (req.method === "GET") {
-            try {
-                const response = await sheets.spreadsheets.values.get({
-                    spreadsheetId: process.env.SHEET_ID,
-                    range: "Slots!A2:E",
-                });
-
-                const rows = response.data.values || [];
-                const slots = rows.map((row, idx) => ({
-                    id: idx + 2, // Row number in sheet
-                    date: row[0] || "",
-                    slotLabel: row[1] || "",
-                    capacity: parseInt(row[2]) || 0,
-                    taken: parseInt(row[3]) || 0,
-                    available: parseInt(row[2] || 0) - parseInt(row[3] || 0),
-                }));
-
-                return res.status(200).json({ ok: true, slots });
-            } catch (err) {
-                console.error("Error reading slots:", err);
-                return res.status(500).json({ ok: false, error: "Failed to fetch slots" });
-            }
-        }
-
-        // --- POST: Add new date with time slots ---
-        if (req.method === "POST") {
-            const { date, slots } = req.body;
-
-            if (!date || !slots || !Array.isArray(slots) || slots.length === 0) {
-                return res.status(400).json({ ok: false, error: "Missing date or slots" });
-            }
-
-            // Validate date format (MM/DD/YYYY)
-            if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(date)) {
-                return res.status(400).json({ ok: false, error: "Invalid date format. Use MM/DD/YYYY" });
-            }
-
-            const rows = slots.map(slot => [
-                date,
-                slot.label || "",
-                slot.capacity || 6, // Default to 6 if somehow missing
-                0, // taken starts at 0
-                "" // notes column
-            ]);
-
-            try {
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: process.env.SHEET_ID,
-                    range: "Slots!A2",
-                    valueInputOption: "RAW",
-                    requestBody: { values: rows },
-                });
-
-                return res.status(200).json({ ok: true, message: `Added ${slots.length} slots for ${date}` });
-            } catch (err) {
-                console.error("Error adding slots:", err);
-                return res.status(500).json({ ok: false, error: "Failed to add slots" });
-            }
-        }
-
-        // --- DELETE: Remove multiple slots ---
-        if (req.method === "DELETE") {
-            const { rowIds } = req.body;
-
-            if (!rowIds || !Array.isArray(rowIds) || rowIds.length === 0) {
-                return res.status(400).json({ ok: false, error: "Missing or invalid rowIds array" });
-            }
-
-            try {
-                // CRITICAL: Sort row IDs in descending order to avoid re-indexing errors 
-                // when deleting rows from top to bottom.
-                const sortedRowIds = rowIds.sort((a, b) => b - a);
-
-                const requests = sortedRowIds.map(rowId => ({
-                    deleteDimension: {
-                        range: {
-                            sheetId: SLOTS_GID, 
-                            dimension: "ROWS",
-                            // API is zero-indexed, so row 2 is startIndex 1 to endIndex 2
-                            startIndex: rowId - 1,
-                            endIndex: rowId,
-                        }
+                dateSlots.forEach(slot => {
+                    // Only display slots that have availability
+                    if (slot.available > 0) {
+                        html += `
+                            <button class="btn secondary-btn" 
+                                    onclick="showSignupForm('${slot.date}', '${slot.slotLabel}', ${slot.id})">
+                                ${slot.slotLabel} (${slot.available} available)
+                            </button>
+                        `;
                     }
-                }));
-
-                await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: process.env.SHEET_ID,
-                    requestBody: { requests: requests },
                 });
-
-                return res.status(200).json({ ok: true, message: `Successfully deleted ${rowIds.length} slot(s).` });
-            } catch (err) {
-                console.error("Error deleting slot batch:", err);
-                return res.status(500).json({ ok: false, error: "Failed to delete slots" });
-            }
+                html += `
+                        </div>
+                    </div>
+                `;
+            });
+            document.getElementById("datesContainer").innerHTML = html;
         }
 
-        // Method not allowed
-        res.setHeader("Allow", ["GET", "POST", "DELETE"]);
-        return res.status(405).json({ ok: false, error: `Method ${req.method} Not Allowed` });
+        document.getElementById("loadingMsg").style.display = "none";
+        document.getElementById("slotsDisplay").style.display = "block";
 
     } catch (err) {
-        console.error("Admin API Error:", err);
-        return res.status(500).json({ ok: false, error: "Server error", details: err.message });
+        document.getElementById("loadingMsg").textContent = "An error occurred while connecting to the server.";
+        console.error("Load Slots Error:", err);
     }
-};
+}
+
+// Function to handle the selection and open the signup form
+function showSignupForm(date, slotLabel, rowId) {
+    selectedDate = date;
+    selectedSlotLabel = slotLabel;
+    selectedRowId = rowId;
+
+    // Display Slot Summary (as requested earlier)
+    const summaryEl = document.getElementById('selectedSlotSummary');
+    summaryEl.innerHTML = `
+        ✅ **You Are Booking:**
+        <br>
+        📅 Date: **${date}**
+        <br>
+        🕰️ Time: **${slotLabel}**
+    `;
+    summaryEl.style.display = 'block';
+
+    // Show the signup form and hide the slots display
+    document.getElementById("slotsDisplay").style.display = "none";
+    document.getElementById("signupSection").style.display = "block";
+    document.getElementById("submitSignupBtn").disabled = false;
+    showMessage("signupMsg", "", false);
+}
+
+async function submitSignup() {
+    const name = document.getElementById("nameInput").value;
+    const email = document.getElementById("emailInput").value;
+    const phone = document.getElementById("phoneInput").value;
+
+    if (!name || !email) { // Phone is optional in the back-end check
+        showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
+        return;
+    }
+
+    if (!selectedRowId) {
+        showMessage("signupMsg", "Error: No slot selected.", true);
+        return;
+    }
+
+    showMessage("signupMsg", "Submitting your booking...", false);
+    document.getElementById("submitSignupBtn").disabled = true;
+
+    // --- FIX 2: Send slotIds as an array ---
+    const signupData = {
+        name,
+        email,
+        phone,
+        slotIds: [selectedRowId] // The back-end expects an array for slotIds
+    };
+
+    try {
+        const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(signupData)
+        });
+        
+        const data = await res.json();
+        
+        if (data.ok) {
+            document.getElementById("signupSection").style.display = "none";
+            document.getElementById("confirmationDetails").innerHTML = `
+                Thank you, **${name}**! Your spot has been reserved for:
+                <br><br>
+                📅 **${selectedDate}** at 🕰️ **${selectedSlotLabel}**.
+            `;
+            document.getElementById("successMessage").style.display = "block";
+            // Clear input fields
+            document.getElementById("nameInput").value = "";
+            document.getElementById("emailInput").value = "";
+            document.getElementById("phoneInput").value = "";
+        } else {
+            showMessage("signupMsg", data.error || "Booking failed. Please try again.", true);
+            document.getElementById("submitSignupBtn").disabled = false;
+        }
+    } catch (err) {
+        showMessage("signupMsg", "Failed to connect to the server for booking.", true);
+        document.getElementById("submitSignupBtn").disabled = false;
+    }
+}
+
+// Start loading slots when the page loads
+document.addEventListener('DOMContentLoaded', loadSlots);
