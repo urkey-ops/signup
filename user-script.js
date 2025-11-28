@@ -19,10 +19,8 @@ function updateSelectedSlots(slotId, date, label, isChecked) {
     // Show/hide the form based on how many slots are selected
     document.getElementById("signupForm").style.display = selectedSlots.length > 0 ? "block" : "none";
 
-    // Scroll to the form if the first slot is selected
-    if (selectedSlots.length === 1 && isChecked) {
-        document.getElementById("signupForm").scrollIntoView({ behavior: "smooth" });
-    }
+    // REMOVED SCROLL LOGIC HERE:
+    // The line that caused the jump: document.getElementById("signupForm").scrollIntoView({ behavior: "smooth" });
 }
 
 
@@ -81,6 +79,9 @@ async function loadSlots() {
                 // --- NEW: Handle click on the entire div for better UX ---
                 if (!disabled) {
                     slotDiv.onclick = (e) => {
+                        // Prevent the default browser action that causes scrolling
+                        e.preventDefault(); 
+                        
                         // Toggle checkbox state unless the input itself was clicked
                         if (e.target.tagName !== 'INPUT') {
                             input.checked = !input.checked;
