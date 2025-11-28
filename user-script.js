@@ -2,10 +2,11 @@ const API_URL = "/api/signup";
 // Use an Array to track multiple selected slots
 let selectedSlots = [];
 
-// --- Helper Function: Manages the selection state ---
+// --- Helper Function: Manages the selection state and floating button visibility ---
 function updateSelectedSlots(slotId, date, label, isChecked) {
     const slotData = { id: slotId, date: date, label: label };
-
+    
+    // 1. Update selectedSlots array
     if (isChecked) {
         // Add the slot if it's checked and not already in the array
         if (!selectedSlots.some(s => s.id === slotId)) {
@@ -15,12 +16,23 @@ function updateSelectedSlots(slotId, date, label, isChecked) {
         // Remove the slot if it's unchecked
         selectedSlots = selectedSlots.filter(s => s.id !== slotId);
     }
+    
+    // 2. Manage Floating Button and Form visibility
+    const floatBtnContainer = document.getElementById("floatingSignupBtnContainer");
+    const floatBtn = document.getElementById("floatingSignupBtn");
+    const signupForm = document.getElementById("signupForm");
 
-    // Show/hide the form based on how many slots are selected
-    document.getElementById("signupForm").style.display = selectedSlots.length > 0 ? "block" : "none";
+    const count = selectedSlots.length;
 
-    // REMOVED SCROLL LOGIC HERE:
-    // The line that caused the jump: document.getElementById("signupForm").scrollIntoView({ behavior: "smooth" });
+    if (count > 0) {
+        floatBtn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
+        floatBtnContainer.style.display = "block";
+        // Ensure the inline form remains hidden until the user clicks the floating button
+        signupForm.style.display = "none";
+    } else {
+        floatBtnContainer.style.display = "none";
+        signupForm.style.display = "none";
+    }
 }
 
 
@@ -37,7 +49,8 @@ async function loadSlots() {
 
         // Reset the selected slots array on refresh
         selectedSlots = [];
-        document.getElementById("signupForm").style.display = "none";
+        document.getElementById("signupForm").style.display = "none"; // Keep form hidden
+        document.getElementById("floatingSignupBtnContainer").style.display = "none"; // Keep button hidden
 
         const dates = data.dates;
         const container = document.getElementById("datesContainer");
@@ -76,18 +89,18 @@ async function loadSlots() {
                 input.value = slot.id;
                 input.disabled = disabled;
                 
-                // --- NEW: Handle click on the entire div for better UX ---
+                // --- Slot Click Handler ---
                 if (!disabled) {
                     slotDiv.onclick = (e) => {
-                        // Prevent the default browser action that causes scrolling
+                        // 1. Prevent the default browser action that causes scrolling (NEW FIX)
                         e.preventDefault(); 
                         
-                        // Toggle checkbox state unless the input itself was clicked
+                        // 2. Toggle checkbox state unless the input itself was clicked
                         if (e.target.tagName !== 'INPUT') {
                             input.checked = !input.checked;
                         }
 
-                        // Apply the 'selected' class and update the state
+                        // 3. Apply the 'selected' class and update the state
                         if (input.checked) {
                             slotDiv.classList.add("selected");
                         } else {
@@ -141,11 +154,37 @@ async function loadSlots() {
             container.appendChild(dateCard);
         });
 
+        // Setup the floating button click handler after the DOM is loaded
+        setupFloatingButtonHandler();
+
     } catch (err) {
         console.error("Failed to load slots:", err);
         document.getElementById("datesContainer").innerHTML = "<p>Failed to load slots. Please try again.</p>";
     }
 }
+
+// --- NEW: Floating Button Handler ---
+function setupFloatingButtonHandler() {
+    const floatBtn = document.getElementById("floatingSignupBtn");
+    const floatBtnContainer = document.getElementById("floatingSignupBtnContainer");
+    const signupForm = document.getElementById("signupForm");
+    
+    if (floatBtn) {
+        floatBtn.onclick = () => {
+            // Show the actual form
+            signupForm.style.display = "block";
+            // Scroll to the form
+            signupForm.scrollIntoView({ behavior: "smooth" });
+            // Hide the floating button once the user has initiated the sign-up
+            floatBtnContainer.style.display = "none";
+        };
+    }
+}
+
+// Initial DOM Content Load setup
+document.addEventListener('DOMContentLoaded', () => {
+    loadSlots();
+});
 
 
 // --- 2. Submit Form Function ---
@@ -178,16 +217,16 @@ document.getElementById("signupForm").onsubmit = async e => {
 
         const data = await res.json();
         const msgEl = document.getElementById("msg");
+        // Use common CSS classes for messages
         msgEl.textContent = data.ok ? data.message : data.error;
-        msgEl.style.color = data.ok ? "green" : "red";
-        msgEl.style.background = data.ok ? "#d4edda" : "#f8d7da";
-        msgEl.style.border = data.ok ? "1px solid #c3e6cb" : "1px solid #f5c6cb";
+        msgEl.className = data.ok ? "msg-box success" : "msg-box error";
         msgEl.style.display = "block";
 
         if (data.ok) {
             document.getElementById("signupForm").reset();
             selectedSlots = [];
             document.getElementById("signupForm").style.display = "none";
+            document.getElementById("floatingSignupBtnContainer").style.display = "none";
 
             // Remove selected class from all checkboxes
             document.querySelectorAll(".slot").forEach(s => s.classList.remove("selected"));
@@ -202,9 +241,7 @@ document.getElementById("signupForm").onsubmit = async e => {
         console.error("Submission error:", err);
         const msgEl = document.getElementById("msg");
         msgEl.textContent = "Failed to submit. Please try again.";
-        msgEl.style.color = "red";
-        msgEl.style.background = "#f8d7da";
-        msgEl.style.border = "1px solid #f5c6cb";
+        msgEl.className = "msg-box error";
         msgEl.style.display = "block";
     } finally {
         submitBtn.disabled = false;
@@ -317,19 +354,15 @@ async function cancelBooking(signupRowId, slotRowId) {
         const data = await res.json();
 
         if (data.ok) {
-            displayEl.innerHTML = `<p style="color: green; font-weight: bold;">${data.message}</p>`;
+            displayEl.innerHTML = `<p class="msg-box success">${data.message}</p>`;
             // Refresh the display after successful cancellation
             await lookupBookings();
             loadSlots(); // Refresh main slots view to reflect new availability
         } else {
-            displayEl.innerHTML = `<p style="color: red;">Cancellation failed: ${data.error}</p>`;
+            displayEl.innerHTML = `<p class="msg-box error">Cancellation failed: ${data.error}</p>`;
         }
     } catch (err) {
         console.error("Cancellation submission error:", err);
-        displayEl.innerHTML = '<p style="color: red;">Failed to process cancellation.</p>';
+        displayEl.innerHTML = '<p class="msg-box error">Failed to process cancellation.</p>';
     }
 }
-
-
-// Initial load
-loadSlots();
