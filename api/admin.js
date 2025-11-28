@@ -99,7 +99,7 @@ module.exports = async function handler(req, res) {
             const rows = slots.map(slot => [
                 date,
                 slot.label || "",
-                slot.capacity || 6,
+                Math.min(99, Math.max(1, slot.capacity || 6)), // Enforce 1-99 range
                 0, // taken starts at 0
                 "" // notes column
             ]);
