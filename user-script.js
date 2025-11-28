@@ -26,13 +26,13 @@ function updateFloatingButton() {
 }
 
 // --- Toggle slot selection ---
-function toggleSlot(date, slotLabel, rowId, buttonElement) {
+function toggleSlot(date, slotLabel, rowId, element) {
     const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
     
     if (existingIndex > -1) {
         // Remove slot
         selectedSlots.splice(existingIndex, 1);
-        buttonElement.classList.remove("slot-btn-selected");
+        element.classList.remove("selected");
     } else {
         // Add slot
         selectedSlots.push({
@@ -40,7 +40,7 @@ function toggleSlot(date, slotLabel, rowId, buttonElement) {
             date: date,
             label: slotLabel
         });
-        buttonElement.classList.add("slot-btn-selected");
+        element.classList.add("selected");
     }
     
     updateFloatingButton();
@@ -104,21 +104,22 @@ async function loadSlots() {
                 
                 if (availableSlotsForDate.length > 0) {
                     html += `
-                        <div class="date-section">
-                            <h4>📅 ${date}</h4>
-                            <div class="slot-buttons">
+                        <div class="date-card card">
+                            <h3>📅 ${date}</h3>
+                            <div class="slots-grid">
                     `;
                     
                     availableSlotsForDate.forEach(slot => {
                         const isSelected = selectedSlots.some(s => s.id === slot.id);
-                        const selectedClass = isSelected ? 'slot-btn-selected' : '';
+                        const selectedClass = isSelected ? 'selected' : '';
                         
                         html += `
-                            <button class="btn secondary-btn ${selectedClass}" 
-                                    id="slot-btn-${slot.id}"
-                                    onclick="toggleSlot('${slot.date}', '${slot.slotLabel}', ${slot.id}, this)">
-                                ${slot.slotLabel} (${slot.available} available)
-                            </button>
+                            <div class="slot ${selectedClass}" 
+                                 id="slot-btn-${slot.id}"
+                                 onclick="toggleSlot('${slot.date}', '${slot.slotLabel}', ${slot.id}, this)">
+                                ${slot.slotLabel}<br>
+                                <small>(${slot.available} left)</small>
+                            </div>
                         `;
                     });
                     html += `
