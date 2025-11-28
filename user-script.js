@@ -1,4 +1,4 @@
-const API_URL = "/api/user";
+const API_URL = "/api/signup";
 
 // Global variables to hold the selected slot data
 let selectedDate = null;
