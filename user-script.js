@@ -89,7 +89,12 @@ async function loadSlots() {
         const groupedSlotsByDate = data.dates || {};
         
         let html = "";
-        const sortedDates = Object.keys(groupedSlotsByDate).sort();
+        // Sort dates chronologically instead of alphabetically
+        const sortedDates = Object.keys(groupedSlotsByDate).sort((a, b) => {
+            const dateA = new Date(a);
+            const dateB = new Date(b);
+            return dateA - dateB;
+        });
         const datesContainer = document.getElementById("datesContainer");
 
         if (sortedDates.length === 0) {
@@ -166,7 +171,8 @@ function showSignupForm() {
         slotsByDate[slot.date].push(slot.label);
     });
     
-    Object.keys(slotsByDate).sort().forEach(date => {
+    // Sort dates chronologically
+    Object.keys(slotsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
         summaryHTML += `<div class="selected-slot-item">`;
         summaryHTML += `📅 <strong>${date}</strong><br>`;
         summaryHTML += `🕰️ ${slotsByDate[date].join(', ')}`;
@@ -233,7 +239,8 @@ async function submitSignup() {
                 slotsByDate[slot.date].push(slot.label);
             });
             
-            Object.keys(slotsByDate).sort().forEach(date => {
+            // Sort dates chronologically
+            Object.keys(slotsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
                 confirmationHTML += `📅 <strong>${date}</strong><br>`;
                 confirmationHTML += `🕰️ ${slotsByDate[date].join(', ')}<br><br>`;
             });
@@ -264,12 +271,16 @@ async function submitSignup() {
 async function lookupBookings() {
     const email = document.getElementById("lookupEmail").value.trim();
     const displayEl = document.getElementById("userBookingsDisplay");
+    const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
 
     if (!email) {
         displayEl.innerHTML = '<p class="msg-box error">Please enter an email address.</p>';
         return;
     }
 
+    // Disable button and show loading state
+    searchBtn.disabled = true;
+    searchBtn.textContent = 'Searching...';
     displayEl.innerHTML = '<p>Searching for your bookings...</p>';
 
     try {
@@ -310,6 +321,10 @@ async function lookupBookings() {
     } catch (err) {
         displayEl.innerHTML = '<p class="msg-box error">Failed to lookup bookings. Please try again.</p>';
         console.error("Lookup error:", err);
+    } finally {
+        // Re-enable button
+        searchBtn.disabled = false;
+        searchBtn.textContent = 'Search';
     }
 }
 
