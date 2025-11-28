@@ -89,8 +89,18 @@ async function loadSlots() {
         const groupedSlotsByDate = data.dates || {};
         
         let html = "";
+        
+        // Filter out past dates before sorting
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to compare only dates
+        
+        const futureDates = Object.keys(groupedSlotsByDate).filter(dateStr => {
+            const slotDate = new Date(dateStr);
+            return slotDate >= today; // Only show today and future dates
+        });
+        
         // Sort dates chronologically instead of alphabetically
-        const sortedDates = Object.keys(groupedSlotsByDate).sort((a, b) => {
+        const sortedDates = futureDates.sort((a, b) => {
             const dateA = new Date(a);
             const dateB = new Date(b);
             return dateA - dateB;
