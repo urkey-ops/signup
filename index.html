@@ -3,19 +3,41 @@
 <head>
   <title>Signup</title>
   <link rel="stylesheet" href="style.css" />
+  <style>
+    .dates-container { margin: 20px 0; }
+    .date-card { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; }
+    .date-card h3 { margin-top: 0; color: #333; }
+    .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
+    .slot { background: white; padding: 10px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
+    .slot:hover:not(.disabled) { border-color: #007bff; background: #e7f3ff; }
+    .slot.selected { border-color: #007bff; background: #007bff; color: white; }
+    .slot.disabled { opacity: 0.5; cursor: not-allowed; background: #eee; }
+    .slot input[type="radio"] { margin-right: 8px; }
+    #signupForm { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
+    #signupForm input, #signupForm textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
+    #signupForm button { background: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+    #signupForm button:hover { background: #218838; }
+    #msg { margin-top: 15px; padding: 10px; border-radius: 4px; }
+    .full-badge { color: red; font-weight: bold; }
+  </style>
 </head>
 <body>
   <h1>Group Sign-Up</h1>
-  <div id="slots"></div>
+  <p>Select a date and time slot below:</p>
+  
+  <div id="datesContainer" class="dates-container"></div>
+  
   <form id="signupForm" style="display:none;">
     <h2>Your Info</h2>
-    <input placeholder="Name" id="name" required><br>
-    <input placeholder="Email" id="email" type="email" required><br>
-    <input placeholder="Phone" id="phone" type="tel"><br>
-    <textarea placeholder="Notes" id="notes"></textarea><br>
-    <button type="submit">Submit</button>
+    <input type="text" placeholder="Name *" id="name" required>
+    <input type="email" placeholder="Email *" id="email" required>
+    <input type="tel" placeholder="Phone" id="phone">
+    <textarea placeholder="Notes" id="notes" rows="3"></textarea>
+    <button type="submit">Submit Signup</button>
   </form>
+  
   <p id="msg"></p>
-  <script src="script.js"></script>
+  
+  <script src="user-script.js"></script>
 </body>
 </html>
