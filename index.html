@@ -5,6 +5,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Book a Slot</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Floating button styles */
+        #floatingSignupBtnContainer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            text-align: center;
+        }
+        
+        #floatingSignupBtn {
+            width: 100%;
+            max-width: 400px;
+            font-size: 16px;
+            padding: 15px;
+        }
+        
+        /* Selected slot button style */
+        .slot-btn-selected {
+            background-color: #4CAF50 !important;
+            color: white !important;
+            border: 2px solid #45a049 !important;
+        }
+        
+        /* Booking summary styles */
+        .selected-slots-summary {
+            background-color: #f0f9f0;
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        
+        .selected-slot-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+    </style>
 </head>
 <body>
     <div class="container">
@@ -12,28 +57,34 @@
         
         <div id="loadingMsg">Loading available slots...</div>
         
-        <div id="slotsDisplay" style="display:none;" class="card">
-            <h2>Available Dates</h2>
-            <p class="description">Select the date and time slot that works best for you.</p>
+        <div id="slotsDisplay" style="display:none;">
+            <p class="description">Select one or more time slots. You can choose multiple slots across different dates.</p>
             <div id="datesContainer"></div>
+            <div style="height: 80px;"></div> <!-- Spacer for floating button -->
+        </div>
+        
+        <!-- Floating Button -->
+        <div id="floatingSignupBtnContainer" style="display:none;">
+            <button id="floatingSignupBtn" class="btn primary-btn" onclick="showSignupForm()">
+                Continue to Sign Up (0 Slots Selected)
+            </button>
         </div>
         
         <div id="signupSection" style="display:none;" class="card">
             <h2>✍️ Enter Your Details</h2>
             
-            <div id="selectedSlotSummary" style="margin: 15px 0; padding: 15px; border: 2px solid #4CAF50; background-color: #f0f9f0; border-radius: 5px; display: none; text-align: left;">
-            </div>
+            <div id="selectedSlotSummary" class="selected-slots-summary"></div>
             
             <form onsubmit="event.preventDefault(); submitSignup();">
-                <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name" required>
-                <input type="email" id="emailInput" class="form-input" placeholder="Your Email Address" required>
+                <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name *" required>
+                <input type="email" id="emailInput" class="form-input" placeholder="Your Email Address *" required>
                 <input type="tel" id="phoneInput" class="form-input" placeholder="Phone Number (Optional)">
                 <textarea id="notesInput" class="form-input" placeholder="Any special notes or comments (Optional)" rows="3"></textarea>
                 
                 <p id="signupMsg" class="msg-box"></p>
                 
-                <button type="submit" id="submitSignupBtn" class="btn primary-btn" disabled>Submit Signup</button>
-                <button type="button" onclick="resetSelection()" class="btn secondary-btn">Cancel & Go Back</button>
+                <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
+                <button type="button" onclick="backToSlotSelection()" class="btn secondary-btn">← Back to Slot Selection</button>
             </form>
         </div>
         
