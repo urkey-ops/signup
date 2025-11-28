@@ -1,8 +1,8 @@
 const API_URL = "/api/signup";
-// CHANGE 1: Use an Array to track multiple selected slots
+// Use an Array to track multiple selected slots
 let selectedSlots = []; 
 
-// Helper function to update the list of selected slots in the payload
+// --- Helper Function: Manages the selection state ---
 function updateSelectedSlots(slotId, date, label, isChecked) {
     const slotData = { id: slotId, date: date, label: label };
     
@@ -19,14 +19,14 @@ function updateSelectedSlots(slotId, date, label, isChecked) {
     // Show/hide the form based on how many slots are selected
     document.getElementById("signupForm").style.display = selectedSlots.length > 0 ? "block" : "none";
     
-    // Optional: Scroll to the form if the first slot is selected
+    // Scroll to the form if the first slot is selected
     if (selectedSlots.length === 1 && isChecked) {
         document.getElementById("signupForm").scrollIntoView({ behavior: "smooth" });
     }
 }
 
 
-// Fetch and display slots grouped by date
+// --- 1. Load Slots Function (No change, retained multi-select logic) ---
 async function loadSlots() {
   try {
     const res = await fetch(API_URL);
@@ -38,9 +38,9 @@ async function loadSlots() {
     }
 
     // Reset the selected slots array on refresh
-    selectedSlots = [];
-    document.getElementById("signupForm").style.display = "none";
-    
+    selectedSlots = [];
+    document.getElementById("signupForm").style.display = "none";
+    
     const dates = data.dates;
     const container = document.getElementById("datesContainer");
     container.innerHTML = "";
@@ -78,21 +78,17 @@ async function loadSlots() {
         label.style.display = "block";
         
         const input = document.createElement("input");
-        // CHANGE 2: Use checkbox instead of radio
-        input.type = "checkbox";
-        // CHANGE 3: Remove input.name = "slot" to allow multiple selections
+        input.type = "checkbox"; // Changed from radio
         input.value = slot.id;
         input.disabled = disabled;
         
-        // CHANGE 4: Update logic to handle multiple selections
         input.onchange = (e) => {
           if (e.target.checked) {
             slotDiv.classList.add("selected");
           } else {
             slotDiv.classList.remove("selected");
           }
-            // Use the new helper function to track state
-            updateSelectedSlots(slot.id, slot.date, slot.slotLabel, e.target.checked);
+            updateSelectedSlots(slot.id, slot.date, slot.slotLabel, e.target.checked);
         };
         
         label.appendChild(input);
@@ -127,19 +123,16 @@ async function loadSlots() {
   }
 }
 
-loadSlots();
 
-// Submit form
+// --- 2. Submit Form Function (No change, retained multi-slot POST logic) ---
 document.getElementById("signupForm").onsubmit = async e => {
   e.preventDefault();
   
-  // CHANGE 5: Check the length of the selectedSlots array
   if (selectedSlots.length === 0) {
     alert("Please select one or more time slots");
     return;
   }
   
-  // CHANGE 6: Send the entire array of slot IDs to the API
   const payload = {
     slotIds: selectedSlots.map(s => s.id), // Send an array of IDs
     name: document.getElementById("name").value.trim(),
@@ -169,7 +162,7 @@ document.getElementById("signupForm").onsubmit = async e => {
     
     if (data.ok) {
       document.getElementById("signupForm").reset();
-      selectedSlots = []; // Clear the array
+      selectedSlots = []; 
       document.getElementById("signupForm").style.display = "none";
       
       // Remove selected class from all checkboxes
@@ -194,3 +187,126 @@ document.getElementById("signupForm").onsubmit = async e => {
     submitBtn.textContent = "Submit Signup";
   }
 };
+
+
+// --- 3. NEW: Booking Lookup and Cancellation Functions ---
+
+/**
+ * Sends the user's email to the backend to retrieve their bookings.
+ */
+async function lookupBookings() {
+    const email = document.getElementById("lookupEmail").value.trim();
+    const displayEl = document.getElementById("userBookingsDisplay");
+    
+    if (!email) {
+        displayEl.innerHTML = '<p style="color: red;">Please enter your email address.</p>';
+        return;
+    }
+
+    displayEl.innerHTML = '<p>Loading your bookings...</p>';
+
+    try {
+        // Use GET request with email as a query parameter
+        const res = await fetch(`${API_URL}?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+
+        if (!data.ok) {
+            displayEl.innerHTML = `<p style="color: red;">Error: ${data.error}</p>`;
+            return;
+        }
+
+        renderUserBookings(data.bookings);
+
+    } catch (err) {
+        console.error("Lookup error:", err);
+        displayEl.innerHTML = '<p style="color: red;">Failed to retrieve bookings.</p>';
+    }
+}
+
+/**
+ * Renders the fetched bookings into a table for the user.
+ * @param {Array} bookings - The array of booking objects from the API.
+ */
+function renderUserBookings(bookings) {
+    const displayEl = document.getElementById("userBookingsDisplay");
+    
+    if (bookings.length === 0) {
+        displayEl.innerHTML = '<p>No signups found for this email address.</p>';
+        return;
+    }
+    
+    // Sort bookings by date
+    bookings.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    let html = '<h3>Your Confirmed Signups:</h3><table class="slots-table">';
+    html += '<thead><tr><th>Status</th><th>Date</th><th>Time Slot</th><th>Action</th></tr></thead><tbody>';
+
+    bookings.forEach(booking => {
+        const bookingDate = new Date(booking.date);
+        bookingDate.setHours(0, 0, 0, 0);
+
+        // Determine status (Past or Future/Cancellable)
+        const isPast = bookingDate < today;
+        const status = isPast ? '<span style="color: gray;">Past</span>' : '<span style="color: green; font-weight: bold;">Future</span>';
+        
+        html += `
+            <tr>
+                <td>${status}</td>
+                <td>${booking.date}</td>
+                <td>${booking.slotLabel}</td>
+                <td>
+                    ${isPast ? '—' : `<button onclick="cancelBooking(${booking.id}, ${booking.slotRowId})" style="background: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer;">Cancel</button>`}
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+    displayEl.innerHTML = html;
+}
+
+/**
+ * Sends a PATCH request to the backend to cancel a specific booking.
+ * @param {number} signupRowId - The row ID in the 'Signups' sheet.
+ * @param {number} slotRowId - The row ID in the 'Slots' sheet (to decrement capacity).
+ */
+async function cancelBooking(signupRowId, slotRowId) {
+    if (!confirm("Are you sure you want to cancel this slot?")) return;
+
+    const displayEl = document.getElementById("userBookingsDisplay");
+    displayEl.innerHTML = '<p>Processing cancellation...</p>';
+
+    const payload = {
+        signupRowId: signupRowId, 
+        slotRowId: slotRowId 
+    };
+    
+    try {
+        const res = await fetch(API_URL, {
+            method: "PATCH", 
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        
+        if (data.ok) {
+            displayEl.innerHTML = `<p style="color: green; font-weight: bold;">${data.message}</p>`;
+            // Refresh the display after successful cancellation
+            await lookupBookings();
+            loadSlots(); // Refresh main slots view to reflect new availability
+        } else {
+            displayEl.innerHTML = `<p style="color: red;">Cancellation failed: ${data.error}</p>`;
+        }
+    } catch (err) {
+        console.error("Cancellation submission error:", err);
+        displayEl.innerHTML = '<p style="color: red;">Failed to process cancellation.</p>';
+    }
+}
+
+
+// Initial load
+loadSlots();
