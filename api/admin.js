@@ -2,8 +2,8 @@ const { google } = require("googleapis");
 
 // Simple authentication - replace with your secret
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your-secret-password";
-// IMPORTANT: Confirm the GID of your Slots sheet. 0 is the default first sheet.
-const SLOTS_GID = 0; 
+// FIXED: Use environment variable for SLOTS_GID like SIGNUPS_GID
+const SLOTS_GID = parseInt(process.env.SLOTS_GID) || 0; 
 
 module.exports = async function handler(req, res) {
     try {
@@ -66,10 +66,40 @@ module.exports = async function handler(req, res) {
                 return res.status(400).json({ ok: false, error: "Invalid date format. Use MM/DD/YYYY" });
             }
 
+            // FIXED: Validate date is not in the past
+            const [month, day, year] = date.split('/').map(num => parseInt(num));
+            const selectedDate = new Date(year, month - 1, day);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (selectedDate < today) {
+                return res.status(400).json({ ok: false, error: "Cannot add slots for past dates" });
+            }
+
+            // FIXED: Check for duplicate dates
+            try {
+                const existingSlots = await sheets.spreadsheets.values.get({
+                    spreadsheetId: process.env.SHEET_ID,
+                    range: "Slots!A2:A",
+                });
+                
+                const existingDates = (existingSlots.data.values || []).map(row => row[0]);
+                
+                if (existingDates.includes(date)) {
+                    return res.status(400).json({ 
+                        ok: false, 
+                        error: `Slots for ${date} already exist. Please delete existing slots first.` 
+                    });
+                }
+            } catch (err) {
+                console.error("Error checking existing dates:", err);
+                // Continue anyway - duplicate check is a nice-to-have
+            }
+
             const rows = slots.map(slot => [
                 date,
                 slot.label || "",
-                slot.capacity || 6, // Default to 6 if somehow missing
+                slot.capacity || 6,
                 0, // taken starts at 0
                 "" // notes column
             ]);
@@ -89,7 +119,7 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // --- DELETE: Remove multiple slots (Q1) ---
+        // --- DELETE: Remove multiple slots ---
         if (req.method === "DELETE") {
             const { rowIds } = req.body;
 
@@ -97,17 +127,22 @@ module.exports = async function handler(req, res) {
                 return res.status(400).json({ ok: false, error: "Missing or invalid rowIds array" });
             }
 
+            // Validate all rowIds are valid numbers
+            const validRowIds = rowIds.filter(id => typeof id === 'number' && id >= 2);
+            
+            if (validRowIds.length === 0) {
+                return res.status(400).json({ ok: false, error: "No valid row IDs provided" });
+            }
+
             try {
-                // CRITICAL: Sort row IDs in descending order to avoid re-indexing errors 
-                // when deleting rows from top to bottom.
-                const sortedRowIds = rowIds.sort((a, b) => b - a);
+                // Sort row IDs in descending order to avoid re-indexing errors
+                const sortedRowIds = [...new Set(validRowIds)].sort((a, b) => b - a);
 
                 const requests = sortedRowIds.map(rowId => ({
                     deleteDimension: {
                         range: {
                             sheetId: SLOTS_GID, 
                             dimension: "ROWS",
-                            // API is zero-indexed, so row 2 is startIndex 1 to endIndex 2
                             startIndex: rowId - 1,
                             endIndex: rowId,
                         }
@@ -119,10 +154,17 @@ module.exports = async function handler(req, res) {
                     requestBody: { requests: requests },
                 });
 
-                return res.status(200).json({ ok: true, message: `Successfully deleted ${rowIds.length} slot(s).` });
+                return res.status(200).json({ 
+                    ok: true, 
+                    message: `Successfully deleted ${sortedRowIds.length} slot(s).` 
+                });
             } catch (err) {
                 console.error("Error deleting slot batch:", err);
-                return res.status(500).json({ ok: false, error: "Failed to delete slots" });
+                return res.status(500).json({ 
+                    ok: false, 
+                    error: "Failed to delete slots", 
+                    details: err.message 
+                });
             }
         }
 
