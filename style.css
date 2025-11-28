@@ -111,6 +111,24 @@ h2 {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
+/* --- NEW: Floating Button Styles --- */
+#floatingSignupBtnContainer {
+    position: fixed;
+    bottom: 0; /* Stick to the bottom of the viewport */
+    left: 0;
+    right: 0;
+    z-index: 1000; /* Ensure it stays on top */
+    padding: 10px 16px;
+    background: var(--card-background); 
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+#floatingSignupBtn {
+    width: 100%; 
+    margin: 0; 
+}
+
+
 /* ---------------------------------- */
 /* 3. Date & Slot Selection (User View)*/
 /* ---------------------------------- */
@@ -127,6 +145,7 @@ h2 {
 }
 
 .slots-grid {
+    /* Default for desktop/tablet: Use auto-fill for flexible columns */
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
     gap: 8px;
@@ -217,7 +236,7 @@ h2 {
     margin: 0;
 }
 
-/* Table for Bookings Display */
+/* Table for Bookings Display and Admin View */
 .slots-table {
     margin-top: var(--spacing-unit);
     width: 100%;
@@ -288,7 +307,7 @@ h2 {
 /* Slot Capacity Control Layout (for mobile-first stacking) */
 .slot-capacity-control {
     display: flex;
-    flex-direction: column; /* Stack label/checkbox and capacity input vertically on small screens */
+    flex-direction: column; 
     align-items: flex-start;
     gap: 5px;
     padding: 10px 0;
@@ -320,38 +339,21 @@ h2 {
 
 /* Responsive Table Wrapper for Admin View */
 .responsive-table-wrap {
-    overflow-x: auto; /* Allows horizontal scrolling on tiny screens */
+    overflow-x: auto; 
     width: 100%;
     margin-top: 15px;
 }
 
 /* Admin Table Styling */
 .slots-table { 
-    min-width: 600px; /* Ensures table columns don't shrink too much on mobile */
+    min-width: 600px; 
     border-collapse: separate;
     border-spacing: 0;
     width: 100%;
     font-size: 0.9rem;
 }
 
-.slots-table th, .slots-table td { 
-    border-bottom: 1px solid var(--border-color);
-    padding: 10px;
-    text-align: left;
-}
-
-.slots-table th { 
-    background: #495057;
-    color: white;
-    font-weight: 700;
-    position: sticky; 
-    top: 0;
-}
-
-.slots-table tr:nth-child(even) {
-    background-color: #f8f9fa;
-}
-
+/* Shared with user lookup, but added here for completeness */
 .full-slot {
     font-weight: bold;
     color: var(--danger-color);
@@ -378,9 +380,9 @@ h2 {
 /* 6. Mobile Adjustments              */
 /* ---------------------------------- */
 @media (max-width: 576px) {
-    /* User View Slots */
+    /* User View Slots: Two slots side-by-side (NEW FIX) */
     .slots-grid {
-        grid-template-columns: 1fr; 
+        grid-template-columns: 1fr 1fr; 
     }
 
     .slot {
