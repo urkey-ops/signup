@@ -1,234 +1,256 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Admin - Manage Slots</title>
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    .admin-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-    .add-slot-form { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-    .slot-input { margin: 10px 0; }
-    .slot-input input { width: 200px; padding: 8px; margin-right: 10px; }
-    .slots-table { width: 100%; border-collapse: collapse; }
-    .slots-table th, .slots-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-    .slots-table th { background: #333; color: white; }
-    .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
-    .delete-btn:hover { background: #c82333; }
-    .date-group { margin: 20px 0; }
-    .error { color: red; }
-    .success { color: green; }
-  </style>
+  <title>Admin - Manage Slots</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    .admin-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+    .add-slot-form { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
+    /* Updated style for the checkboxes */
+    .slot-input { margin: 10px 0; } 
+    .slot-input input[type="date"] { width: 200px; padding: 8px; margin-right: 10px; }
+    .slot-input label { display: block; margin-left: 20px; }
+    .slots-table { width: 100%; border-collapse: collapse; }
+    .slots-table th, .slots-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .slots-table th { background: #333; color: white; }
+    .delete-btn { background: #dc3545; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 4px; }
+    .delete-btn:hover { background: #c82333; }
+    .date-group { margin: 20px 0; }
+    .error { color: red; }
+    .success { color: green; }
+  </style>
 </head>
 <body>
-  <div class="admin-container">
-    <h1>Admin Panel</h1>
+  <div class="admin-container">
+    <h1>Admin Panel</h1>
+    
+    <div id="loginSection">
+      <h2>Login</h2>
+      <input type="password" id="adminPassword" placeholder="Admin Password">
+      <button onclick="login()">Login</button>
+      <p id="loginMsg"></p>
+    </div>
+
+    <div id="adminSection" style="display:none;">
+      <div class="add-slot-form">
+        <h2>Add New Date & Time Slots</h2>
+        <div class="date-group">
+          <label>Select Date: </label>
+          <input type="date" id="newDate"> 
+        </div>
+        
+        <h3>Select Time Slots:</h3>
+        <div id="slotCheckboxes">
+                  </div>
+        
+        <button onclick="submitNewSlots()">Save Date & Slots</button>
+        <p id="addMsg"></p>
+      </div>
+
+      <div>
+        <h2>Current Slots</h2>
+        <button onclick="loadSlots()">Refresh</button>
+        <div id="slotsDisplay"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let adminToken = null;
     
-    <div id="loginSection">
-      <h2>Login</h2>
-      <input type="password" id="adminPassword" placeholder="Admin Password">
-      <button onclick="login()">Login</button>
-      <p id="loginMsg"></p>
-    </div>
+    // --- NEW: Default Slot Configuration ---
+    const DEFAULT_SLOTS = [
+        { label: "10AM-12PM", capacity: 2 },
+        { label: "12PM-2PM", capacity: 2 },
+        { label: "2PM-4PM", capacity: 2 },
+        { label: "4PM-6PM", capacity: 2 }
+    ];
 
-    <div id="adminSection" style="display:none;">
-      <div class="add-slot-form">
-        <h2>Add New Date & Time Slots</h2>
-        <div>
-          <label>Date (MM/DD/YYYY): </label>
-          <input type="text" id="newDate" placeholder="11/30/2025">
-        </div>
+    // --- NEW: Function to render the default checkboxes ---
+    function renderCheckboxes() {
+        const container = document.getElementById('slotCheckboxes');
+        container.innerHTML = '';
         
-        <h3>Time Slots:</h3>
-        <div id="slotInputs">
-          <div class="slot-input">
-            <input type="text" placeholder="10AM-12PM" class="slot-label">
-            <input type="number" placeholder="Capacity" value="2" class="slot-capacity">
-          </div>
-        </div>
-        
-        <button onclick="addSlotInput()">+ Add Another Slot</button>
-        <button onclick="submitNewSlots()">Save Date & Slots</button>
-        <p id="addMsg"></p>
-      </div>
-
-      <div>
-        <h2>Current Slots</h2>
-        <button onclick="loadSlots()">Refresh</button>
-        <div id="slotsDisplay"></div>
-      </div>
-    </div>
-  </div>
-
-  <script>
-    let adminToken = null;
-
-    function login() {
-      const password = document.getElementById("adminPassword").value;
-      adminToken = password;
-      
-      // Test the token
-      fetch("/api/admin", {
-        headers: { "Authorization": `Bearer ${adminToken}` }
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.ok) {
-          document.getElementById("loginSection").style.display = "none";
-          document.getElementById("adminSection").style.display = "block";
-          loadSlots();
-        } else {
-          document.getElementById("loginMsg").textContent = "Invalid password";
-          document.getElementById("loginMsg").className = "error";
-        }
-      })
-      .catch(err => {
-        document.getElementById("loginMsg").textContent = "Login failed";
-        document.getElementById("loginMsg").className = "error";
-      });
-    }
-
-    function addSlotInput() {
-      const container = document.getElementById("slotInputs");
-      const div = document.createElement("div");
-      div.className = "slot-input";
-      div.innerHTML = `
-        <input type="text" placeholder="2PM-4PM" class="slot-label">
-        <input type="number" placeholder="Capacity" value="2" class="slot-capacity">
-        <button onclick="this.parentElement.remove()">Remove</button>
-      `;
-      container.appendChild(div);
-    }
-
-    async function submitNewSlots() {
-      const date = document.getElementById("newDate").value;
-      const slotInputs = document.querySelectorAll(".slot-input");
-      
-      const slots = Array.from(slotInputs).map(div => ({
-        label: div.querySelector(".slot-label").value,
-        capacity: parseInt(div.querySelector(".slot-capacity").value) || 2
-      })).filter(s => s.label);
-
-      if (!date || slots.length === 0) {
-        document.getElementById("addMsg").textContent = "Please fill in date and at least one slot";
-        document.getElementById("addMsg").className = "error";
-        return;
-      }
-
-      try {
-        const res = await fetch("/api/admin", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${adminToken}`
-          },
-          body: JSON.stringify({ date, slots })
-        });
-        
-        const data = await res.json();
-        const msgEl = document.getElementById("addMsg");
-        msgEl.textContent = data.message || data.error;
-        msgEl.className = data.ok ? "success" : "error";
-        
-        if (data.ok) {
-          document.getElementById("newDate").value = "";
-          document.getElementById("slotInputs").innerHTML = `
-            <div class="slot-input">
-              <input type="text" placeholder="10AM-12PM" class="slot-label">
-              <input type="number" placeholder="Capacity" value="2" class="slot-capacity">
-            </div>
-          `;
-          loadSlots();
-        }
-      } catch (err) {
-        document.getElementById("addMsg").textContent = "Failed to add slots";
-        document.getElementById("addMsg").className = "error";
-      }
-    }
-
-    async function loadSlots() {
-      try {
-        const res = await fetch("/api/admin", {
-          headers: { "Authorization": `Bearer ${adminToken}` }
-        });
-        const data = await res.json();
-        
-        if (!data.ok) {
-          document.getElementById("slotsDisplay").innerHTML = "<p class='error'>Failed to load slots</p>";
-          return;
-        }
-
-        // Group by date
-        const grouped = {};
-        data.slots.forEach(slot => {
-          if (!grouped[slot.date]) grouped[slot.date] = [];
-          grouped[slot.date].push(slot);
-        });
-
-        let html = "";
-        Object.keys(grouped).sort().forEach(date => {
-          html += `
-            <div class="date-group">
-              <h3>${date}</h3>
-              <table class="slots-table">
-                <thead>
-                  <tr>
-                    <th>Time Slot</th>
-                    <th>Capacity</th>
-                    <th>Taken</th>
-                    <th>Available</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-          `;
-          
-          grouped[date].forEach(slot => {
-            html += `
-              <tr>
-                <td>${slot.slotLabel}</td>
-                <td>${slot.capacity}</td>
-                <td>${slot.taken}</td>
-                <td>${slot.available}</td>
-                <td><button class="delete-btn" onclick="deleteSlot(${slot.id})">Delete</button></td>
-              </tr>
+        DEFAULT_SLOTS.forEach((slot, index) => {
+            const div = document.createElement('div');
+            div.className = 'slot-input';
+            div.innerHTML = `
+                <label>
+                    <input type="checkbox" class="slot-checkbox" checked value="${index}">
+                    ${slot.label} (Capacity: ${slot.capacity})
+                </label>
             `;
-          });
-          
-          html += `
-                </tbody>
-              </table>
-            </div>
-          `;
+            container.appendChild(div);
         });
-
-        document.getElementById("slotsDisplay").innerHTML = html || "<p>No slots added yet</p>";
-      } catch (err) {
-        document.getElementById("slotsDisplay").innerHTML = "<p class='error'>Error loading slots</p>";
-      }
     }
 
-    async function deleteSlot(rowId) {
-      if (!confirm("Are you sure you want to delete this slot?")) return;
+    // Call renderCheckboxes when the page is loaded
+    document.addEventListener('DOMContentLoaded', renderCheckboxes);
 
-      try {
-        const res = await fetch("/api/admin", {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${adminToken}`
-          },
-          body: JSON.stringify({ rowId })
-        });
-        
-        const data = await res.json();
-        if (data.ok) {
-          loadSlots();
-        } else {
-          alert("Failed to delete: " + data.error);
+
+    function login() {
+      const password = document.getElementById("adminPassword").value;
+      adminToken = password;
+      
+      // Test the token
+      fetch("/api/admin", {
+        headers: { "Authorization": `Bearer ${adminToken}` }
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok) {
+          document.getElementById("loginSection").style.display = "none";
+          document.getElementById("adminSection").style.display = "block";
+          loadSlots();
+        } else {
+          document.getElementById("loginMsg").textContent = "Invalid password";
+          document.getElementById("loginMsg").className = "error";
+        }
+      })
+      .catch(err => {
+        document.getElementById("loginMsg").textContent = "Login failed";
+        document.getElementById("loginMsg").className = "error";
+      });
+    }
+
+    // REMOVED: addSlotInput() function is no longer needed
+
+    async function submitNewSlots() {
+      const dateInput = document.getElementById("newDate").value; // Gets YYYY-MM-DD
+      const checkboxes = document.querySelectorAll(".slot-checkbox:checked");
+      
+        // --- IMPORTANT: Date Conversion ---
+        if (!dateInput) {
+            document.getElementById("addMsg").textContent = "Please select a date.";
+            document.getElementById("addMsg").className = "error";
+            return;
         }
-      } catch (err) {
-        alert("Failed to delete slot");
-      }
-    }
-  </script>
+        const [year, month, day] = dateInput.split('-');
+        // Converts YYYY-MM-DD to MM/DD/YYYY for the backend
+        const date = `${month}/${day}/${year}`; 
+
+      const slots = Array.from(checkboxes).map(cb => {
+        // Map the checkbox value (index) back to the slot definition in DEFAULT_SLOTS
+        return DEFAULT_SLOTS[cb.value]; 
+      });
+
+      if (slots.length === 0) {
+        document.getElementById("addMsg").textContent = "Please select at least one slot";
+        document.getElementById("addMsg").className = "error";
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/admin", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ date, slots })
+        });
+        
+        const data = await res.json();
+        const msgEl = document.getElementById("addMsg");
+        msgEl.textContent = data.message || data.error;
+        msgEl.className = data.ok ? "success" : "error";
+        
+        if (data.ok) {
+          document.getElementById("newDate").value = "";
+          renderCheckboxes(); // Reset checkboxes to checked state
+          loadSlots();
+        }
+      } catch (err) {
+        document.getElementById("addMsg").textContent = "Failed to add slots";
+        document.getElementById("addMsg").className = "error";
+      }
+    }
+
+    async function loadSlots() {
+      try {
+        const res = await fetch("/api/admin", {
+          headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+        const data = await res.json();
+        
+        if (!data.ok) {
+          document.getElementById("slotsDisplay").innerHTML = "<p class='error'>Failed to load slots</p>";
+          return;
+        }
+
+        // Group by date
+        const grouped = {};
+        data.slots.forEach(slot => {
+          if (!grouped[slot.date]) grouped[slot.date] = [];
+          grouped[slot.date].push(slot);
+        });
+
+        let html = "";
+        Object.keys(grouped).sort().forEach(date => {
+          html += `
+            <div class="date-group">
+              <h3>${date}</h3>
+              <table class="slots-table">
+                <thead>
+                  <tr>
+                    <th>Time Slot</th>
+                    <th>Capacity</th>
+                    <th>Taken</th>
+                    <th>Available</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+          `;
+          
+          grouped[date].forEach(slot => {
+            html += `
+              <tr>
+                <td>${slot.slotLabel}</td>
+                <td>${slot.capacity}</td>
+                <td>${slot.taken}</td>
+                <td>${slot.available}</td>
+                <td><button class="delete-btn" onclick="deleteSlot(${slot.id})">Delete</button></td>
+              </tr>
+            `;
+          });
+          
+          html += `
+                </tbody>
+              </table>
+            </div>
+          `;
+        });
+
+        document.getElementById("slotsDisplay").innerHTML = html || "<p>No slots added yet</p>";
+      } catch (err) {
+        document.getElementById("slotsDisplay").innerHTML = "<p class='error'>Error loading slots</p>";
+      }
+    }
+
+    async function deleteSlot(rowId) {
+      if (!confirm("Are you sure you want to delete this slot?")) return;
+
+      try {
+        const res = await fetch("/api/admin", {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${adminToken}`
+          },
+          body: JSON.stringify({ rowId })
+        });
+        
+        const data = await res.json();
+        if (data.ok) {
+          loadSlots();
+        } else {
+          alert("Failed to delete: " + data.error);
+        }
+      } catch (err) {
+        alert("Failed to delete slot");
+      }
+    }
+  </script>
 </body>
 </html>
