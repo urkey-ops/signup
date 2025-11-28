@@ -10,6 +10,7 @@ function showMessage(elementId, message, isError) {
     const el = document.getElementById(elementId);
     el.textContent = message;
     el.className = isError ? "msg-box error" : "msg-box success";
+    el.style.display = message ? "block" : "none";
 }
 
 // --- Navigation Functions ---
@@ -29,6 +30,7 @@ function resetPage() {
 
 async function loadSlots() {
     document.getElementById("loadingMsg").textContent = "Loading available slots...";
+    document.getElementById("loadingMsg").style.display = "block";
     document.getElementById("slotsDisplay").style.display = "none";
     document.getElementById("signupSection").style.display = "none";
 
@@ -36,7 +38,7 @@ async function loadSlots() {
         const res = await fetch(API_URL);
         
         if (!res.ok) {
-            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status} at ${API_URL}.`;
+            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status}.`;
             console.error(`API Call failed with status: ${res.status}`);
             return;
         }
@@ -48,7 +50,7 @@ async function loadSlots() {
             return;
         }
 
-        // Access the 'dates' object from the response (based on your back-end code)
+        // Access the 'dates' object from the response
         const groupedSlotsByDate = data.dates || {};
         
         let html = "";
@@ -126,10 +128,10 @@ function showSignupForm(date, slotLabel, rowId) {
 }
 
 async function submitSignup() {
-    const name = document.getElementById("nameInput").value;
-    const email = document.getElementById("emailInput").value;
-    const phone = document.getElementById("phoneInput").value;
-    const notes = document.getElementById("notesInput").value;
+    const name = document.getElementById("nameInput").value.trim();
+    const email = document.getElementById("emailInput").value.trim();
+    const phone = document.getElementById("phoneInput").value.trim();
+    const notes = document.getElementById("notesInput").value.trim();
 
     if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
@@ -182,6 +184,88 @@ async function submitSignup() {
     } catch (err) {
         showMessage("signupMsg", "Failed to connect to the server for booking.", true);
         document.getElementById("submitSignupBtn").disabled = false;
+        console.error("Submit signup error:", err);
+    }
+}
+
+// --- Lookup Bookings Function ---
+async function lookupBookings() {
+    const email = document.getElementById("lookupEmail").value.trim();
+    const displayEl = document.getElementById("userBookingsDisplay");
+
+    if (!email) {
+        displayEl.innerHTML = '<p class="msg-box error">Please enter an email address.</p>';
+        return;
+    }
+
+    displayEl.innerHTML = '<p>Searching for your bookings...</p>';
+
+    try {
+        const res = await fetch(`${API_URL}?email=${encodeURIComponent(email)}`);
+        const data = await res.json();
+
+        if (!data.ok) {
+            displayEl.innerHTML = `<p class="msg-box error">Error: ${data.error}</p>`;
+            return;
+        }
+
+        const bookings = data.bookings || [];
+
+        if (bookings.length === 0) {
+            displayEl.innerHTML = '<p class="msg-box">No bookings found for this email address.</p>';
+            return;
+        }
+
+        // Display bookings
+        let html = '<div class="bookings-list">';
+        bookings.forEach(booking => {
+            html += `
+                <div class="booking-item">
+                    <strong>📅 ${booking.date}</strong> at <strong>🕰️ ${booking.slotLabel}</strong><br>
+                    <small>Name: ${booking.name}</small><br>
+                    ${booking.phone ? `<small>Phone: ${booking.phone}</small><br>` : ''}
+                    ${booking.notes ? `<small>Notes: ${booking.notes}</small><br>` : ''}
+                    <button onclick="cancelBooking(${booking.signupRowId}, ${booking.slotRowId}, '${booking.date}', '${booking.slotLabel}')" 
+                            class="btn cancel-btn" style="margin-top: 8px;">
+                        Cancel This Booking
+                    </button>
+                </div>
+            `;
+        });
+        html += '</div>';
+        displayEl.innerHTML = html;
+
+    } catch (err) {
+        displayEl.innerHTML = '<p class="msg-box error">Failed to lookup bookings. Please try again.</p>';
+        console.error("Lookup error:", err);
+    }
+}
+
+// --- Cancel Booking Function ---
+async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
+    if (!confirm(`Are you sure you want to cancel your booking for ${date} at ${slotLabel}?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetch(API_URL, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ signupRowId, slotRowId })
+        });
+
+        const data = await res.json();
+
+        if (data.ok) {
+            alert(data.message || "Booking cancelled successfully!");
+            // Refresh the bookings list
+            lookupBookings();
+        } else {
+            alert(`Error: ${data.error}`);
+        }
+    } catch (err) {
+        alert("Failed to cancel booking. Please try again.");
+        console.error("Cancel error:", err);
     }
 }
 
