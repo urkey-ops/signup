@@ -1,4 +1,4 @@
-const API_URL = "/api/signup";
+const API_URL = "/signup"; // FIX: Corrected API path to match your 'signup.js' back-end file
 
 // Global variables to hold the selected slot data
 let selectedDate = null;
@@ -35,9 +35,9 @@ async function loadSlots() {
     try {
         const res = await fetch(API_URL);
         
-        // Handle non-200 responses (like 404 or 500) that aren't JSON
         if (!res.ok) {
-            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status}. Please check Vercel logs.`;
+            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status} at ${API_URL}.`;
+            console.error(`API Call failed with status: ${res.status}`);
             return;
         }
 
@@ -48,7 +48,7 @@ async function loadSlots() {
             return;
         }
 
-        // --- FIX: Access the 'dates' object from the response ---
+        // Access the 'dates' object from the response (based on your back-end code)
         const groupedSlotsByDate = data.dates || {};
         
         let html = "";
@@ -59,7 +59,6 @@ async function loadSlots() {
             html = "<p>No available slots at this time. Please check back later!</p>";
             datesContainer.innerHTML = html;
         } else {
-            // --- FIX: Correctly loop through the grouped dates object ---
             sortedDates.forEach(date => {
                 const dateSlots = groupedSlotsByDate[date];
                 
@@ -146,7 +145,7 @@ async function submitSignup() {
     showMessage("signupMsg", "Submitting your booking...", false);
     document.getElementById("submitSignupBtn").disabled = true;
 
-    // FIX: Send slotIds as an array, as the back-end POST handler expects it.
+    // Send slotIds as an array, as the back-end POST handler expects it.
     const signupData = {
         name,
         email,
