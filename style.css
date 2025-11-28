@@ -4,6 +4,7 @@
 :root {
     --primary-color: #007bff; /* Blue */
     --success-color: #28a745; /* Green */
+    --danger-color: #dc3545; /* Red for cancellation */
     --background-color: #f4f7fa; /* Light background */
     --card-background: #ffffff;
     --text-color: #333;
@@ -146,7 +147,7 @@ h2 {
     text-align: center;
     font-size: 0.95rem;
     font-weight: 600;
-    display: flex; /* For better checkbox alignment */
+    display: flex; /* For alignment */
     align-items: center;
     justify-content: center;
     min-height: 50px; /* Ensures height is thumb-friendly */
@@ -171,14 +172,14 @@ h2 {
     border-style: dashed;
 }
 
+/* Hide the checkbox but keep it functional via the JS click handler */
 .slot input[type="checkbox"] {
-    /* Style the checkbox better or hide and use the slot border/color */
     display: none; 
 }
 
 /* Status Badges */
 .full-badge { 
-    color: #dc3545; /* Red */
+    color: var(--danger-color); 
     font-weight: 700; 
     margin-left: 5px;
 }
@@ -216,7 +217,7 @@ h2 {
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 8px;
-    overflow: hidden; /* Ensures rounded corners */
+    overflow: hidden; 
 }
 
 .slots-table th, .slots-table td {
@@ -237,12 +238,29 @@ h2 {
     background-color: #f8f9fa;
 }
 
+/* NEW: Styles for the Cancel button in the bookings table */
+.btn-cancel {
+    background: var(--danger-color); 
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background-color 0.2s;
+}
+
+.btn-cancel:hover {
+    background: #c82333;
+}
+
+
 /* ---------------------------------- */
-/* 5. Mobile Adjustments (Optional, but good practice) */
+/* 5. Mobile Adjustments              */
 /* ---------------------------------- */
 @media (max-width: 576px) {
     .slots-grid {
-        /* Single column or slightly larger cards on very small screens */
+        /* Single column for easiest mobile clicking */
         grid-template-columns: 1fr; 
     }
 
