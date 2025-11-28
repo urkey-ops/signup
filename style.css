@@ -1,12 +1,262 @@
-body {
-  font-family: sans-serif;
-  max-width: 600px;
-  margin: auto;
-  padding: 20px;
+/* ---------------------------------- */
+/* 1. Reset and Typography            */
+/* ---------------------------------- */
+:root {
+    --primary-color: #007bff; /* Blue */
+    --success-color: #28a745; /* Green */
+    --background-color: #f4f7fa; /* Light background */
+    --card-background: #ffffff;
+    --text-color: #333;
+    --border-color: #e0e0e0;
+    --font-family: 'Inter', sans-serif;
+    --spacing-unit: 16px;
 }
 
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+.container {
+    max-width: 768px; /* Slightly wider for modern feel */
+    margin: 0 auto;
+    padding: var(--spacing-unit);
+}
+
+h1 {
+    font-size: 1.8rem;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+}
+
+h2 {
+    font-size: 1.4rem;
+    color: var(--text-color);
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+
+.description {
+    color: #6c757d;
+    margin-bottom: 1.5rem;
+}
+
+/* ---------------------------------- */
+/* 2. General Components              */
+/* ---------------------------------- */
+
+.card {
+    background: var(--card-background);
+    padding: var(--spacing-unit);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    margin-bottom: calc(2 * var(--spacing-unit));
+}
+
+/* Thumb-friendly buttons */
+.btn {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: background-color 0.3s, transform 0.1s;
+    width: 100%; /* Full width on mobile */
+    margin-top: 10px;
+}
+
+.primary-btn {
+    background: var(--success-color);
+    color: white;
+}
+
+.primary-btn:hover {
+    background: #218838;
+}
+
+.secondary-btn {
+    background: var(--primary-color);
+    color: white;
+}
+
+.secondary-btn:hover {
+    background: #0056b3;
+}
+
+/* Form Inputs */
+.form-input {
+    width: 100%;
+    padding: 12px;
+    margin: 10px 0;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 1rem;
+}
+
+.form-input:focus {
+    border-color: var(--primary-color);
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+
+/* ---------------------------------- */
+/* 3. Date & Slot Selection           */
+/* ---------------------------------- */
+
+.date-card {
+    /* Base style moved to .card */
+    margin: var(--spacing-unit) 0;
+    padding: var(--spacing-unit);
+}
+
+.date-card h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    font-size: 1.2rem;
+}
+
+.slots-grid {
+    display: grid;
+    /* Adjust minmax for better mobile grid */
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
+    gap: 8px;
+    margin-top: 10px;
+}
+
+/* Make slots larger and more touchable */
 .slot {
-  border: 1px solid #ddd;
-  padding: 10px;
-  margin-bottom: 8px;
+    background: #f8f9fa;
+    padding: 12px; /* Increased padding */
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    text-align: center;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex; /* For better checkbox alignment */
+    align-items: center;
+    justify-content: center;
+    min-height: 50px; /* Ensures height is thumb-friendly */
+}
+
+.slot:hover:not(.disabled) {
+    border-color: var(--primary-color);
+    background: #e9f3ff;
+}
+
+.slot.selected {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+.slot.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f0f0f0;
+    border-style: dashed;
+}
+
+.slot input[type="checkbox"] {
+    /* Style the checkbox better or hide and use the slot border/color */
+    display: none; 
+}
+
+/* Status Badges */
+.full-badge { 
+    color: #dc3545; /* Red */
+    font-weight: 700; 
+    margin-left: 5px;
+}
+
+
+/* ---------------------------------- */
+/* 4. Lookup Section                  */
+/* ---------------------------------- */
+
+.lookup-section {
+    background: #f0f8ff; /* Light blue background */
+    border: 1px solid #cceeff;
+}
+
+.lookup-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.lookup-input {
+    flex-grow: 1;
+    margin: 0;
+}
+
+.lookup-controls .secondary-btn {
+    width: auto;
+    margin: 0;
+}
+
+/* Table for Bookings Display */
+.slots-table {
+    margin-top: var(--spacing-unit);
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 8px;
+    overflow: hidden; /* Ensures rounded corners */
+}
+
+.slots-table th, .slots-table td {
+    border: none;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.slots-table th {
+    background: #e9ecef;
+    font-weight: 700;
+    color: #495057;
+}
+
+/* Zebra striping for readability */
+.slots-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+/* ---------------------------------- */
+/* 5. Mobile Adjustments (Optional, but good practice) */
+/* ---------------------------------- */
+@media (max-width: 576px) {
+    .slots-grid {
+        /* Single column or slightly larger cards on very small screens */
+        grid-template-columns: 1fr; 
+    }
+
+    .slot {
+        padding: 15px; /* Even bigger touch targets */
+        font-size: 1rem;
+    }
+
+    .lookup-controls {
+        flex-direction: column; /* Stack input and button */
+        align-items: stretch;
+    }
+    
+    .lookup-controls .secondary-btn {
+        width: 100%;
+    }
 }
