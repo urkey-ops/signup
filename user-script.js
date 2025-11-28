@@ -1,8 +1,16 @@
+/**
+ * Project: Booking/Signup System (Version 3 + Submission Fix)
+ * Backend Approach: Vercel Function + Google Sheets API (as agreed)
+ */
+
 const API_URL = "/api/signup";
-// Use an Array to track multiple selected slots
+// Use an Array to track multiple selected slots globally
 let selectedSlots = [];
 
+// ====================================================================
 // --- Helper Function: Manages the selection state and floating button visibility ---
+// ====================================================================
+
 function updateSelectedSlots(slotId, date, label, isChecked) {
     const slotData = { id: slotId, date: date, label: label };
     
@@ -36,7 +44,10 @@ function updateSelectedSlots(slotId, date, label, isChecked) {
 }
 
 
-// --- 1. Load Slots Function (Updated for Mobile-Friendly Click Targets) ---
+// ====================================================================
+// --- 1. Load Slots Function (Populates the booking calendar) ---
+// ====================================================================
+
 async function loadSlots() {
     try {
         const res = await fetch(API_URL);
@@ -47,16 +58,16 @@ async function loadSlots() {
             return;
         }
 
-        // Reset the selected slots array on refresh
+        // Reset state on refresh
         selectedSlots = [];
-        document.getElementById("signupForm").style.display = "none"; // Keep form hidden
-        document.getElementById("floatingSignupBtnContainer").style.display = "none"; // Keep button hidden
+        document.getElementById("signupForm").style.display = "none"; 
+        document.getElementById("floatingSignupBtnContainer").style.display = "none"; 
 
         const dates = data.dates;
         const container = document.getElementById("datesContainer");
         container.innerHTML = "";
 
-        // Sort dates
+        // Sort dates chronologically
         const sortedDates = Object.keys(dates).sort((a, b) => {
             const dateA = new Date(a);
             const dateB = new Date(b);
@@ -89,10 +100,10 @@ async function loadSlots() {
                 input.value = slot.id;
                 input.disabled = disabled;
                 
-                // --- Slot Click Handler ---
+                // --- Slot Click Handler (Toggles the box) ---
                 if (!disabled) {
                     slotDiv.onclick = (e) => {
-                        // 1. Prevent the default browser action that causes scrolling (NEW FIX)
+                        // 1. Prevent the default browser action that causes scrolling
                         e.preventDefault(); 
                         
                         // 2. Toggle checkbox state unless the input itself was clicked
@@ -163,7 +174,10 @@ async function loadSlots() {
     }
 }
 
-// --- NEW: Floating Button Handler ---
+// ====================================================================
+// --- Floating Button Handler (Shows the form) ---
+// ====================================================================
+
 function setupFloatingButtonHandler() {
     const floatBtn = document.getElementById("floatingSignupBtn");
     const floatBtnContainer = document.getElementById("floatingSignupBtnContainer");
@@ -187,7 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- 2. Submit Form Function ---
+// ====================================================================
+// --- 2. Submit Form Function (Handles new signup) ---
+// ====================================================================
+
 document.getElementById("signupForm").onsubmit = async e => {
     e.preventDefault();
 
@@ -223,7 +240,8 @@ document.getElementById("signupForm").onsubmit = async e => {
         msgEl.style.display = "block";
 
         if (data.ok) {
-            document.getElementById("signupForm").reset();
+            // FIX APPLIED: Reset the form using the event target (the form element itself)
+            e.target.reset(); 
             selectedSlots = [];
             document.getElementById("signupForm").style.display = "none";
             document.getElementById("floatingSignupBtnContainer").style.display = "none";
@@ -250,7 +268,10 @@ document.getElementById("signupForm").onsubmit = async e => {
 };
 
 
+// ====================================================================
 // --- 3. Booking Lookup and Cancellation Functions ---
+// ====================================================================
+
 /**
  * Sends the user's email to the backend to retrieve their bookings.
  */
@@ -318,7 +339,7 @@ function renderUserBookings(bookings) {
                 <td>${booking.date}</td>
                 <td>${booking.slotLabel}</td>
                 <td>
-                    ${isPast ? '—' : `<button onclick="cancelBooking(${booking.id}, ${booking.slotRowId})" class="btn-cancel">Cancel</button>`}
+                    ${isPast ? '—' : `<button onclick="cancelBooking(${booking.signupRowId}, ${booking.slotRowId})" class="btn-cancel">Cancel</button>`}
                 </td>
             </tr>
         `;
