@@ -1,4 +1,4 @@
-const API_URL = "/signup"; // FIX: Corrected API path to match your 'signup.js' back-end file
+const API_URL = "api/signup"; // FIX: Corrected API path to match your 'signup.js' back-end file
 
 // Global variables to hold the selected slot data
 let selectedDate = null;
