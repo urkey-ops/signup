@@ -280,10 +280,18 @@
                         return new Date(a) - new Date(b);
                     });
                     
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
                     sortedDates.forEach(date => {
+                        const slotDate = new Date(date);
+                        const isPast = slotDate < today;
+                        const dateStyle = isPast ? 'style="opacity: 0.6; background: #fee;"' : '';
+                        const dateLabel = isPast ? `${date} (Past)` : date;
+                        
                         html += `
-                            <div class="date-group">
-                                <h3>${date}</h3>
+                            <div class="date-group" ${dateStyle}>
+                                <h3>${dateLabel}</h3>
                                 <div class="responsive-table-wrap">
                                     <table class="slots-table">
                                         <thead>
