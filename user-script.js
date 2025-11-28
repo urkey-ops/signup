@@ -34,58 +34,73 @@ async function loadSlots() {
 
     try {
         const res = await fetch(API_URL);
-        const data = await res.json();
         
-        if (!data.ok) {
-            document.getElementById("loadingMsg").textContent = "Error: Failed to fetch available slots.";
+        // Handle non-200 responses (like 404 or 500) that aren't JSON
+        if (!res.ok) {
+            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status}. Please check Vercel logs.`;
             return;
         }
 
-        // --- FIX 1: Access data.dates instead of data.slots ---
+        const data = await res.json();
+        
+        if (!data.ok) {
+            document.getElementById("loadingMsg").textContent = `Error: API reported failure. Details: ${data.error}`;
+            return;
+        }
+
+        // --- FIX: Access the 'dates' object from the response ---
         const groupedSlotsByDate = data.dates || {};
         
         let html = "";
         const sortedDates = Object.keys(groupedSlotsByDate).sort();
+        const datesContainer = document.getElementById("datesContainer");
 
         if (sortedDates.length === 0) {
             html = "<p>No available slots at this time. Please check back later!</p>";
-            document.getElementById("datesContainer").innerHTML = html;
+            datesContainer.innerHTML = html;
         } else {
+            // --- FIX: Correctly loop through the grouped dates object ---
             sortedDates.forEach(date => {
-                html += `
-                    <div class="date-section">
-                        <h4>📅 ${date}</h4>
-                        <div class="slot-buttons">
-                `;
-                
-                // Get the slots array for this specific date
                 const dateSlots = groupedSlotsByDate[date];
-
-                dateSlots.forEach(slot => {
-                    // Only display slots that have availability
-                    if (slot.available > 0) {
+                
+                // Filter slots that are actually available (> 0) for this date
+                const availableSlotsForDate = dateSlots.filter(slot => slot.available > 0);
+                
+                if (availableSlotsForDate.length > 0) {
+                    html += `
+                        <div class="date-section">
+                            <h4>📅 ${date}</h4>
+                            <div class="slot-buttons">
+                    `;
+                    
+                    availableSlotsForDate.forEach(slot => {
                         html += `
                             <button class="btn secondary-btn" 
                                     onclick="showSignupForm('${slot.date}', '${slot.slotLabel}', ${slot.id})">
                                 ${slot.slotLabel} (${slot.available} available)
                             </button>
                         `;
-                    }
-                });
-                html += `
+                    });
+                    html += `
+                            </div>
                         </div>
-                    </div>
-                `;
+                    `;
+                }
             });
-            document.getElementById("datesContainer").innerHTML = html;
+            
+            if (html === "") {
+                 datesContainer.innerHTML = "<p>No available slots at this time. Please check back later!</p>";
+            } else {
+                 datesContainer.innerHTML = html;
+            }
         }
 
         document.getElementById("loadingMsg").style.display = "none";
         document.getElementById("slotsDisplay").style.display = "block";
 
     } catch (err) {
-        document.getElementById("loadingMsg").textContent = "An error occurred while connecting to the server.";
-        console.error("Load Slots Error:", err);
+        document.getElementById("loadingMsg").textContent = "An error occurred while connecting to the server. Check console for details.";
+        console.error("Load Slots Catch Error:", err);
     }
 }
 
@@ -95,7 +110,7 @@ function showSignupForm(date, slotLabel, rowId) {
     selectedSlotLabel = slotLabel;
     selectedRowId = rowId;
 
-    // Display Slot Summary (as requested earlier)
+    // Display Slot Summary 
     const summaryEl = document.getElementById('selectedSlotSummary');
     summaryEl.innerHTML = `
         ✅ **You Are Booking:**
@@ -118,7 +133,7 @@ async function submitSignup() {
     const email = document.getElementById("emailInput").value;
     const phone = document.getElementById("phoneInput").value;
 
-    if (!name || !email) { // Phone is optional in the back-end check
+    if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
         return;
     }
@@ -131,12 +146,12 @@ async function submitSignup() {
     showMessage("signupMsg", "Submitting your booking...", false);
     document.getElementById("submitSignupBtn").disabled = true;
 
-    // --- FIX 2: Send slotIds as an array ---
+    // FIX: Send slotIds as an array, as the back-end POST handler expects it.
     const signupData = {
         name,
         email,
         phone,
-        slotIds: [selectedRowId] // The back-end expects an array for slotIds
+        slotIds: [selectedRowId] 
     };
 
     try {
