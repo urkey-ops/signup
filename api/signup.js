@@ -1,5 +1,8 @@
 const { google } = require("googleapis");
 
+// Set the SIGNUPS_GID as an environment variable in Vercel to use this code!
+const SIGNUPS_GID = parseInt(process.env.SIGNUPS_GID);
+
 module.exports = async function handler(req, res) {
     try {
         // --- Authorization and Setup ---
@@ -17,7 +20,9 @@ module.exports = async function handler(req, res) {
         });
         const sheets = google.sheets({ version: "v4", auth });
 
+        // ------------------------------------------------------------------------------------------------
         // --- GET: return available slots or user bookings ---
+        // ------------------------------------------------------------------------------------------------
         if (req.method === "GET") {
 
             // --- Handle User Booking Lookup (if email is provided) ---
@@ -25,27 +30,15 @@ module.exports = async function handler(req, res) {
                 const lookupEmail = req.query.email.toLowerCase();
 
                 try {
-                    // Read Signups sheet
+                    // Read Signups sheet (A2:H assumes the 8th column, H, is the Slot Row ID)
                     const signupsResponse = await sheets.spreadsheets.values.get({
                         spreadsheetId: process.env.SHEET_ID,
-                        range: "Signups!A2:G", // Assuming signups go to column G (Notes)
+                        range: "Signups!A2:H", 
                     });
                     const signupRows = signupsResponse.data.values || [];
 
-                    // Read Slots sheet (to find the slot's row ID for later cancellation)
-                    const slotsResponse = await sheets.spreadsheets.values.get({
-                        spreadsheetId: process.env.SHEET_ID,
-                        range: "Slots!A2:E",
-                    });
-                    const slotsMap = new Map();
-                    slotsResponse.data.values.forEach((row, idx) => {
-                        // Create a unique key using Date and Slot Label
-                        const key = `${row[0]}_${row[1]}`;
-                        slotsMap.set(key, idx + 2); // Store the actual sheet row ID
-                    });
-
                     const userBookings = signupRows.map((row, idx) => ({
-                        id: idx + 2, // Signup sheet row ID (for deletion)
+                        signupRowId: idx + 2, // Signup sheet row ID (for deletion)
                         timestamp: row[0],
                         date: row[1],
                         slotLabel: row[2],
@@ -53,11 +46,10 @@ module.exports = async function handler(req, res) {
                         email: row[4],
                         phone: row[5],
                         notes: row[6],
-
-                        // Correlate with the Slot Row ID for cancellation
-                        slotRowId: slotsMap.get(`${row[1]}_${row[2]}`) || null
+                        // NEW/IMPROVED: Get Slot Row ID directly from the sheet (index 7 = column H)
+                        slotRowId: parseInt(row[7]) || null 
                     }))
-                    .filter(booking => booking.email.toLowerCase() === lookupEmail);
+                    .filter(booking => booking.email.toLowerCase() === lookupEmail && booking.slotRowId !== null);
 
                     return res.status(200).json({ ok: true, bookings: userBookings });
 
@@ -76,7 +68,7 @@ module.exports = async function handler(req, res) {
 
                 const rows = response.data.values || [];
                 const slots = rows.map((row, idx) => ({
-                    id: idx + 2, // Row number
+                    id: idx + 2, // Row number (Used as slotId by the front-end)
                     date: row[0] || "",
                     slotLabel: row[1] || "",
                     capacity: parseInt(row[2]) || 0,
@@ -100,7 +92,9 @@ module.exports = async function handler(req, res) {
             }
         }
 
+        // ------------------------------------------------------------------------------------------------
         // --- POST: save signup to Google Sheet (Multi-Slot Logic) ---
+        // ------------------------------------------------------------------------------------------------
         if (req.method === "POST") {
             const { name, email, phone, notes, slotIds } = req.body;
 
@@ -160,6 +154,7 @@ module.exports = async function handler(req, res) {
                     email,
                     phone || "",
                     notes || "",
+                    slotId, // <--- IMPORTANT: Persist the Slot Row ID for easy cancellation lookup
                 ]);
             }
 
@@ -175,6 +170,7 @@ module.exports = async function handler(req, res) {
                 });
 
                 // B. Append ALL signup rows in a single batch append request
+                // The Signups sheet must now have 8 columns (A-H)
                 await sheets.spreadsheets.values.append({
                     spreadsheetId: process.env.SHEET_ID,
                     range: "Signups!A1",
@@ -190,14 +186,17 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // ----------------------------------------------------
-        // --- NEW: PATCH handler for Cancellation ---
-        // ----------------------------------------------------
+        // ------------------------------------------------------------------------------------------------
+        // --- PATCH: handler for Cancellation ---
+        // ------------------------------------------------------------------------------------------------
         if (req.method === "PATCH") {
             const { signupRowId, slotRowId } = req.body;
 
             if (!signupRowId || !slotRowId) {
                 return res.status(400).json({ ok: false, error: "Missing signupRowId or slotRowId" });
+            }
+            if (!SIGNUPS_GID) {
+                 return res.status(500).json({ ok: false, error: "Configuration Error: SIGNUPS_GID is not set." });
             }
 
             try {
@@ -229,8 +228,7 @@ module.exports = async function handler(req, res) {
                         requests: [{
                             deleteDimension: {
                                 range: {
-                                    // You MUST replace 1915116914 with the actual GID of your Signups sheet!
-                                    sheetId: 1915116914,
+                                    sheetId: SIGNUPS_GID, // FIXED: Using env variable for GID
                                     dimension: "ROWS",
                                     startIndex: signupRowId - 1,
                                     endIndex: signupRowId,
