@@ -48,9 +48,10 @@ function toggleSlot(date, slotLabel, rowId, element) {
 
 // --- Navigation Functions ---
 function backToSlotSelection() {
+    // Clear selections when going back
+    selectedSlots = [];
     document.getElementById("signupSection").style.display = "none";
-    document.getElementById("slotsDisplay").style.display = "block";
-    document.getElementById("floatingSignupBtnContainer").style.display = "block";
+    loadSlots(); // Reload to reset selection state
 }
 
 function resetPage() {
@@ -214,6 +215,19 @@ async function submitSignup() {
         return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        showMessage("signupMsg", "Please enter a valid email address.", true);
+        return;
+    }
+
+    // Validate phone if provided
+    if (phone && !/^[\d\s\-\+\(\)]+$/.test(phone)) {
+        showMessage("signupMsg", "Please enter a valid phone number (numbers, spaces, and dashes only).", true);
+        return;
+    }
+
     if (selectedSlots.length === 0) {
         showMessage("signupMsg", "Error: No slots selected.", true);
         return;
@@ -373,3 +387,12 @@ async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 
 // Start loading slots when the page loads
 document.addEventListener('DOMContentLoaded', loadSlots);
+
+// Warn before leaving page if slots are selected
+window.addEventListener('beforeunload', (e) => {
+    if (selectedSlots.length > 0 && document.getElementById("signupSection").style.display === "none") {
+        e.preventDefault();
+        e.returnValue = 'You have selected slots but haven\'t completed your booking. Are you sure you want to leave?';
+        return e.returnValue;
+    }
+});
