@@ -117,7 +117,6 @@ h2 {
 /* ---------------------------------- */
 
 .date-card {
-    /* Base style moved to .card */
     margin: var(--spacing-unit) 0;
     padding: var(--spacing-unit);
 }
@@ -130,7 +129,6 @@ h2 {
 
 .slots-grid {
     display: grid;
-    /* Adjust minmax for better mobile grid */
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); 
     gap: 8px;
     margin-top: 10px;
@@ -139,7 +137,7 @@ h2 {
 /* Make slots larger and more touchable */
 .slot {
     background: #f8f9fa;
-    padding: 12px; /* Increased padding */
+    padding: 12px; 
     border: 2px solid var(--border-color);
     border-radius: 8px;
     cursor: pointer;
@@ -147,22 +145,32 @@ h2 {
     text-align: center;
     font-size: 0.95rem;
     font-weight: 600;
-    display: flex; /* For alignment */
+    display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 50px; /* Ensures height is thumb-friendly */
+    min-height: 50px;
 }
 
-.slot:hover:not(.disabled) {
+/* Ensure hover only applies to non-selected, non-disabled slots */
+.slot:hover:not(.disabled):not(.selected) {
     border-color: var(--primary-color);
     background: #e9f3ff;
 }
 
+/* Selected state: Use !important to override mobile touch/active effects */
 .slot.selected {
-    border-color: var(--primary-color);
-    background: var(--primary-color);
-    color: white;
+    border-color: var(--primary-color) !important;
+    background: var(--primary-color) !important;
+    color: white !important;
     box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+/* Ensure selected state is persistent even when hovering/activating */
+.slot.selected:hover,
+.slot.selected:active {
+    border-color: var(--primary-color) !important;
+    background: var(--primary-color) !important;
+    color: white !important;
 }
 
 .slot.disabled {
@@ -172,7 +180,7 @@ h2 {
     border-style: dashed;
 }
 
-/* Hide the checkbox but keep it functional via the JS click handler */
+/* Hide the checkbox */
 .slot input[type="checkbox"] {
     display: none; 
 }
@@ -190,7 +198,7 @@ h2 {
 /* ---------------------------------- */
 
 .lookup-section {
-    background: #f0f8ff; /* Light blue background */
+    background: #f0f8ff; 
     border: 1px solid #cceeff;
 }
 
@@ -233,12 +241,11 @@ h2 {
     color: #495057;
 }
 
-/* Zebra striping for readability */
 .slots-table tr:nth-child(even) {
     background-color: #f8f9fa;
 }
 
-/* NEW: Styles for the Cancel button in the bookings table */
+/* Styles for the Cancel button in the bookings table */
 .btn-cancel {
     background: var(--danger-color); 
     color: white;
@@ -265,12 +272,12 @@ h2 {
     }
 
     .slot {
-        padding: 15px; /* Even bigger touch targets */
+        padding: 15px; 
         font-size: 1rem;
     }
 
     .lookup-controls {
-        flex-direction: column; /* Stack input and button */
+        flex-direction: column; 
         align-items: stretch;
     }
     
