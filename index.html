@@ -1,52 +1,43 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <title>Book a Slot</title>
+    <link rel="stylesheet" href="style.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Booking Sign Up</title>
-    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <h1>Book Your Appointment</h1>
-        <p class="description">Select the date(s) and time slot(s) that work best for you. You can select multiple slots across different dates.</p>
+        <h1>Book Your Slot</h1>
+        
+        <div id="loadingMsg">Loading available slots...</div>
 
-        <div id="datesContainer">
-            <p>Loading available slots...</p>
+        <div id="slotsDisplay" style="display:none;" class="card">
+            <h2>Available Dates</h2>
+            <div id="datesContainer">
+                </div>
         </div>
 
-        <div id="floatingSignupBtnContainer" style="display:none;">
-            <button id="floatingSignupBtn" class="btn primary-btn">
-                Continue to Sign Up (0 Slots Selected)
-            </button>
+        <div id="signupSection" style="display:none;" class="card">
+            <h2>✍️ Enter Your Details</h2>
+            
+            <div id="selectedSlotSummary" style="margin-top: 15px; padding: 10px; border: 1px dashed #ccc; background-color: #f9f9f9; display: none; text-align: left;">
+                </div>
+            <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name" required>
+            <input type="email" id="emailInput" class="form-input" placeholder="Your Email Address" required>
+            <input type="tel" id="phoneInput" class="form-input" placeholder="Your Phone Number" required>
+            
+            <button onclick="submitSignup()" id="submitSignupBtn" class="btn primary-btn" disabled>Submit Signup</button>
+            <p id="signupMsg" class="msg-box"></p>
+            <button onclick="resetSelection()" class="btn secondary-btn">Cancel & Go Back</button>
         </div>
-
-        <div class="card" id="signupForm" style="display:none;">
-            <h2>📝 Your Details</h2>
-            <form>
-                <input type="text" id="name" class="form-input" placeholder="Your Full Name" required>
-                <input type="email" id="email" class="form-input" placeholder="Your Email Address" required>
-                <input type="tel" id="phone" class="form-input" placeholder="Phone Number (Optional)">
-                <textarea id="notes" class="form-input" placeholder="Any special notes or comments (Optional)"></textarea>
-                
-                <p id="msg" class="msg-box" style="display: none;"></p>
-                
-                <button type="submit" class="btn secondary-btn">Submit Signup</button>
-            </form>
-        </div>
-
-        <hr>
-
-        <div class="card lookup-section">
-            <h2>🔍 Look Up / Cancel Booking</h2>
-            <div class="lookup-controls">
-                <input type="email" id="lookupEmail" class="form-input lookup-input" placeholder="Enter your email to look up bookings">
-                <button onclick="lookupBookings()" class="btn secondary-btn">Search</button>
-            </div>
-            <div id="userBookingsDisplay" style="margin-top: 15px;"></div>
+        
+        <div id="successMessage" style="display:none;" class="card">
+            <h2>Booking Confirmed! 🎉</h2>
+            <p id="confirmationDetails"></p>
+            <button onclick="resetPage()" class="btn primary-btn">Book Another Slot</button>
         </div>
     </div>
 
-    <script src="user-script.js"></script>
+    <script src="user.js"></script>
 </body>
 </html>
