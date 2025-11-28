@@ -1,95 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Signup</title>
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    .dates-container { margin: 20px 0; }
-    .date-card { background: #f9f9f9; padding: 15px; margin: 10px 0; border-radius: 8px; border: 1px solid #ddd; }
-    .date-card h3 { margin-top: 0; color: #333; }
-    .slots-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; margin-top: 10px; }
-    .slot { background: white; padding: 10px; border: 2px solid #ddd; border-radius: 4px; cursor: pointer; transition: all 0.3s; }
-    .slot:hover:not(.disabled) { border-color: #007bff; background: #e7f3ff; }
-    .slot.selected { border-color: #007bff; background: #007bff; color: white; }
-    .slot.disabled { opacity: 0.5; cursor: not-allowed; background: #eee; }
-    
-    /* --- UPDATED: Change radio to checkbox for multi-select --- */
-    .slot input[type="checkbox"] { margin-right: 8px; }
-    
-    #signupForm { background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 20px; }
-    #signupForm input, #signupForm textarea { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px; box-sizing: border-box; }
-    #signupForm button { background: #28a745; color: white; border: none; padding: 12px 30px; border-radius: 4px; cursor: pointer; font-size: 16px; }
-    #signupForm button:hover { background: #218838; }
-    #msg { margin-top: 15px; padding: 10px; border-radius: 4px; }
-    .full-badge { color: red; font-weight: bold; }
-    
-    /* --- NEW: Styles for the Bookings Lookup section --- */
-    #lookupSection { 
-        margin-top: 40px; 
-        padding: 20px; 
-        background: #f0f8ff; 
-        border-radius: 8px; 
-        border: 1px solid #cceeff;
-    }
-    #lookupEmail { 
-        width: 300px; 
-        padding: 8px; 
-        margin-right: 10px;
-        border: 1px solid #99ccff;
-        border-radius: 4px;
-    }
-    #lookupSection button {
-        padding: 10px 20px;
-        background: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-    #lookupSection button:hover {
-        background: #0056b3;
-    }
-    .slots-table {
-        margin-top: 15px;
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .slots-table th, .slots-table td {
-        border: 1px solid #ddd;
-        padding: 8px;
-        text-align: left;
-    }
-    .slots-table th {
-        background: #e9ecef;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Group Sign-Up</title>
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-  <h1>Group Sign-Up</h1>
-  <p>Select a date and time slot below:</p>
-  
-  <div id="datesContainer" class="dates-container"></div>
-  
-  <form id="signupForm" style="display:none;">
-    <h2>Your Info</h2>
-    <input type="text" placeholder="Name *" id="name" required>
-    <input type="email" placeholder="Email *" id="email" required>
-    <input type="tel" placeholder="Phone" id="phone">
-    <textarea placeholder="Notes" id="notes" rows="3"></textarea>
-    <button type="submit">Submit Signup</button>
-  </form>
-  
-  <p id="msg"></p>
+    <div class="container">
+        <header>
+            <h1>Group Sign-Up</h1>
+            <p class="description">Select a date and time slot below:</p>
+        </header>
 
-    <div id="lookupSection">
-        <h2>View / Manage My Signups 🔍</h2>
-        <div>
-            <input type="email" placeholder="Enter your email to view bookings" id="lookupEmail" required>
-            <button onclick="lookupBookings()">View Bookings</button>
+        <div id="datesContainer" class="dates-container">
+            </div>
+
+        <form id="signupForm" class="card signup-form" style="display:none;">
+            <h2>Your Info</h2>
+            <input type="text" placeholder="Name *" id="name" required class="form-input">
+            <input type="email" placeholder="Email *" id="email" required class="form-input">
+            <input type="tel" placeholder="Phone" id="phone" class="form-input">
+            <textarea placeholder="Notes (Optional)" id="notes" rows="3" class="form-input"></textarea>
+            <button type="submit" class="btn primary-btn">Submit Signup</button>
+        </form>
+
+        <p id="msg" class="message"></p>
+
+        <div id="lookupSection" class="card lookup-section">
+            <h2>View / Manage My Signups 🔍</h2>
+            <div class="lookup-controls">
+                <input type="email" placeholder="Enter your email to view bookings" id="lookupEmail" required class="form-input lookup-input">
+                <button onclick="lookupBookings()" class="btn secondary-btn">View</button>
+            </div>
+            <div id="userBookingsDisplay" class="bookings-display"></div>
         </div>
-        <div id="userBookingsDisplay"></div>
     </div>
     
-  <script src="user-script.js"></script>
+    <script src="user-script.js"></script>
 </body>
 </html>
