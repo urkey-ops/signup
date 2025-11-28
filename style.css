@@ -4,7 +4,7 @@
 :root {
     --primary-color: #007bff; /* Blue */
     --success-color: #28a745; /* Green */
-    --danger-color: #dc3545; /* Red for cancellation */
+    --danger-color: #dc3545; /* Red for cancellation/error/delete */
     --background-color: #f4f7fa; /* Light background */
     --card-background: #ffffff;
     --text-color: #333;
@@ -111,9 +111,8 @@ h2 {
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
 }
 
-
 /* ---------------------------------- */
-/* 3. Date & Slot Selection           */
+/* 3. Date & Slot Selection (User View)*/
 /* ---------------------------------- */
 
 .date-card {
@@ -194,7 +193,7 @@ h2 {
 
 
 /* ---------------------------------- */
-/* 4. Lookup Section                  */
+/* 4. Lookup Section (User View)      */
 /* ---------------------------------- */
 
 .lookup-section {
@@ -263,11 +262,124 @@ h2 {
 
 
 /* ---------------------------------- */
-/* 5. Mobile Adjustments              */
+/* 5. Admin Specific Styles           */
+/* ---------------------------------- */
+
+/* Message Box Styling */
+.msg-box {
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.msg-box.error {
+    color: var(--danger-color);
+    background-color: #f8d7da;
+    border: 1px solid #f5c6cb;
+}
+
+.msg-box.success {
+    color: var(--success-color);
+    background-color: #d4edda;
+    border: 1px solid #c3e6cb;
+}
+
+/* Slot Capacity Control Layout (for mobile-first stacking) */
+.slot-capacity-control {
+    display: flex;
+    flex-direction: column; /* Stack label/checkbox and capacity input vertically on small screens */
+    align-items: flex-start;
+    gap: 5px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.slot-capacity-control:last-child {
+    border-bottom: none;
+}
+
+.slot-label {
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.capacity-input-group {
+    display: flex;
+    align-items: center;
+    margin-left: 20px; /* Indent the input */
+}
+
+/* Ensure checkbox is standard size */
+.slot-checkbox {
+    margin-right: 8px;
+    width: 16px; 
+    height: 16px;
+}
+
+/* Responsive Table Wrapper for Admin View */
+.responsive-table-wrap {
+    overflow-x: auto; /* Allows horizontal scrolling on tiny screens */
+    width: 100%;
+    margin-top: 15px;
+}
+
+/* Admin Table Styling */
+.slots-table { 
+    min-width: 600px; /* Ensures table columns don't shrink too much on mobile */
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+    font-size: 0.9rem;
+}
+
+.slots-table th, .slots-table td { 
+    border-bottom: 1px solid var(--border-color);
+    padding: 10px;
+    text-align: left;
+}
+
+.slots-table th { 
+    background: #495057;
+    color: white;
+    font-weight: 700;
+    position: sticky; 
+    top: 0;
+}
+
+.slots-table tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.full-slot {
+    font-weight: bold;
+    color: var(--danger-color);
+}
+
+/* Delete Button for Admin Table */
+.btn-delete { 
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background-color 0.2s;
+}
+
+.btn-delete:hover { 
+    background: #c82333;
+}
+
+
+/* ---------------------------------- */
+/* 6. Mobile Adjustments              */
 /* ---------------------------------- */
 @media (max-width: 576px) {
+    /* User View Slots */
     .slots-grid {
-        /* Single column for easiest mobile clicking */
         grid-template-columns: 1fr; 
     }
 
@@ -276,6 +388,7 @@ h2 {
         font-size: 1rem;
     }
 
+    /* User View Lookup Controls */
     .lookup-controls {
         flex-direction: column; 
         align-items: stretch;
@@ -283,5 +396,23 @@ h2 {
     
     .lookup-controls .secondary-btn {
         width: 100%;
+    }
+
+    /* Admin View Capacity Controls */
+    .slot-capacity-control {
+        align-items: stretch;
+    }
+}
+
+/* Media Query for larger screens: Switch Admin inputs to inline display */
+@media (min-width: 576px) {
+    .slot-capacity-control {
+        flex-direction: row; /* Layout label and capacity side-by-side */
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px;
+    }
+    .capacity-input-group {
+        margin-left: 0; /* Remove indent */
     }
 }
