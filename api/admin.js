@@ -96,13 +96,13 @@ module.exports = async function handler(req, res) {
                 // Continue anyway - duplicate check is a nice-to-have
             }
 
+            // ✅ FIXED: Correct 5-column structure for signup.js
             const rows = slots.map(slot => [
-                date,
-                slot.label || "",
-                slot.capacity || 6,
-                Math.min(99, Math.max(1, slot.capacity || 6)), // Enforce 1-99 range
-                0, // taken starts at 0
-                "" // notes column
+                date,                           // A: Date
+                slot.label || "",               // B: Slot label
+                Math.max(1, Math.min(99, parseInt(slot.capacity) || 6)), // C: Capacity (1-99)
+                0,                              // D: Taken = 0 ✅ NEW SLOTS START EMPTY
+                ""                              // E: Notes
             ]);
 
             try {
