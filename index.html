@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- UPDATED: Added viewport-fit=cover to support safe area insets on modern mobile browsers -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Book your time slots easily and manage your bookings online">
     <title>Book a Slot - Online Booking System</title>
+    <!-- File name kept as style.css to match existing reference -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,10 +24,11 @@
                     <strong>All times shown are in Eastern Time (ET)</strong>.
                 </p>
                 <div id="datesContainer" role="region" aria-label="Available time slots"></div>
-                <div style="height: 80px;" aria-hidden="true"></div> <!-- Spacer for floating button -->
+                <!-- Spacer for floating button: This is crucial to prevent content from being hidden by the fixed bottom bar -->
+                <div style="height: 100px;" aria-hidden="true"></div> 
             </div>
             
-            <!-- Floating Button -->
+            <!-- Floating Button Container -->
             <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
                 <button id="floatingSignupBtn" class="btn primary-btn" onclick="showSignupForm()" aria-label="Continue to sign up with selected slots">
                     Continue to Sign Up (0 Slots Selected)
