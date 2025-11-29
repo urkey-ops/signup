@@ -271,6 +271,129 @@ async function loadSlots() {
     }
 }
 
+// Helper function to parse time from slot label and convert to comparable number
+function parseTimeForSorting(slotLabel) {
+    // Extract time like "10:00 AM - 12:00 PM" -> "10:00 AM"
+    const startTime = slotLabel.split('-')[0].trim();
+    
+    // Parse hour and AM/PM
+    const match = startTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return 0;
+    
+    let hour = parseInt(match[1]);
+    const minute = parseInt(match[2]);
+    const period = match[3].toUpperCase();
+    
+    // Convert to 24-hour format
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    
+    return hour * 60 + minute; // Return total minutes for comparison
+}
+
+// Function to remove a slot from selection (used in summary)
+function removeSlotFromSummary(slotId) {
+    const index = selectedSlots.findIndex(slot => slot.id === slotId);
+    if (index > -1) {
+        selectedSlots.splice(index, 1);
+        
+        // Update the slot button visual state on the main page
+        const slotElement = document.getElementById(`slot-btn-${slotId}`);
+        if (slotElement) {
+            slotElement.classList.remove("selected");
+        }
+        
+        // If no slots left, go back to selection page
+        if (selectedSlots.length === 0) {
+            backToSlotSelection();
+            return;
+        }
+        
+        // Refresh the summary display
+        updateSummaryDisplay();
+        updateFloatingButton();
+    }
+}
+
+// Function to update the summary display (compact chip design)
+function updateSummaryDisplay() {
+    const summaryEl = document.getElementById('selectedSlotSummary');
+    let summaryHTML = `<div style="margin-bottom: 12px;"><strong>📋 Selected ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:</strong></div>`;
+    
+    summaryHTML += `<div class="chips-container">`;
+    
+    // Sort all slots by date first, then by time
+    const sortedSlots = [...selectedSlots].sort((a, b) => {
+        const dateCompare = new Date(a.date) - new Date(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return parseTimeForSorting(a.label) - parseTimeForSorting(b.label);
+    });
+    
+    // Create a chip for each slot
+    sortedSlots.forEach(slot => {
+        const safeDate = sanitizeHTML(slot.date);
+        const safeLabel = sanitizeHTML(slot.label);
+        
+        // Format date to be shorter (e.g., "Dec 15" instead of "December 15, 2024")
+        const dateObj = new Date(slot.date);
+        const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        
+        // Shorten time format (e.g., "10AM-12PM" instead of "10:00 AM - 12:00 PM")
+        const shortTime = slot.label
+            .replace(/:\d{2}/g, '') // Remove minutes if :00
+            .replace(/\s*-\s*/g, '-') // Remove spaces around dash
+            .replace(/\s/g, ''); // Remove remaining spaces
+        
+        summaryHTML += `
+            <div class="slot-chip" data-slot-id="${slot.id}">
+                <span class="chip-content">
+                    <span class="chip-date">${shortDate}</span>
+                    <span class="chip-time">${shortTime}</span>
+                </span>
+                <button onclick="removeSlotFromSummary(${slot.id}, event)" 
+                        class="chip-remove-btn" 
+                        aria-label="Remove ${safeDate} ${safeLabel}"
+                        title="Remove this booking">
+                    ✕
+                </button>
+            </div>
+        `;
+    });
+    
+    summaryHTML += `</div>`;
+    
+    summaryEl.innerHTML = summaryHTML;
+}
+
+// Function to remove all slots for a specific date
+function removeAllSlotsForDate(date, event) {
+    if (event) event.preventDefault();
+    
+    // Find all slots for this date
+    const slotsToRemove = selectedSlots.filter(slot => sanitizeHTML(slot.date) === date);
+    
+    // Remove visual selection from main page
+    slotsToRemove.forEach(slot => {
+        const slotElement = document.getElementById(`slot-btn-${slot.id}`);
+        if (slotElement) {
+            slotElement.classList.remove("selected");
+        }
+    });
+    
+    // Remove from selectedSlots array
+    selectedSlots = selectedSlots.filter(slot => sanitizeHTML(slot.date) !== date);
+    
+    // If no slots left, go back to selection page
+    if (selectedSlots.length === 0) {
+        backToSlotSelection();
+        return;
+    }
+    
+    // Refresh the summary display
+    updateSummaryDisplay();
+    updateFloatingButton();
+}
+
 // Function to show signup form with selected slots summary
 function showSignupForm() {
     if (selectedSlots.length === 0) {
@@ -278,29 +401,8 @@ function showSignupForm() {
         return;
     }
 
-    // Display selected slots summary with sanitized data
-    const summaryEl = document.getElementById('selectedSlotSummary');
-    let summaryHTML = `<strong>📋 You Are Booking ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:</strong><br><br>`;
-    
-    // Group by date for better display
-    const slotsByDate = {};
-    selectedSlots.forEach(slot => {
-        const safeDate = sanitizeHTML(slot.date);
-        if (!slotsByDate[safeDate]) {
-            slotsByDate[safeDate] = [];
-        }
-        slotsByDate[safeDate].push(sanitizeHTML(slot.label));
-    });
-    
-    // Sort dates chronologically
-    Object.keys(slotsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
-        summaryHTML += `<div class="selected-slot-item">`;
-        summaryHTML += `📅 <strong>${date}</strong><br>`;
-        summaryHTML += `🕰️ ${slotsByDate[date].join(', ')}`;
-        summaryHTML += `</div>`;
-    });
-    
-    summaryEl.innerHTML = summaryHTML;
+    // Update and display the summary
+    updateSummaryDisplay();
 
     // Show signup form and hide slots display
     document.getElementById("slotsDisplay").style.display = "none";
@@ -400,8 +502,13 @@ async function submitSignup() {
             
             // Sort dates chronologically
             Object.keys(slotsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
+                // Sort time slots chronologically within each date
+                const sortedSlots = slotsByDate[date].sort((a, b) => {
+                    return parseTimeForSorting(a) - parseTimeForSorting(b);
+                });
+                
                 confirmationHTML += `📅 <strong>${date}</strong><br>`;
-                confirmationHTML += `🕰️ ${slotsByDate[date].join(', ')}<br><br>`;
+                confirmationHTML += `🕰️ ${sortedSlots.join(', ')}<br><br>`;
             });
             
             confirmationHTML += `<p style="color: #64748b; margin-top: 15px;">A confirmation has been sent to <strong>${sanitizeHTML(email)}</strong></p>`;
