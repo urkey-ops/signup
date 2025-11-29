@@ -5,12 +5,12 @@
 
 :root {
     /* Modern Color Palette */
-    --primary-color: #2563eb;      /* Modern Blue */
+    --primary-color: #2563eb;       /* Modern Blue */
     --primary-hover: #1d4ed8;
     --primary-light: #dbeafe;
-    --success-color: #10b981;      /* Modern Green */
+    --success-color: #10b981;       /* Modern Green */
     --success-hover: #059669;
-    --danger-color: #ef4444;       /* Modern Red */
+    --danger-color: #ef4444;        /* Modern Red */
     --danger-hover: #dc2626;
     
     /* Neutrals */
@@ -22,11 +22,11 @@
     --text-muted: #94a3b8;
     
     /* Spacing */
-    --space-xs: 0.25rem;
-    --space-sm: 0.5rem;
-    --space-md: 1rem;
-    --space-lg: 1.5rem;
-    --space-xl: 2rem;
+    --space-xs: 0.25rem; /* 4px */
+    --space-sm: 0.5rem;  /* 8px */
+    --space-md: 1rem;    /* 16px */
+    --space-lg: 1.5rem;  /* 24px */
+    --space-xl: 2rem;    /* 32px */
     
     /* Border Radius */
     --radius-sm: 0.375rem;
@@ -45,7 +45,7 @@
 }
 
 /* ---------------------------------- */
-/* Base Styles                        */
+/* Base Styles                      */
 /* ---------------------------------- */
 * {
     box-sizing: border-box;
@@ -69,7 +69,7 @@ body {
 }
 
 /* ---------------------------------- */
-/* Typography                         */
+/* Typography                       */
 /* ---------------------------------- */
 h1 {
     font-size: 2rem;
@@ -101,7 +101,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Card Component                     */
+/* Card Component                   */
 /* ---------------------------------- */
 .card {
     background: var(--surface);
@@ -118,7 +118,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Buttons                            */
+/* Buttons                          */
 /* ---------------------------------- */
 .btn {
     display: inline-flex;
@@ -135,6 +135,7 @@ h3 {
     outline: none;
     text-decoration: none;
     font-family: inherit;
+    min-height: 48px; /* Ensure buttons are large enough for touch targets */
 }
 
 .btn:disabled {
@@ -175,7 +176,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Form Inputs                        */
+/* Form Inputs                      */
 /* ---------------------------------- */
 .form-input {
     width: 100%;
@@ -188,6 +189,7 @@ h3 {
     color: var(--text-primary);
     background: var(--surface);
     transition: all 0.2s ease;
+    min-height: 48px; /* CRITICAL: Ensure inputs are thumb-friendly */
 }
 
 .form-input:focus {
@@ -206,7 +208,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Floating Button                    */
+/* Floating Button (The Continue Button) */
 /* ---------------------------------- */
 #floatingSignupBtnContainer {
     position: fixed;
@@ -214,7 +216,14 @@ textarea.form-input {
     left: 0;
     right: 0;
     z-index: 1000;
-    padding: var(--space-md) var(--space-lg);
+    
+    /* CRITICAL FIX: Use env() for safe area insets (e.g., iOS Safari bottom bar) */
+    /* Padding bottom takes the greater of minimum padding or the safe area inset */
+    padding-top: var(--space-sm); 
+    padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
+    padding-left: max(var(--space-lg), env(safe-area-inset-left));
+    padding-right: max(var(--space-lg), env(safe-area-inset-right));
+
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -237,12 +246,14 @@ textarea.form-input {
     max-width: 500px;
     margin: 0 auto;
     font-size: 1rem;
-    padding: 1rem 1.5rem;
+    /* Slightly reduced vertical padding for better space efficiency */
+    padding: 0.875rem 1.5rem; 
     font-weight: 600;
+    min-height: 52px; /* Ensure this primary button is robustly touch-friendly */
 }
 
 /* ---------------------------------- */
-/* Slot Selection Grid                */
+/* Slot Selection Grid              */
 /* ---------------------------------- */
 .date-card {
     background: var(--surface);
@@ -280,7 +291,7 @@ textarea.form-input {
     text-align: center;
     font-size: 0.875rem;
     font-weight: 500;
-    min-height: 64px;
+    min-height: 64px; /* Essential for touch target size */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -321,7 +332,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Booking Summary                    */
+/* Booking Summary - Compact Chips    */
 /* ---------------------------------- */
 .selected-slots-summary {
     background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
@@ -331,17 +342,95 @@ textarea.form-input {
     margin: var(--space-lg) 0;
 }
 
-.selected-slot-item {
+/* Remove old summary item styles */
+.selected-slot-item,
+.selected-slot-item > div[style*="display: flex"],
+.remove-slot-btn,
+.remove-date-btn {
+    display: none !important;
+}
+
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 8px;
+}
+
+.slot-chip {
+    display: inline-flex;
+    align-items: center;
     background: white;
-    border-left: 4px solid var(--success-color);
-    border-radius: var(--radius-sm);
-    padding: var(--space-md);
-    margin: var(--space-sm) 0;
+    border: 1.5px solid var(--success-color);
+    border-radius: 24px;
+    padding: 8px 8px 8px 14px;
+    gap: 10px;
+    transition: all 0.2s ease;
     box-shadow: var(--shadow-sm);
+    max-width: 100%;
+}
+
+.slot-chip:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.chip-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.875rem;
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+}
+
+.chip-date {
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chip-time {
+    color: var(--success-color);
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.chip-remove-btn {
+    background: #fee2e2;
+    border: none;
+    color: var(--danger-hover);
+    font-size: 1.2rem;
+    cursor: pointer;
+    /* Enforce large, circular touch target */
+    width: 32px; 
+    height: 32px; 
+    min-width: 32px; 
+    min-height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    line-height: 1;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.chip-remove-btn:hover {
+    background: #fecaca;
+    transform: scale(1.1);
+}
+
+.chip-remove-btn:active {
+    transform: scale(0.95);
+    background: #fca5a5;
 }
 
 /* ---------------------------------- */
-/* Lookup Section                     */
+/* Lookup Section                   */
 /* ---------------------------------- */
 .lookup-section {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
@@ -357,6 +446,7 @@ textarea.form-input {
 .lookup-input {
     flex-grow: 1;
     margin: 0;
+    min-height: 48px; /* Thumb-friendly size */
 }
 
 .lookup-controls .secondary-btn {
@@ -377,7 +467,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Bookings Display                   */
+/* Bookings Display                 */
 /* ---------------------------------- */
 .booking-item {
     background: white;
@@ -413,7 +503,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Message Box                        */
+/* Message Box                      */
 /* ---------------------------------- */
 .msg-box {
     padding: var(--space-md);
@@ -437,7 +527,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Admin Specific Styles              */
+/* Admin Specific Styles            */
 /* ---------------------------------- */
 .add-slot-form {
     background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
@@ -494,10 +584,12 @@ textarea.form-input {
 .capacity-input {
     width: 80px !important;
     margin: 0 !important;
+    min-height: 40px; /* Slightly smaller input for capacity control, still touch-friendly */
+    padding: 0.5rem 0.75rem;
 }
 
 /* ---------------------------------- */
-/* Tables                             */
+/* Tables                           */
 /* ---------------------------------- */
 .responsive-table-wrap {
     overflow-x: auto;
@@ -549,6 +641,7 @@ textarea.form-input {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
+    min-height: 40px;
 }
 
 .btn-delete:hover,
@@ -564,7 +657,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Responsive Adjustments             */
+/* Responsive Adjustments - Mobile Density */
 /* ---------------------------------- */
 @media (max-width: 576px) {
     .container {
@@ -580,14 +673,37 @@ textarea.form-input {
     }
     
     .card {
-        padding: var(--space-lg);
+        /* Reduced card padding for better mobile density */
+        padding: var(--space-md); 
+        margin-bottom: var(--space-lg);
+        border-radius: var(--radius-lg);
+    }
+    
+    /* Compact date card spacing */
+    .date-card {
+        padding: var(--space-md);
+        margin-bottom: var(--space-md);
     }
     
     .slot {
-        padding: var(--space-sm);
+        /* Slightly reduced padding, maintaining min-height for touch */
+        padding: var(--space-sm) var(--space-xs); 
         font-size: 0.8125rem;
     }
     
+    /* Very compact floating button container */
+    #floatingSignupBtnContainer {
+        padding-top: var(--space-xs); 
+        padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
+        padding-left: max(var(--space-md), env(safe-area-inset-left));
+        padding-right: max(var(--space-md), env(safe-area-inset-right));
+    }
+    
+    #floatingSignupBtn {
+        padding: 0.8rem 1.25rem; 
+        font-size: 0.95rem;
+    }
+
     .slot-capacity-control {
         flex-direction: column;
         align-items: flex-start;
@@ -598,10 +714,45 @@ textarea.form-input {
         width: 100%;
         justify-content: space-between;
     }
+    
+    /* Compact Chip Design for Summary on Mobile */
+    .chips-container {
+        gap: 6px;
+    }
+    
+    .slot-chip {
+        padding: 6px 6px 6px 10px;
+    }
+    
+    .chip-content {
+        font-size: 0.8rem;
+        gap: 5px;
+    }
+    
+    .chip-remove-btn {
+        width: 28px; 
+        height: 28px; 
+        min-width: 28px; 
+        min-height: 28px;
+        font-size: 1.1rem;
+    }
+}
+
+/* For very small screens (e.g., iPhone SE width) */
+@media (max-width: 380px) {
+    .chip-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .slot-chip {
+        padding: 8px 8px 8px 10px;
+    }
 }
 
 /* ---------------------------------- */
-/* Utility Classes                    */
+/* Utility Classes                  */
 /* ---------------------------------- */
 .text-center {
     text-align: center;
@@ -645,140 +796,6 @@ input,
 *:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
-}
-
-
-/* Add this to the end of your existing style.css file */
-
-/* ---------------------------------- */
-/* Compact Chip Design for Summary    */
-/* ---------------------------------- */
-
-.chips-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 8px;
-}
-
-.slot-chip {
-    display: inline-flex;
-    align-items: center;
-    background: white;
-    border: 1.5px solid #10b981;
-    border-radius: 24px;
-    padding: 8px 8px 8px 14px;
-    gap: 10px;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    max-width: 100%;
-}
-
-.slot-chip:hover {
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    transform: translateY(-1px);
-}
-
-.chip-content {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.875rem;
-    line-height: 1.2;
-    flex: 1;
-    min-width: 0;
-}
-
-.chip-date {
-    color: #0f172a;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.chip-time {
-    color: #10b981;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.chip-remove-btn {
-    background: #fee2e2;
-    border: none;
-    color: #dc2626;
-    font-size: 1.1rem;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    line-height: 1;
-    font-weight: 700;
-    flex-shrink: 0;
-    /* Touch-friendly size */
-    min-width: 24px;
-    min-height: 24px;
-}
-
-.chip-remove-btn:hover {
-    background: #fecaca;
-    transform: scale(1.15);
-}
-
-.chip-remove-btn:active {
-    transform: scale(0.95);
-    background: #fca5a5;
-}
-
-/* Mobile optimization */
-@media (max-width: 576px) {
-    .chips-container {
-        gap: 6px;
-    }
-    
-    .slot-chip {
-        padding: 10px 10px 10px 12px;
-        font-size: 0.9rem;
-    }
-    
-    .chip-remove-btn {
-        width: 28px;
-        height: 28px;
-        min-width: 28px;
-        min-height: 28px;
-        font-size: 1.2rem;
-    }
-    
-    .chip-content {
-        font-size: 0.85rem;
-        gap: 5px;
-    }
-}
-
-/* For very small screens */
-@media (max-width: 380px) {
-    .chip-content {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-    }
-    
-    .slot-chip {
-        padding: 8px 8px 8px 10px;
-    }
-}
-
-/* Remove old styles if they exist */
-.remove-slot-btn,
-.remove-date-btn {
-    display: none !important;
-}
-
-.selected-slot-item > div[style*="display: flex"] {
-    background: none !important;
 }
 
 /* ---------------------------------- */
