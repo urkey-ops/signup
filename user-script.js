@@ -1,7 +1,43 @@
 const API_URL = "/api/signup";
 
-// Array to hold multiple selected slots
+// Configuration
+const CONFIG = {
+    MAX_SLOTS_PER_BOOKING: 10,
+    API_COOLDOWN: 1000, // 1 second between submissions
+    RETRY_DELAY: 3000, // 3 seconds before allowing retry
+};
+
+// State management
 let selectedSlots = [];
+let lastApiCall = 0;
+let isSubmitting = false;
+
+// --- Security: Input Sanitization ---
+function sanitizeHTML(str) {
+    if (!str) return '';
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function sanitizeInput(str, maxLength = 255) {
+    if (!str) return '';
+    return str
+        .trim()
+        .replace(/[<>]/g, '') // Remove potential HTML tags
+        .substring(0, maxLength);
+}
+
+// --- Validation Functions ---
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email) && email.length <= 254;
+}
+
+function isValidPhone(phone) {
+    if (!phone) return true; // Optional field
+    return /^[\d\s\-\+\(\)]{7,20}$/.test(phone);
+}
 
 // --- Helper for message display ---
 function showMessage(elementId, message, isError) {
@@ -9,6 +45,22 @@ function showMessage(elementId, message, isError) {
     el.textContent = message;
     el.className = isError ? "msg-box error" : "msg-box success";
     el.style.display = message ? "block" : "none";
+}
+
+// --- Improved Error Messages ---
+function getErrorMessage(status, defaultMessage) {
+    const errorMessages = {
+        400: "Invalid request. Please check your information and try again.",
+        401: "Authentication required. Please refresh the page.",
+        403: "Access denied. Please contact support.",
+        404: "Service not found. Please contact support.",
+        409: "This slot was just booked by someone else. Please select another.",
+        429: "Too many requests. Please wait a moment and try again.",
+        500: "Server error. Please try again in a few moments.",
+        503: "Service temporarily unavailable. Please try again later.",
+    };
+    
+    return errorMessages[status] || defaultMessage || "An unexpected error occurred. Please try again.";
 }
 
 // --- Update floating button ---
@@ -25,7 +77,7 @@ function updateFloatingButton() {
     }
 }
 
-// --- Toggle slot selection ---
+// --- Toggle slot selection with limit ---
 function toggleSlot(date, slotLabel, rowId, element) {
     const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
     
@@ -34,6 +86,12 @@ function toggleSlot(date, slotLabel, rowId, element) {
         selectedSlots.splice(existingIndex, 1);
         element.classList.remove("selected");
     } else {
+        // Check limit before adding
+        if (selectedSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
+            alert(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`);
+            return;
+        }
+        
         // Add slot
         selectedSlots.push({
             id: rowId,
@@ -56,25 +114,36 @@ function backToSlotSelection() {
 
 function resetPage() {
     selectedSlots = [];
+    isSubmitting = false;
     document.getElementById("successMessage").style.display = "none";
     document.getElementById("loadingMsg").style.display = "block";
     document.getElementById("floatingSignupBtnContainer").style.display = "none";
     loadSlots();
 }
 
-// --- Core Logic ---
+// --- Core Logic with Error Recovery ---
 
 async function loadSlots() {
-    document.getElementById("loadingMsg").textContent = "Loading available slots...";
-    document.getElementById("loadingMsg").style.display = "block";
-    document.getElementById("slotsDisplay").style.display = "none";
-    document.getElementById("signupSection").style.display = "none";
+    const loadingMsg = document.getElementById("loadingMsg");
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const signupSection = document.getElementById("signupSection");
+    
+    loadingMsg.innerHTML = "Loading available slots...";
+    loadingMsg.style.display = "block";
+    slotsDisplay.style.display = "none";
+    signupSection.style.display = "none";
 
     try {
         const res = await fetch(API_URL);
         
         if (!res.ok) {
-            document.getElementById("loadingMsg").textContent = `Error: Failed to fetch available slots. Server responded with status ${res.status}.`;
+            const errorMsg = getErrorMessage(res.status, "Failed to fetch available slots.");
+            loadingMsg.innerHTML = `
+                <p style="color: #dc2626; margin-bottom: 15px;">⚠️ ${errorMsg}</p>
+                <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
+                    🔄 Retry
+                </button>
+            `;
             console.error(`API Call failed with status: ${res.status}`);
             return;
         }
@@ -82,7 +151,12 @@ async function loadSlots() {
         const data = await res.json();
         
         if (!data.ok) {
-            document.getElementById("loadingMsg").textContent = `Error: API reported failure. Details: ${data.error}`;
+            loadingMsg.innerHTML = `
+                <p style="color: #dc2626; margin-bottom: 15px;">⚠️ ${sanitizeHTML(data.error || 'Failed to load slots')}</p>
+                <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
+                    🔄 Retry
+                </button>
+            `;
             return;
         }
 
@@ -100,16 +174,27 @@ async function loadSlots() {
             return slotDate >= today; // Only show today and future dates
         });
         
-        // Sort dates chronologically instead of alphabetically
+        // Sort dates chronologically
         const sortedDates = futureDates.sort((a, b) => {
             const dateA = new Date(a);
             const dateB = new Date(b);
             return dateA - dateB;
         });
+        
         const datesContainer = document.getElementById("datesContainer");
 
         if (sortedDates.length === 0) {
-            html = "<p>No available slots at this time. Please check back later!</p>";
+            html = `
+                <div style="text-align: center; padding: 40px 20px;">
+                    <p style="font-size: 1.1rem; color: #64748b; margin-bottom: 20px;">
+                        📅 No available slots at this time.
+                    </p>
+                    <p style="color: #94a3b8;">Please check back later!</p>
+                    <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 20px auto 0;">
+                        🔄 Refresh
+                    </button>
+                </div>
+            `;
             datesContainer.innerHTML = html;
         } else {
             sortedDates.forEach(date => {
@@ -126,19 +211,21 @@ async function loadSlots() {
                 if (availableSlotsForDate.length > 0) {
                     html += `
                         <div class="date-card card">
-                            <h3>📅 ${date}</h3>
+                            <h3>📅 ${sanitizeHTML(date)}</h3>
                             <div class="slots-grid">
                     `;
                     
                     availableSlotsForDate.forEach(slot => {
                         const isSelected = selectedSlots.some(s => s.id === slot.id);
                         const selectedClass = isSelected ? 'selected' : '';
+                        const safeDate = sanitizeHTML(slot.date);
+                        const safeLabel = sanitizeHTML(slot.slotLabel);
                         
                         html += `
                             <div class="slot ${selectedClass}" 
                                  id="slot-btn-${slot.id}"
-                                 onclick="toggleSlot('${slot.date}', '${slot.slotLabel}', ${slot.id}, this)">
-                                ${slot.slotLabel}<br>
+                                 onclick="toggleSlot('${safeDate}', '${safeLabel}', ${slot.id}, this)">
+                                ${safeLabel}<br>
                                 <small>(${slot.available} left)</small>
                             </div>
                         `;
@@ -151,19 +238,36 @@ async function loadSlots() {
             });
             
             if (html === "") {
-                 datesContainer.innerHTML = "<p>No available slots at this time. Please check back later!</p>";
+                datesContainer.innerHTML = `
+                    <div style="text-align: center; padding: 40px 20px;">
+                        <p style="font-size: 1.1rem; color: #64748b; margin-bottom: 20px;">
+                            📅 No available slots at this time.
+                        </p>
+                        <p style="color: #94a3b8;">Please check back later!</p>
+                        <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 20px auto 0;">
+                            🔄 Refresh
+                        </button>
+                    </div>
+                `;
             } else {
-                 datesContainer.innerHTML = html;
+                datesContainer.innerHTML = html;
             }
         }
 
-        document.getElementById("loadingMsg").style.display = "none";
-        document.getElementById("slotsDisplay").style.display = "block";
+        loadingMsg.style.display = "none";
+        slotsDisplay.style.display = "block";
         updateFloatingButton();
 
     } catch (err) {
-        document.getElementById("loadingMsg").textContent = "An error occurred while connecting to the server. Check console for details.";
-        console.error("Load Slots Catch Error:", err);
+        loadingMsg.innerHTML = `
+            <p style="color: #dc2626; margin-bottom: 15px;">
+                ⚠️ Unable to connect to the server. Please check your internet connection.
+            </p>
+            <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
+                🔄 Retry
+            </button>
+        `;
+        console.error("Load Slots Error:", err);
     }
 }
 
@@ -174,17 +278,18 @@ function showSignupForm() {
         return;
     }
 
-    // Display selected slots summary
+    // Display selected slots summary with sanitized data
     const summaryEl = document.getElementById('selectedSlotSummary');
     let summaryHTML = `<strong>📋 You Are Booking ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:</strong><br><br>`;
     
     // Group by date for better display
     const slotsByDate = {};
     selectedSlots.forEach(slot => {
-        if (!slotsByDate[slot.date]) {
-            slotsByDate[slot.date] = [];
+        const safeDate = sanitizeHTML(slot.date);
+        if (!slotsByDate[safeDate]) {
+            slotsByDate[safeDate] = [];
         }
-        slotsByDate[slot.date].push(slot.label);
+        slotsByDate[safeDate].push(sanitizeHTML(slot.label));
     });
     
     // Sort dates chronologically
@@ -205,36 +310,58 @@ function showSignupForm() {
 }
 
 async function submitSignup() {
-    const name = document.getElementById("nameInput").value.trim();
-    const email = document.getElementById("emailInput").value.trim();
-    const phone = document.getElementById("phoneInput").value.trim();
-    const notes = document.getElementById("notesInput").value.trim();
+    // Prevent double submission
+    if (isSubmitting) {
+        showMessage("signupMsg", "Please wait, your booking is being processed...", true);
+        return;
+    }
+    
+    // Rate limiting
+    const now = Date.now();
+    if (now - lastApiCall < CONFIG.API_COOLDOWN) {
+        showMessage("signupMsg", "Please wait a moment before submitting again.", true);
+        return;
+    }
 
+    const name = sanitizeInput(document.getElementById("nameInput").value, 100);
+    const email = sanitizeInput(document.getElementById("emailInput").value.toLowerCase(), 254);
+    const phone = sanitizeInput(document.getElementById("phoneInput").value, 20);
+    const notes = sanitizeInput(document.getElementById("notesInput").value, 500);
+
+    // Client-side validation
     if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
         return;
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        showMessage("signupMsg", "Please enter a valid email address.", true);
+    if (!isValidEmail(email)) {
+        showMessage("signupMsg", "Please enter a valid email address (e.g., name@example.com).", true);
         return;
     }
 
-    // Validate phone if provided
-    if (phone && !/^[\d\s\-\+\(\)]+$/.test(phone)) {
-        showMessage("signupMsg", "Please enter a valid phone number (numbers, spaces, and dashes only).", true);
+    if (!isValidPhone(phone)) {
+        showMessage("signupMsg", "Please enter a valid phone number (numbers, spaces, dashes, and parentheses only).", true);
         return;
     }
 
     if (selectedSlots.length === 0) {
-        showMessage("signupMsg", "Error: No slots selected.", true);
+        showMessage("signupMsg", "Error: No slots selected. Please go back and select at least one slot.", true);
         return;
     }
 
-    showMessage("signupMsg", "Submitting your booking...", false);
-    document.getElementById("submitSignupBtn").disabled = true;
+    if (selectedSlots.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
+        showMessage("signupMsg", `Error: You can only book up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at once.`, true);
+        return;
+    }
+
+    // Set submitting state
+    isSubmitting = true;
+    lastApiCall = now;
+    
+    showMessage("signupMsg", "📤 Submitting your booking...", false);
+    const submitBtn = document.getElementById("submitSignupBtn");
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Processing...";
 
     // Extract slot IDs for backend
     const slotIds = selectedSlots.map(slot => slot.id);
@@ -250,22 +377,25 @@ async function submitSignup() {
     try {
         const res = await fetch(API_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+            },
             body: JSON.stringify(signupData)
         });
         
         const data = await res.json();
         
         if (data.ok) {
-            // Build confirmation message
-            let confirmationHTML = `Thank you, <strong>${name}</strong>! Your spot${selectedSlots.length > 1 ? 's have' : ' has'} been reserved for:<br><br>`;
+            // Build confirmation message with sanitized data
+            let confirmationHTML = `Thank you, <strong>${sanitizeHTML(name)}</strong>! Your spot${selectedSlots.length > 1 ? 's have' : ' has'} been reserved for:<br><br>`;
             
             const slotsByDate = {};
             selectedSlots.forEach(slot => {
-                if (!slotsByDate[slot.date]) {
-                    slotsByDate[slot.date] = [];
+                const safeDate = sanitizeHTML(slot.date);
+                if (!slotsByDate[safeDate]) {
+                    slotsByDate[safeDate] = [];
                 }
-                slotsByDate[slot.date].push(slot.label);
+                slotsByDate[safeDate].push(sanitizeHTML(slot.label));
             });
             
             // Sort dates chronologically
@@ -273,6 +403,8 @@ async function submitSignup() {
                 confirmationHTML += `📅 <strong>${date}</strong><br>`;
                 confirmationHTML += `🕰️ ${slotsByDate[date].join(', ')}<br><br>`;
             });
+            
+            confirmationHTML += `<p style="color: #64748b; margin-top: 15px;">A confirmation has been sent to <strong>${sanitizeHTML(email)}</strong></p>`;
             
             document.getElementById("signupSection").style.display = "none";
             document.getElementById("confirmationDetails").innerHTML = confirmationHTML;
@@ -284,62 +416,83 @@ async function submitSignup() {
             document.getElementById("phoneInput").value = "";
             document.getElementById("notesInput").value = "";
             selectedSlots = [];
-            document.getElementById("submitSignupBtn").disabled = false;
+            
         } else {
-            showMessage("signupMsg", data.error || "Booking failed. Please try again.", true);
-            document.getElementById("submitSignupBtn").disabled = false;
+            const errorMessage = data.error || "Booking failed. Please try again.";
+            showMessage("signupMsg", sanitizeHTML(errorMessage), true);
         }
     } catch (err) {
-        showMessage("signupMsg", "Failed to connect to the server for booking.", true);
-        document.getElementById("submitSignupBtn").disabled = false;
         console.error("Submit signup error:", err);
+        showMessage("signupMsg", "Unable to connect to the server. Please check your internet connection and try again.", true);
+    } finally {
+        isSubmitting = false;
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Submit Signup";
     }
 }
 
 // --- Lookup Bookings Function ---
 async function lookupBookings() {
-    const email = document.getElementById("lookupEmail").value.trim();
+    const email = sanitizeInput(document.getElementById("lookupEmail").value.toLowerCase(), 254);
     const displayEl = document.getElementById("userBookingsDisplay");
     const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
 
     if (!email) {
-        displayEl.innerHTML = '<p class="msg-box error">Please enter an email address.</p>';
+        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter an email address.</p>';
+        return;
+    }
+
+    if (!isValidEmail(email)) {
+        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter a valid email address.</p>';
         return;
     }
 
     // Disable button and show loading state
     searchBtn.disabled = true;
     searchBtn.textContent = 'Searching...';
-    displayEl.innerHTML = '<p>Searching for your bookings...</p>';
+    displayEl.innerHTML = '<p>🔍 Searching for your bookings...</p>';
 
     try {
         const res = await fetch(`${API_URL}?email=${encodeURIComponent(email)}`);
+        
+        if (!res.ok) {
+            const errorMsg = getErrorMessage(res.status, "Failed to lookup bookings.");
+            displayEl.innerHTML = `<p class="msg-box error">⚠️ ${errorMsg}</p>`;
+            return;
+        }
+        
         const data = await res.json();
 
         if (!data.ok) {
-            displayEl.innerHTML = `<p class="msg-box error">Error: ${data.error}</p>`;
+            displayEl.innerHTML = `<p class="msg-box error">⚠️ ${sanitizeHTML(data.error)}</p>`;
             return;
         }
 
         const bookings = data.bookings || [];
 
         if (bookings.length === 0) {
-            displayEl.innerHTML = '<p class="msg-box">No bookings found for this email address.</p>';
+            displayEl.innerHTML = '<p class="msg-box">📭 No bookings found for this email address.</p>';
             return;
         }
 
-        // Display bookings
+        // Display bookings with sanitized data
         let html = '<div class="bookings-list">';
         bookings.forEach(booking => {
+            const safeDate = sanitizeHTML(booking.date);
+            const safeLabel = sanitizeHTML(booking.slotLabel);
+            const safeName = sanitizeHTML(booking.name);
+            const safePhone = sanitizeHTML(booking.phone || '');
+            const safeNotes = sanitizeHTML(booking.notes || '');
+            
             html += `
-                <div class="booking-item" style="margin: 10px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9;">
-                    <strong>📅 ${booking.date}</strong> at <strong>🕰️ ${booking.slotLabel}</strong><br>
-                    <small>Name: ${booking.name}</small><br>
-                    ${booking.phone ? `<small>Phone: ${booking.phone}</small><br>` : ''}
-                    ${booking.notes ? `<small>Notes: ${booking.notes}</small><br>` : ''}
-                    <button onclick="cancelBooking(${booking.signupRowId}, ${booking.slotRowId}, '${booking.date}', '${booking.slotLabel}')" 
-                            class="btn secondary-btn" style="margin-top: 8px; background: #f44336; color: white;">
-                        Cancel This Booking
+                <div class="booking-item">
+                    <strong>📅 ${safeDate}</strong> at <strong>🕰️ ${safeLabel}</strong><br>
+                    <small>Name: ${safeName}</small><br>
+                    ${safePhone ? `<small>Phone: ${safePhone}</small><br>` : ''}
+                    ${safeNotes ? `<small>Notes: ${safeNotes}</small><br>` : ''}
+                    <button onclick="cancelBooking(${booking.signupRowId}, ${booking.slotRowId}, '${safeDate.replace(/'/g, "\\'")}', '${safeLabel.replace(/'/g, "\\'")}')" 
+                            class="btn secondary-btn" style="margin-top: 8px; background: #ef4444; color: white;">
+                        ❌ Cancel This Booking
                     </button>
                 </div>
             `;
@@ -348,7 +501,7 @@ async function lookupBookings() {
         displayEl.innerHTML = html;
 
     } catch (err) {
-        displayEl.innerHTML = '<p class="msg-box error">Failed to lookup bookings. Please try again.</p>';
+        displayEl.innerHTML = '<p class="msg-box error">⚠️ Unable to connect to the server. Please check your internet connection and try again.</p>';
         console.error("Lookup error:", err);
     } finally {
         // Re-enable button
@@ -359,34 +512,60 @@ async function lookupBookings() {
 
 // --- Cancel Booking Function ---
 async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
-    if (!confirm(`Are you sure you want to cancel your booking for ${date} at ${slotLabel}?`)) {
+    const safeDate = sanitizeHTML(date);
+    const safeLabel = sanitizeHTML(slotLabel);
+    
+    if (!confirm(`⚠️ Are you sure you want to cancel your booking for:\n\n📅 ${safeDate}\n🕰️ ${safeLabel}\n\nThis action cannot be undone.`)) {
         return;
     }
 
+    const displayEl = document.getElementById("userBookingsDisplay");
+    const originalHTML = displayEl.innerHTML;
+
     try {
+        displayEl.innerHTML = '<p>⏳ Cancelling your booking...</p>';
+        
         const res = await fetch(API_URL, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ signupRowId, slotRowId })
         });
 
+        if (!res.ok) {
+            const errorMsg = getErrorMessage(res.status, "Failed to cancel booking.");
+            alert(`❌ Error: ${errorMsg}`);
+            displayEl.innerHTML = originalHTML;
+            return;
+        }
+
         const data = await res.json();
 
         if (data.ok) {
-            alert(data.message || "Booking cancelled successfully!");
+            alert(`✅ ${data.message || "Booking cancelled successfully!"}`);
             // Refresh the bookings list
             lookupBookings();
         } else {
-            alert(`Error: ${data.error}`);
+            alert(`❌ Error: ${sanitizeHTML(data.error)}`);
+            displayEl.innerHTML = originalHTML;
         }
     } catch (err) {
-        alert("Failed to cancel booking. Please try again.");
+        alert("❌ Unable to connect to the server. Please check your internet connection and try again.");
         console.error("Cancel error:", err);
+        displayEl.innerHTML = originalHTML;
     }
 }
 
 // Start loading slots when the page loads
-document.addEventListener('DOMContentLoaded', loadSlots);
+document.addEventListener('DOMContentLoaded', () => {
+    loadSlots();
+    
+    // Add keyboard accessibility
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && document.getElementById("signupSection").style.display === "block") {
+            backToSlotSelection();
+        }
+    });
+});
 
 // Warn before leaving page if slots are selected
 window.addEventListener('beforeunload', (e) => {
