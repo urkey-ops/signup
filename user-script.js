@@ -3,9 +3,9 @@ const API_URL = "/api/signup";
 // Configuration
 const CONFIG = {
     MAX_SLOTS_PER_BOOKING: 10,
-    API_COOLDOWN: 1000, // 1 second between submissions
-    RETRY_DELAY: 3000, // 3 seconds before allowing retry
-    CLIENT_CACHE_TTL: 30000, // 30 seconds client-side cache
+    API_COOLDOWN: 1000,
+    RETRY_DELAY: 3000,
+    CLIENT_CACHE_TTL: 30000,
 };
 
 // State management
@@ -98,7 +98,7 @@ function sanitizeInput(str, maxLength = 255) {
     if (!str) return '';
     return str
         .trim()
-        .replace(/[<>]/g, '') // Remove potential HTML tags
+        .replace(/[<>]/g, '')
         .substring(0, maxLength);
 }
 
@@ -109,7 +109,7 @@ function isValidEmail(email) {
 }
 
 function isValidPhone(phone) {
-    if (!phone) return true; // Optional field
+    if (!phone) return true;
     return /^[\d\s\-\+\(\)]{7,20}$/.test(phone);
 }
 
@@ -123,13 +123,8 @@ function showMessage(elementId, message, isError) {
 
 // --- Helper function to format date with weekday ---
 function formatDateWithDay(dateString) {
-    // Create a Date object from the YYYY-MM-DD string
     const date = new Date(dateString); 
-    
-    // Options: e.g., "Fri, Dec 5"
     const options = { weekday: 'short', month: 'short', day: 'numeric' }; 
-    
-    // Format the date using the specified options
     return date.toLocaleDateString('en-US', options); 
 }
 
@@ -168,23 +163,22 @@ function toggleSlot(date, slotLabel, rowId, element) {
     const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
     
     if (existingIndex > -1) {
-        // Remove slot
         selectedSlots.splice(existingIndex, 1);
         element.classList.remove("selected");
+        element.setAttribute('aria-pressed', 'false');
     } else {
-        // Check limit before adding
         if (selectedSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
             alert(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`);
             return;
         }
         
-        // Add slot
         selectedSlots.push({
             id: rowId,
             date: date,
             label: slotLabel
         });
         element.classList.add("selected");
+        element.setAttribute('aria-pressed', 'true');
     }
     
     updateFloatingButton();
@@ -192,10 +186,9 @@ function toggleSlot(date, slotLabel, rowId, element) {
 
 // --- Navigation Functions ---
 function backToSlotSelection() {
-    // Clear selections when going back
     selectedSlots = [];
     document.getElementById("signupSection").style.display = "none";
-    loadSlots(); // Reload to reset selection state
+    loadSlots();
 }
 
 function resetPage() {
@@ -206,7 +199,7 @@ function resetPage() {
     loadSlots();
 }
 
-// --- OPTIMIZED: Show skeleton UI immediately ---
+// --- Show skeleton UI immediately ---
 function showSkeletonUI() {
     const datesContainer = document.getElementById("datesContainer");
     const slotsDisplay = document.getElementById("slotsDisplay");
@@ -232,13 +225,12 @@ function showSkeletonUI() {
     datesContainer.innerHTML = skeletonHTML;
 }
 
-// --- OPTIMIZED: Core Logic with Client-Side Cache ---
+// --- Core Logic with Client-Side Cache ---
 async function loadSlots() {
     const loadingMsg = document.getElementById("loadingMsg");
     const slotsDisplay = document.getElementById("slotsDisplay");
     const signupSection = document.getElementById("signupSection");
     
-    // Show skeleton immediately for instant feedback
     showSkeletonUI();
     signupSection.style.display = "none";
 
@@ -280,7 +272,7 @@ async function loadSlots() {
     }
 }
 
-// --- OPTIMIZED: Render slots with DocumentFragment ---
+// FIX #5: Event Delegation - No memory leaks
 function renderSlotsData(data) {
     const datesContainer = document.getElementById("datesContainer");
     const groupedSlotsByDate = data.dates || {};
@@ -303,6 +295,11 @@ function renderSlotsData(data) {
     // Clear skeleton
     datesContainer.innerHTML = '';
     
+    // FIX #5: Remove old event listener
+    if (datesContainer._slotListener) {
+        datesContainer.removeEventListener('click', datesContainer._slotListener);
+    }
+    
     // Use DocumentFragment for better performance
     const fragment = document.createDocumentFragment();
     
@@ -321,12 +318,27 @@ function renderSlotsData(data) {
     // Single DOM update
     datesContainer.appendChild(fragment);
     
+    // FIX #5: Single delegated event listener
+    const slotListener = (e) => {
+        const slot = e.target.closest('.slot');
+        if (!slot || slot.classList.contains('disabled')) return;
+        
+        const slotId = parseInt(slot.dataset.slotId);
+        const date = slot.dataset.date;
+        const label = slot.dataset.label;
+        
+        toggleSlot(date, label, slotId, slot);
+    };
+    
+    datesContainer._slotListener = slotListener;
+    datesContainer.addEventListener('click', slotListener);
+    
     document.getElementById("loadingMsg").style.display = "none";
     document.getElementById("slotsDisplay").style.display = "block";
     updateFloatingButton();
 }
 
-// --- OPTIMIZED: Create DOM elements instead of HTML strings ---
+// Create DOM elements instead of HTML strings
 function createDateCard(date, slots) {
     const card = document.createElement('div');
     card.className = 'date-card card fade-in';
@@ -347,11 +359,16 @@ function createDateCard(date, slots) {
     return card;
 }
 
+// FIX #5: Use data attributes instead of onclick
 function createSlotElement(slot) {
     const div = document.createElement('div');
     const isSelected = selectedSlots.some(s => s.id === slot.id);
     div.className = `slot ${isSelected ? 'selected' : ''}`;
     div.id = `slot-btn-${slot.id}`;
+    div.dataset.slotId = slot.id;
+    div.dataset.date = slot.date;
+    div.dataset.label = slot.slotLabel;
+    div.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
     
     const label = document.createElement('span');
     label.textContent = slot.slotLabel;
@@ -363,9 +380,7 @@ function createSlotElement(slot) {
     small.textContent = `(${slot.available} left)`;
     div.appendChild(small);
     
-    div.onclick = function() {
-        toggleSlot(slot.date, slot.slotLabel, slot.id, this);
-    };
+    // No onclick - using event delegation
     
     return div;
 }
@@ -434,6 +449,7 @@ function removeSlotFromSummary(slotId) {
         const slotElement = document.getElementById(`slot-btn-${slotId}`);
         if (slotElement) {
             slotElement.classList.remove("selected");
+            slotElement.setAttribute('aria-pressed', 'false');
         }
         
         if (selectedSlots.length === 0) {
@@ -771,19 +787,15 @@ window.addEventListener('beforeunload', (e) => {
     }
 });
 
-// Add this new function to the bottom of your user-script.js
 function toggleLookup() {
     const content = document.getElementById('lookupContent');
     const toggleButton = document.getElementById('lookupToggle');
     
-    // Toggle the 'hidden' class to show/hide the content
     content.classList.toggle('hidden');
     
-    // Update ARIA attributes for accessibility
     const isExpanded = content.classList.contains('hidden') ? 'false' : 'true';
     toggleButton.setAttribute('aria-expanded', isExpanded);
     
-    // Optional: Focus the input field when the section is opened
     if (isExpanded === 'true') {
         document.getElementById('lookupEmail').focus();
     }
