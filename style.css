@@ -959,3 +959,16 @@ small {
         border: 1px solid #000;
     }
 }
+
+/* --- New Utility Class for Compact Cards --- */
+.card.card-compact {
+    /* Significantly reduce vertical padding */
+    padding-top: var(--space-md);      /* 16px */
+    padding-bottom: var(--space-md);   /* 16px */
+    margin-bottom: var(--space-lg);    /* 24px below (reduced from 32px) */
+}
+
+/* Ensure the lookup section overrides the compact card padding for its toggle button */
+.card.card-compact.lookup-section {
+    padding-bottom: 0 !important; /* Keep this to prevent button overlap */
+}
