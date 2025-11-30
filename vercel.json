@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "name": "booking-system",
+  "outputDirectory": ".",
   "headers": [
     {
       "source": "/(.*)",
@@ -20,13 +21,7 @@
       ]
     },
     {
-      "source": "/static/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/:path{css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|eot|ico}",
+      "source": "/(.*\\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|eot|ico))",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
