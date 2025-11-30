@@ -1,4 +1,3 @@
-//===== admin-script.js (PART 1/6 START) =====
 const API_URL = "/api/admin";
 
 // Configuration Constants
@@ -11,10 +10,6 @@ const CONFIG = {
     GRID: {
         MIN_CARD_WIDTH: 150,
         MOBILE_COLUMNS: 2
-    },
-    WEEKEND: {
-        TOTAL: 8,
-        DAYS: [0, 6] // Sunday=0, Saturday=6
     },
     SLOTS: {
         MIN_CAPACITY: 1,
@@ -58,17 +53,18 @@ function sanitizeHTML(str) {
 function isValidDate(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return false;
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return false;
-
+    
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
-
-    return date.getMonth() === month - 1 &&
-           date.getDate() === day &&
+    
+    return date.getMonth() === month - 1 && 
+           date.getDate() === day && 
            date.getFullYear() === year;
 }
 
 function isPastDate(dateStr) {
     if (!isValidDate(dateStr)) return true;
+    
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
     const today = new Date();
@@ -90,8 +86,10 @@ function showMessage(elementId, message, isError) {
 
 function formatDateShort(dateStr) {
     if (!isValidDate(dateStr)) return { monthName: '', dayNum: '', weekday: '' };
+    
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
+    
     return {
         monthName: date.toLocaleDateString('en-US', { month: 'short' }),
         dayNum: date.getDate(),
@@ -104,7 +102,7 @@ function handleError(context, error, userMessage) {
     showMessage('addMsg', userMessage, true);
 }
 
-// Cache helpers
+// Check admin cache
 function getCachedData() {
     const now = Date.now();
     if (adminCache.data && (now - adminCache.timestamp) < CONFIG.CACHE_TTL) {
@@ -124,369 +122,128 @@ function invalidateCache() {
 }
 
 // ================================================================================================
-// WEEKEND UTILITIES
+// MULTI-DATE SELECTOR
 // ================================================================================================
 
-function isWeekendDateObj(dateObj) {
-    return CONFIG.WEEKEND.DAYS.includes(dateObj.getDay());
-}
-
-function formatDateFromObj(date) {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${month}/${day}/${year}`;
-}
-
-// Generate next N weekends (Saturday/Sunday) after today or last selected weekend
-function getNextWeekends(count) {
-    const weekends = [];
-    const startDate = new Date();
-    startDate.setHours(0, 0, 0, 0);
-
-    while (weekends.length < count) {
-        if (isWeekendDateObj(startDate) && !existingDateSet.has(formatDateFromObj(startDate)) && !isPastDate(formatDateFromObj(startDate))) {
-            weekends.push(new Date(startDate));
-        }
-        startDate.setDate(startDate.getDate() + 1);
+function generateDateOptions() {
+    const container = document.getElementById('multiDateSelector');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const fragment = document.createDocumentFragment();
+    
+    // Generate next 60 days
+    for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        const dateStr = `${month}/${day}/${year}`;
+        
+        const hasSlots = existingDateSet.has(dateStr);
+        const isSelected = selectedDates.has(dateStr);
+        
+        const { monthName, dayNum, weekday } = formatDateShort(dateStr);
+        
+        const chip = document.createElement('div');
+        chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''}`;
+        chip.dataset.date = dateStr;
+        chip.setAttribute('role', 'button');
+        chip.setAttribute('tabindex', hasSlots ? '-1' : '0');
+        chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+        chip.setAttribute('aria-label', `Select ${dateStr}`);
+        chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to select ${dateStr}`;
+        
+        chip.innerHTML = `
+            <span class="date-month">${sanitizeHTML(monthName)}</span>
+            <span class="date-day">${sanitizeHTML(String(dayNum))}</span>
+            <span class="date-weekday">${sanitizeHTML(weekday)}</span>
+        `;
+        
+        fragment.appendChild(chip);
     }
-
-    return weekends;
-}
-
-// ================================================================================================
-// SHARED DATE CHIP CREATION
-// ================================================================================================
-
-function createDateChip(dateStr, hasSlots, isSelected, options = {}) {
-    const { isWeekendChip = false, highlightWeekend = false } = options;
-    const { monthName, dayNum, weekday } = formatDateShort(dateStr) || {};
-
-    const chip = document.createElement('div');
-    chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''} ${isWeekendChip ? 'weekend-chip' : ''} ${highlightWeekend ? 'weekend-highlight' : ''}`;
-    chip.dataset.date = dateStr;
-    chip.setAttribute('role', 'button');
-    chip.tabIndex = hasSlots ? -1 : 0;
-    chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-    chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to select ${dateStr}`;
-
-    chip.innerHTML = `
-        <span class="date-month">${sanitizeHTML(monthName)}</span>
-        <span class="date-day">${sanitizeHTML(String(dayNum))}</span>
-        <span class="date-weekday ${highlightWeekend ? 'weekend' : ''}">${sanitizeHTML(weekday)}</span>
-        ${isWeekendChip ? '<small class="weekend-badge">WKND</small>' : ''}
-        ${highlightWeekend && !isWeekendChip ? '<small class="weekend-dot">●</small>' : ''}
-    `;
-
-    return chip;
-}
-
-function setupDateChipListeners(container) {
-    if (container._adminChipHandler) {
-        container.removeEventListener('click', container._adminChipHandler);
-        container.removeEventListener('keypress', container._adminChipHandler);
+    
+    container.appendChild(fragment);
+    
+    // Setup event delegation
+    const oldListener = container._clickListener;
+    if (oldListener) {
+        container.removeEventListener('click', oldListener);
+        container.removeEventListener('keypress', oldListener);
     }
-
+    
     const handleInteraction = (e) => {
         if (e.type === 'keypress' && e.key !== 'Enter' && e.key !== ' ') return;
         if (e.type === 'keypress') e.preventDefault();
-
+        
         const chip = e.target.closest('.date-chip');
         if (!chip || chip.classList.contains('past')) return;
-
+        
         const dateStr = chip.dataset.date;
         toggleDateSelection(dateStr);
     };
-
-    container._adminChipHandler = handleInteraction;
+    
+    container._clickListener = handleInteraction;
     container.addEventListener('click', handleInteraction);
     container.addEventListener('keypress', handleInteraction);
+    
+    updateSelectedDatesCount();
 }
-//===== admin-script.js (PART 1/6 END) =====
-
-
-//===== admin-script.js (PART 2/6 START) =====
-// ================================================================================================
-// DATE SELECTION LOGIC
-// ================================================================================================
 
 function toggleDateSelection(dateStr) {
-    if (!dateStr || existingDateSet.has(dateStr)) return;
-
+    if (!isValidDate(dateStr) || existingDateSet.has(dateStr) || isPastDate(dateStr)) {
+        return;
+    }
+    
+    if (!selectedDates.has(dateStr) && selectedDates.size >= CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE) {
+        alert(`⚠️ Maximum ${CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE} dates can be selected at once.\n\nThis prevents overwhelming the system.`);
+        return;
+    }
+    
     if (selectedDates.has(dateStr)) {
         selectedDates.delete(dateStr);
     } else {
         selectedDates.add(dateStr);
     }
-    renderSelectedDates();
-}
-
-function renderSelectedDates() {
-    const container = document.getElementById('dateChipsContainer');
-    if (!container) return;
-
-    container.innerHTML = '';
-    const sortedDates = Array.from(selectedDates).sort((a, b) => {
-        const [m1, d1, y1] = a.split('/').map(Number);
-        const [m2, d2, y2] = b.split('/').map(Number);
-        return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
-    });
-
-    sortedDates.forEach(dateStr => {
-        const chip = createDateChip(dateStr, false, true, { isWeekendChip: isWeekendDateObj(new Date(dateStr.split('/').reverse().join('-'))) });
-        container.appendChild(chip);
-    });
-
-    setupDateChipListeners(container);
-}
-
-// ================================================================================================
-// WEEKEND AUTO-REPLENISH
-// ================================================================================================
-
-function addWeekendsToSelection() {
-    const needed = CONFIG.WEEKEND.TOTAL - Array.from(selectedDates).filter(dateStr => {
-        const [month, day, year] = dateStr.split('/').map(Number);
-        return isWeekendDateObj(new Date(year, month - 1, day));
-    }).length;
-
-    if (needed <= 0) return;
-
-    const newWeekends = getNextWeekends(needed);
-    newWeekends.forEach(dateObj => {
-        const dateStr = formatDateFromObj(dateObj);
-        selectedDates.add(dateStr);
-    });
-
-    renderSelectedDates();
-}
-
-// ================================================================================================
-// SLOT MANAGEMENT
-// ================================================================================================
-
-function generateDefaultSlots(dateStr) {
-    return DEFAULT_SLOT_LABELS.map(label => ({
-        date: dateStr,
-        label,
-        capacity: CONFIG.SLOTS.DEFAULT_CAPACITY
-    }));
-}
-
-function addSlotsForDate(dateStr) {
-    if (!dateStr || existingDateSet.has(dateStr)) return;
-
-    const slots = generateDefaultSlots(dateStr);
-    allSlots.push(...slots);
-    existingDateSet.add(dateStr);
-    invalidateCache();
-    showMessage('addMsg', `Added slots for ${dateStr}`, false);
-    renderSlots();
-}
-
-function deleteSlot(dateStr, label) {
-    const index = allSlots.findIndex(s => s.date === dateStr && s.label === label);
-    if (index === -1) return;
-
-    allSlots.splice(index, 1);
-
-    // If all slots for date removed, remove date
-    if (!allSlots.some(s => s.date === dateStr)) {
-        existingDateSet.delete(dateStr);
+    
+    const chip = document.querySelector(`.date-chip[data-date="${dateStr}"]`);
+    if (chip) {
+        chip.classList.toggle('selected');
+        chip.setAttribute('aria-pressed', selectedDates.has(dateStr) ? 'true' : 'false');
     }
-
-    invalidateCache();
-    renderSlots();
-    addWeekendsToSelection(); // Auto-replenish weekends
+    
+    updateSelectedDatesCount();
 }
 
-function renderSlots() {
-    const container = document.getElementById('slotsContainer');
-    if (!container) return;
-
-    container.innerHTML = '';
-
-    const sortedSlots = allSlots.slice().sort((a, b) => {
-        const [m1, d1, y1] = a.date.split('/').map(Number);
-        const [m2, d2, y2] = b.date.split('/').map(Number);
-        return new Date(y1, m1 - 1, d1) - new Date(y2, m2 - 1, d2);
-    });
-
-    sortedSlots.forEach(slot => {
-        const slotEl = document.createElement('div');
-        slotEl.className = 'slot-card';
-        slotEl.dataset.date = slot.date;
-        slotEl.dataset.label = slot.label;
-
-        slotEl.innerHTML = `
-            <span class="slot-date">${sanitizeHTML(slot.date)}</span>
-            <span class="slot-label">${sanitizeHTML(slot.label)}</span>
-            <span class="slot-capacity">${slot.capacity}</span>
-            <button class="slot-delete-btn" aria-label="Delete slot for ${slot.label} on ${slot.date}">🗑</button>
-        `;
-
-        slotEl.querySelector('.slot-delete-btn').addEventListener('click', () => deleteSlot(slot.date, slot.label));
-        container.appendChild(slotEl);
-    });
-}
-
-// ================================================================================================
-// BULK ADD & DELETE
-// ================================================================================================
-
-function addSelectedDates() {
-    selectedDates.forEach(dateStr => addSlotsForDate(dateStr));
-    selectedDates.clear();
-    renderSelectedDates();
-}
-
-function deleteSelectedDates() {
-    const datesToDelete = Array.from(selectedDates);
-    datesToDelete.forEach(dateStr => {
-        allSlots = allSlots.filter(s => s.date !== dateStr);
-        existingDateSet.delete(dateStr);
-    });
-    selectedDates.clear();
-    invalidateCache();
-    renderSlots();
-    renderSelectedDates();
-    addWeekendsToSelection();
-}
-
-// ================================================================================================
-// KEYBOARD SHORTCUTS
-// ================================================================================================
-
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'a') {
-        e.preventDefault();
-        addSelectedDates();
-    }
-    if (e.ctrlKey && e.key === 'd') {
-        e.preventDefault();
-        deleteSelectedDates();
-    }
-});
-
-// ================================================================================================
-// INITIALIZATION
-// ================================================================================================
-
-function initAdminPanel(token) {
-    adminToken = token;
-    renderSlots();
-    addWeekendsToSelection();
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const tokenInput = document.getElementById('adminTokenInput');
-    const loginBtn = document.getElementById('adminLoginBtn');
-
-    if (loginBtn && tokenInput) {
-        loginBtn.addEventListener('click', () => {
-            const token = tokenInput.value.trim();
-            if (!token) {
-                showMessage('loginMsg', 'Admin token required', true);
-                return;
-            }
-            initAdminPanel(token);
-            showMessage('loginMsg', 'Logged in successfully', false);
-        });
-    }
-});
-//===== admin-script.js (PART 2/6 END) =====
-
-//===== admin-script.js (PART 3/6 START) =====
-// ================================================================================================
-// DATE CHIP RENDERING
-// ================================================================================================
-
-function createDateChip(dateStr, isSelected = false, options = {}) {
-    const { isWeekendChip = false, highlightWeekend = false } = options;
-    const [month, day, year] = dateStr.split('/').map(Number);
-    const dateObj = new Date(year, month - 1, day);
-
-    const chip = document.createElement('div');
-    chip.className = `date-chip ${isSelected ? 'selected' : ''} ${isWeekendChip ? 'weekend-chip' : ''} ${highlightWeekend ? 'weekend-highlight' : ''}`;
-    chip.dataset.date = dateStr;
-    chip.setAttribute('role', 'button');
-    chip.tabIndex = 0;
-    chip.title = `Click to ${isSelected ? 'deselect' : 'select'} ${dateStr}`;
-
-    const weekday = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-    const monthName = dateObj.toLocaleDateString('en-US', { month: 'short' });
-    const dayNum = dateObj.getDate();
-
-    chip.innerHTML = `
-        <span class="date-month">${sanitizeHTML(monthName)}</span>
-        <span class="date-day">${sanitizeHTML(dayNum)}</span>
-        <span class="date-weekday">${sanitizeHTML(weekday)}</span>
-        ${isWeekendChip ? '<small class="weekend-badge">WKND</small>' : ''}
-        ${highlightWeekend && !isWeekendChip ? '<small class="weekend-dot">●</small>' : ''}
-    `;
-
-    chip.addEventListener('click', () => toggleDateSelection(dateStr));
-    chip.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') toggleDateSelection(dateStr);
-    });
-
-    return chip;
-}
-
-function renderDateChips() {
-    const container = document.getElementById('multiDateSelector');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        const dateStr = formatDateFromObj(date);
-
-        const isSelected = selectedDates.has(dateStr);
-        const isWeekendDay = isWeekendDateObj(date);
-
-        const chip = createDateChip(dateStr, isSelected, { highlightWeekend: isWeekendDay });
-        container.appendChild(chip);
+function updateSelectedDatesCount() {
+    const countEl = document.getElementById('selectedDatesCount');
+    if (countEl) {
+        countEl.textContent = selectedDates.size;
+        countEl.style.color = selectedDates.size > 0 ? '#10b981' : '#64748b';
+        countEl.style.fontWeight = selectedDates.size > 0 ? '700' : '600';
     }
 }
 
 // ================================================================================================
-// WEEKEND CHIPS
+// SLOT CONFIGURATION
 // ================================================================================================
 
-function renderWeekendChips() {
-    const container = document.getElementById('weekendSelector');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const weekends = getNextWeekends(CONFIG.WEEKEND.TOTAL);
-    weekends.forEach(dateObj => {
-        const dateStr = formatDateFromObj(dateObj);
-        const isSelected = selectedDates.has(dateStr);
-
-        const chip = createDateChip(dateStr, isSelected, { isWeekendChip: true });
-        container.appendChild(chip);
-    });
-}
-
-// ================================================================================================
-// DYNAMIC SLOT CAPACITY CONTROLS
-// ================================================================================================
-
-function renderSlotCapacityControls() {
+function renderCheckboxes() {
     const container = document.getElementById('slotCheckboxes');
     if (!container) return;
-
+    
     container.innerHTML = '';
-
+    
     DEFAULT_SLOT_LABELS.forEach((label, index) => {
         const div = document.createElement('div');
         div.className = 'slot-capacity-control';
-
+        
         div.innerHTML = `
             <label class="slot-label">
                 <input type="checkbox" class="slot-checkbox" checked value="${index}" aria-label="Include ${sanitizeHTML(label)}">
@@ -503,207 +260,318 @@ function renderSlotCapacityControls() {
                        aria-label="Capacity for ${sanitizeHTML(label)}">
             </div>
         `;
-
         container.appendChild(div);
     });
 }
 
 // ================================================================================================
-// HELPER: CHECK IF DATE IS WEEKEND
-// ================================================================================================
-
-function isWeekendDateObj(dateObj) {
-    return CONFIG.WEEKEND.DAYS.includes(dateObj.getDay());
-}
-
-function formatDateFromObj(dateObj) {
-    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const year = dateObj.getFullYear();
-    return `${month}/${day}/${year}`;
-}
-
-function getNextWeekends(count) {
-    const weekends = [];
-    let current = new Date();
-    current.setHours(0, 0, 0, 0);
-
-    while (weekends.length < count) {
-        current.setDate(current.getDate() + 1);
-        if (isWeekendDateObj(current)) {
-            const dateStr = formatDateFromObj(current);
-            if (!existingDateSet.has(dateStr)) weekends.push(new Date(current));
-        }
-    }
-
-    return weekends;
-}
-// ===== admin-script.js (PART 3/6 END) =====
-//===== admin-script.js (PART 4/6 START) =====
-// ================================================================================================
-// ADMIN LOGIN
+// LOGIN
 // ================================================================================================
 
 async function login() {
-    const passwordInput = document.getElementById('adminPassword');
-    if (!passwordInput) return alert("Password input not found");
-
+    const passwordInput = document.getElementById("adminPassword");
     const password = passwordInput.value.trim();
-    if (!password) return alert("Please enter password");
-
-    try {
-        const res = await fetch('/api/admin/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password })
-        });
-        const data = await res.json();
-
-        if (data.ok && data.token) {
-            adminToken = data.token;  // store token globally
-            alert('✅ Login successful');
-            // optionally hide login form and show admin panel
-            document.getElementById('loginForm').style.display = 'none';
-            document.getElementById('adminPanel').style.display = 'block';
-            loadSlots();  // load data after login
-        } else {
-            alert(`❌ Login failed: ${data.error || 'Invalid password'}`);
-        }
-    } catch(err) {
-        console.error('Login error:', err);
-        alert('❌ Failed to login');
-    }
-}
-
-// ================================================================================================
-// FETCH EXISTING SLOTS WITH CACHING
-// ================================================================================================
-
-async function loadSlots() {
-    const display = document.getElementById("slotsDisplay");
-    if (!display) return;
-
-    const cached = getCachedData();
-    if (cached) {
-        renderSlots(cached);
+    
+    if (!password) {
+        showMessage("loginMsg", "Please enter a password", true);
+        passwordInput.focus();
         return;
     }
-
-    display.innerHTML = `<div class="loading-skeleton">Loading slots...</div>`;
-    slotsToDelete = [];
-    existingDateSet = new Set();
-    allSlots = [];
-    updateDeleteButton();
-
+    
+    adminToken = password;
+    showMessage("loginMsg", "Logging in...", false);
+    
     try {
         const res = await fetch(API_URL, {
             headers: { "Authorization": `Bearer ${adminToken}` }
         });
-
         const data = await res.json();
-        if (!data.ok) {
-            display.innerHTML = "<p class='msg-box error'>Failed to load slots</p>";
-            return;
+        
+        if (data.ok) {
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("adminSection").style.display = "block";
+            showMessage("loginMsg", "Login successful!", false);
+            
+            await loadSlots();
+            generateDateOptions();
+            renderCheckboxes();
+        } else {
+            showMessage("loginMsg", "Invalid password", true);
+            adminToken = null;
+            passwordInput.select();
         }
-
-        setCachedData(data);
-        renderSlots(data);
     } catch (err) {
-        handleError('LoadSlots', err, 'Error loading slots. Please refresh.');
-        display.innerHTML = "<p class='msg-box error'>Error loading slots. Check console and refresh.</p>";
+        handleError('Login', err, 'Login failed. Please check your connection.');
+        adminToken = null;
     }
 }
 
 // ================================================================================================
-// RENDER SLOTS GRID
+// SUBMIT NEW SLOTS (Optimized with Progress Indicator)
 // ================================================================================================
+
+async function submitNewSlots() {
+    const submitBtn = document.getElementById("submitSlotsBtn");
+    const checkboxes = document.querySelectorAll(".slot-checkbox");
+    
+    if (selectedDates.size === 0) {
+        showMessage("addMsg", "Please select at least one date.", true);
+        return;
+    }
+    
+    const slots = [];
+    let slotsSelected = false;
+    
+    checkboxes.forEach((cb, index) => {
+        const capacityInput = document.getElementById(`capacity-${index}`);
+        
+        if (cb.checked) {
+            slotsSelected = true;
+            let capacity = parseInt(capacityInput.value) || CONFIG.SLOTS.DEFAULT_CAPACITY;
+            capacity = Math.max(CONFIG.SLOTS.MIN_CAPACITY, Math.min(CONFIG.SLOTS.MAX_CAPACITY, capacity));
+            
+            slots.push({
+                label: DEFAULT_SLOT_LABELS[index],
+                capacity: capacity
+            });
+        }
+    });
+    
+    if (!slotsSelected) {
+        showMessage("addMsg", "Please select at least one time slot.", true);
+        return;
+    }
+    
+    submitBtn.disabled = true;
+    const originalText = submitBtn.textContent;
+    
+    const totalDates = selectedDates.size;
+    let completed = 0;
+    
+    submitBtn.textContent = `Processing 0/${totalDates}...`;
+    showMessage("addMsg", `Submitting slots for ${totalDates} date(s)...`, false);
+    
+    try {
+        const startTime = performance.now();
+        
+        // Parallel submission with progress tracking
+        const promises = Array.from(selectedDates).map(async date => {
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ date, slots })
+                });
+                
+                const data = await response.json();
+                
+                // Update progress
+                completed++;
+                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
+                
+                return { date, success: data.ok, error: data.error };
+            } catch (err) {
+                completed++;
+                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
+                return { date, success: false, error: err.message };
+            }
+        });
+        
+        const results = await Promise.all(promises);
+        const duration = performance.now() - startTime;
+        
+        console.log(`⏱️ Batch submission took ${duration.toFixed(0)}ms`);
+        
+        const successful = results.filter(r => r.success);
+        const failed = results.filter(r => !r.success);
+        
+        // Show results
+        if (failed.length === 0) {
+            showMessage("addMsg", `✅ Successfully added slots for all ${successful.length} date(s) in ${(duration/1000).toFixed(1)}s!`, false);
+        } else if (successful.length > 0) {
+            showMessage("addMsg", `⚠️ Added ${successful.length} dates, but ${failed.length} failed. Check console for details.`, true);
+            console.error("Failed dates:", failed);
+        } else {
+            const firstError = failed[0]?.error || 'Unknown error';
+            showMessage("addMsg", `❌ Failed to add slots: ${firstError}`, true);
+        }
+        
+        // Reset state
+        selectedDates.clear();
+        invalidateCache(); // Clear admin cache
+        
+        await loadSlots();
+        generateDateOptions();
+        renderCheckboxes();
+        
+        // Animate stats
+        ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.animation = 'none';
+                setTimeout(() => el.style.animation = 'pulse 0.5s', 10);
+            }
+        });
+        
+    } catch (err) {
+        handleError('SubmitSlots', err, 'Failed to add slots. Please try again.');
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+    }
+}
+
+// ================================================================================================
+// LOAD SLOTS (With Caching)
+// ================================================================================================
+
+async function loadSlots() {
+    const display = document.getElementById("slotsDisplay");
+    
+    // Check cache first
+    const cached = getCachedData();
+    if (cached) {
+        console.log('✅ Using admin cache');
+        renderSlots(cached);
+        return;
+    }
+    
+    // Show loading skeleton
+    display.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
+            ${Array(6).fill('<div class="slot-date-group" style="height: 200px; background: #f1f5f9; animation: pulse 1.5s infinite;"></div>').join('')}
+        </div>
+    `;
+    
+    slotsToDelete = [];
+    existingDateSet = new Set();
+    allSlots = [];
+    updateDeleteButton();
+    
+    try {
+        const startTime = performance.now();
+        
+        const res = await fetch(API_URL, {
+            headers: { "Authorization": `Bearer ${adminToken}` }
+        });
+        
+        const fetchTime = performance.now() - startTime;
+        console.log(`⏱️ Admin API fetch took ${fetchTime.toFixed(0)}ms`);
+        
+        const data = await res.json();
+        
+        if (!data.ok) {
+            display.innerHTML = "<p class='msg-box error'>Failed to load slots</p>";
+            return;
+        }
+        
+        // Cache the data
+        setCachedData(data);
+        
+        renderSlots(data);
+        
+    } catch (err) {
+        handleError('LoadSlots', err, 'Error loading slots. Please refresh the page.');
+        display.innerHTML = "<p class='msg-box error'>Error loading slots. Check console and refresh.</p>";
+    }
+}
 
 function renderSlots(data) {
     const display = document.getElementById("slotsDisplay");
-    if (!display) return;
-
-    allSlots = data.slots || [];
+    
+    allSlots = data.slots;
+    
+    // Group by date
     const grouped = {};
     let totalBookings = 0;
     let totalAvailable = 0;
-
-    allSlots.forEach(slot => {
+    
+    data.slots.forEach(slot => {
         if (!grouped[slot.date]) grouped[slot.date] = [];
         grouped[slot.date].push(slot);
         existingDateSet.add(slot.date);
-        totalBookings += slot.taken || 0;
-        totalAvailable += slot.available || 0;
+        totalBookings += slot.taken;
+        totalAvailable += slot.available;
     });
-
+    
+    // Update statistics
     document.getElementById('totalDates').textContent = Object.keys(grouped).length;
-    document.getElementById('totalSlots').textContent = allSlots.length;
+    document.getElementById('totalSlots').textContent = data.slots.length;
     document.getElementById('totalBookings').textContent = totalBookings;
     document.getElementById('totalAvailable').textContent = totalAvailable;
-
+    document.getElementById('statsBar').style.display = 'flex';
+    
     if (Object.keys(grouped).length === 0) {
-        display.innerHTML = "<p style='text-align:center;padding:40px;color:#64748b;'>📅 No slots added yet.</p>";
+        display.innerHTML = "<p style='text-align: center; padding: 40px; color: #64748b;'>📅 No slots added yet. Add some dates above!</p>";
+        document.getElementById('statsBar').style.display = 'none';
         return;
     }
-
-    const sortedDates = Object.keys(grouped).sort((a, b) => {
-        const [am, ad, ay] = a.split('/').map(Number);
-        const [bm, bd, by] = b.split('/').map(Number);
-        return new Date(ay, am - 1, ad) - new Date(by, bm - 1, bd);
-    });
-
+    
+    // Sort dates chronologically
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+    
     let html = '<div class="compact-slots-grid">';
+    
     sortedDates.forEach(date => {
         const slots = grouped[date];
-        const { monthName, dayNum, weekday } = formatDateShort(date);
         const isPast = isPastDate(date);
-
+        const pastClass = isPast ? 'past' : '';
+        const { monthName, dayNum, weekday } = formatDateShort(date);
+        
         html += `
-            <div class="slot-date-group ${isPast ? 'past' : ''}">
+            <div class="slot-date-group ${pastClass}">
                 <div class="date-header">
                     <div class="date-title">
-                        ${sanitizeHTML(monthName)} ${sanitizeHTML(dayNum)}
-                        <span style="font-size:0.7rem;opacity:0.7;display:block;">${sanitizeHTML(weekday)}</span>
+                        ${sanitizeHTML(monthName)} ${sanitizeHTML(String(dayNum))}
+                        <span style="font-size: 0.7rem; opacity: 0.7; display: block;">${sanitizeHTML(weekday)}</span>
                     </div>
-                    <input type="checkbox" class="date-select-all" 
-                           onchange="toggleSelectAllForDate('${date}', this.checked)"
-                           aria-label="Select all slots for ${sanitizeHTML(date)}">
+                    <input type="checkbox" 
+                           class="date-select-all" 
+                           onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
+                           aria-label="Select all slots for ${sanitizeHTML(date)}"
+                           title="Select all slots for this date">
                 </div>
         `;
-
+        
         slots.forEach(slot => {
-            const isFull = (slot.available || 0) <= 0;
+            const isFull = slot.available <= 0;
             html += `
                 <div class="slot-row">
-                    <input type="checkbox" class="slot-row-checkbox" 
-                           data-row-id="${slot.id}" data-date="${date}" 
-                           onchange="toggleSlotSelection(${slot.id}, this.checked)">
+                    <input type="checkbox" 
+                           class="slot-row-checkbox" 
+                           data-row-id="${slot.id}" 
+                           data-date="${date}"
+                           onchange="toggleSlotSelection(${slot.id}, this.checked)"
+                           aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
                     <div class="slot-info">
                         <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
-                            ${slot.taken || 0}/${slot.capacity || 0} booked
+                            ${slot.taken}/${slot.capacity} booked
                         </span>
                     </div>
                 </div>
             `;
         });
-
-        html += '</div>';
+        
+        html += `</div>`;
     });
-
+    
     html += '</div>';
     display.innerHTML = html;
 }
-//===== admin-script.js (PART 4/6 END) =====
-//===== admin-script.js (PART 5/6 START) =====
+
 // ================================================================================================
 // SLOT SELECTION & DELETION
 // ================================================================================================
 
-let slotsToDelete = [];
-
 function toggleSlotSelection(rowId, isChecked) {
     if (isChecked) {
-        if (!slotsToDelete.includes(rowId)) slotsToDelete.push(rowId);
+        if (!slotsToDelete.includes(rowId)) {
+            slotsToDelete.push(rowId);
+        }
     } else {
         slotsToDelete = slotsToDelete.filter(id => id !== rowId);
     }
@@ -721,7 +589,7 @@ function toggleSelectAllForDate(date, isChecked) {
 function selectAllSlots() {
     const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
     const allSelected = slotsToDelete.length === allCheckboxes.length;
-
+    
     if (allSelected) {
         allCheckboxes.forEach(cb => cb.checked = false);
         slotsToDelete = [];
@@ -729,59 +597,66 @@ function selectAllSlots() {
         allCheckboxes.forEach(cb => {
             cb.checked = true;
             const rowId = parseInt(cb.dataset.rowId);
-            if (!slotsToDelete.includes(rowId)) slotsToDelete.push(rowId);
+            if (!slotsToDelete.includes(rowId)) {
+                slotsToDelete.push(rowId);
+            }
         });
     }
+    
     updateDeleteButton();
 }
 
 function updateDeleteButton() {
     const deleteBtn = document.getElementById('deleteSelectedBtn');
-    if (!deleteBtn) return;
-
-    if (slotsToDelete.length > 0) {
-        deleteBtn.textContent = `🗑️ Delete Selected (${slotsToDelete.length})`;
-        deleteBtn.style.display = 'inline-block';
-    } else {
-        deleteBtn.style.display = 'none';
-    }
-
     const selectAllBtn = document.getElementById('selectAllBtn');
+    const count = slotsToDelete.length;
+    
+    if (deleteBtn) {
+        if (count > 0) {
+            deleteBtn.textContent = `🗑️ Delete Selected (${count})`;
+            deleteBtn.style.display = 'inline-block';
+        } else {
+            deleteBtn.style.display = 'none';
+        }
+    }
+    
     if (selectAllBtn) {
         const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
-        selectAllBtn.textContent = slotsToDelete.length === allCheckboxes.length ? '☐ Deselect All' : '☑️ Select All';
+        const allSelected = allCheckboxes.length > 0 && slotsToDelete.length === allCheckboxes.length;
+        selectAllBtn.textContent = allSelected ? '☐ Deselect All' : '☑️ Select All';
     }
 }
-
-// ================================================================================================
-// DELETE SELECTED SLOTS
-// ================================================================================================
 
 async function deleteSelectedSlots() {
     if (slotsToDelete.length === 0) {
         alert("⚠️ Please select at least one slot to delete.");
         return;
     }
-
+    
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
-        return slot ? `• ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})` : '';
+        if (!slot) return null;
+        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
     }).filter(Boolean).join('\n');
-
+    
     const totalBookings = slotsToDelete.reduce((sum, id) => {
         const slot = allSlots.find(s => s.id === id);
         return sum + (slot ? slot.taken : 0);
     }, 0);
-
-    if (!confirm(`⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\nThis affects ${totalBookings} bookings!\n\nTHIS CANNOT BE UNDONE!`)) {
+    
+    const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
+                       `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
+                       `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
+    
+    if (!confirm(confirmMsg)) {
         return;
     }
-
+    
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     const originalText = deleteBtn.textContent;
     deleteBtn.disabled = true;
     deleteBtn.textContent = "Deleting...";
-
+    
     try {
         const res = await fetch(API_URL, {
             method: "DELETE",
@@ -791,131 +666,25 @@ async function deleteSelectedSlots() {
             },
             body: JSON.stringify({ rowIds: slotsToDelete })
         });
-
+        
         const data = await res.json();
+        
         if (data.ok) {
             alert(`✅ ${data.message}`);
-            invalidateCache();
+            invalidateCache(); // Clear cache after deletion
             await loadSlots();
-            renderWeekendChips();
-            renderDateChips();
+            generateDateOptions();
         } else {
-            alert(`❌ ${data.error || 'Failed to delete slots'}`);
+            alert(`❌ ${data.error || 'Failed to delete'}`);
+            deleteBtn.disabled = false;
+            deleteBtn.textContent = originalText;
         }
     } catch (err) {
         handleError('DeleteSlots', err, `Failed to delete slots: ${err.message}`);
         alert(`❌ Failed to delete slots: ${err.message}`);
-    } finally {
-        slotsToDelete = [];
-        updateDeleteButton();
-        if (deleteBtn) {
-            deleteBtn.disabled = false;
-            deleteBtn.textContent = originalText;
-        }
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = originalText;
     }
-}
-
-// ================================================================================================
-// WEEKEND MANAGEMENT (DYNAMIC 8 WEEKENDS)
-// ================================================================================================
-
-function getNextWeekends(count) {
-    const weekends = [];
-    let current = new Date();
-    current.setHours(0, 0, 0, 0);
-
-    while (weekends.length < count) {
-        current.setDate(current.getDate() + 1);
-        if ([0,6].includes(current.getDay()) && !isPastDate(formatDateFromObj(current))) {
-            weekends.push(new Date(current));
-        }
-    }
-
-    return weekends;
-}
-
-function renderWeekendChips() {
-    const container = document.getElementById('weekendSelector');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const weekends = getNextWeekends(8);
-    const fragment = document.createDocumentFragment();
-
-    weekends.forEach(dateObj => {
-        const dateStr = formatDateFromObj(dateObj);
-        const hasSlots = existingDateSet.has(dateStr);
-        const isSelected = selectedDates.has(dateStr);
-        const chip = createDateChip(dateStr, hasSlots, isSelected, { isWeekendChip: true, highlightWeekend: false });
-        fragment.appendChild(chip);
-    });
-
-    container.appendChild(fragment);
-    setupDateChipListeners(container);
-}
-//===== admin-script.js (PART 5/6 END) =====
-//===== admin-script.js (PART 6/6 START) =====
-// ================================================================================================
-// MULTI-DATE SELECTOR
-// ================================================================================================
-
-function renderDateChips() {
-    const container = document.getElementById('multiDateSelector');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    const fragment = document.createDocumentFragment();
-
-    for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        const dateStr = formatDateFromObj(date);
-
-        const hasSlots = existingDateSet.has(dateStr);
-        const isSelected = selectedDates.has(dateStr);
-        const isWeekend = isWeekendDateObj(date);
-
-        const chip = createDateChip(dateStr, hasSlots, isSelected, { isWeekendChip: false, highlightWeekend: isWeekend });
-        fragment.appendChild(chip);
-    }
-
-    container.appendChild(fragment);
-    setupDateChipListeners(container);
-    updateSelectedDatesCount();
-}
-
-// ================================================================================================
-// SLOT CAPACITY UI
-// ================================================================================================
-
-function renderSlotCheckboxes() {
-    const container = document.getElementById('slotCheckboxes');
-    if (!container) return;
-    container.innerHTML = '';
-
-    DEFAULT_SLOT_LABELS.forEach((label, index) => {
-        const div = document.createElement('div');
-        div.className = 'slot-capacity-control';
-        div.innerHTML = `
-            <label class="slot-label">
-                <input type="checkbox" class="slot-checkbox" checked value="${index}" aria-label="Include ${sanitizeHTML(label)}">
-                ${sanitizeHTML(label)}
-            </label>
-            <div class="capacity-input-group">
-                <label for="capacity-${index}">Capacity:</label>
-                <input type="number" 
-                       id="capacity-${index}" 
-                       class="capacity-input form-input" 
-                       value="${CONFIG.SLOTS.DEFAULT_CAPACITY}" 
-                       min="${CONFIG.SLOTS.MIN_CAPACITY}" 
-                       max="${CONFIG.SLOTS.MAX_CAPACITY}" 
-                       aria-label="Capacity for ${sanitizeHTML(label)}">
-            </div>
-        `;
-        container.appendChild(div);
-    });
 }
 
 // ================================================================================================
@@ -924,21 +693,27 @@ function renderSlotCheckboxes() {
 
 function setupKeyboardShortcuts() {
     document.addEventListener('keydown', (e) => {
+        // Ctrl/Cmd + A: Select all
         if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-            const inputFocused = ['INPUT','TEXTAREA'].includes(e.target.tagName);
-            if (!inputFocused) {
+            const isInInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+            if (!isInInput && document.getElementById('adminSection').style.display !== 'none') {
                 e.preventDefault();
                 selectAllSlots();
             }
         }
+        
+        // Ctrl/Cmd + D: Delete selected
         if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
-            if (slotsToDelete.length > 0) {
+            if (slotsToDelete.length > 0 && document.getElementById('adminSection').style.display !== 'none') {
                 e.preventDefault();
                 deleteSelectedSlots();
             }
         }
+        
+        // ESC: Clear selection
         if (e.key === 'Escape' && slotsToDelete.length > 0) {
-            document.querySelectorAll('.slot-row-checkbox').forEach(cb => cb.checked = false);
+            const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
+            allCheckboxes.forEach(cb => cb.checked = false);
             slotsToDelete = [];
             updateDeleteButton();
         }
@@ -950,28 +725,23 @@ function setupKeyboardShortcuts() {
 // ================================================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    renderSlotCheckboxes();
+    renderCheckboxes();
     setupKeyboardShortcuts();
-
+    
     const passwordInput = document.getElementById('adminPassword');
     if (passwordInput) {
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') login();
         });
     }
-
+    
+    // Add CSS animation for stats pulse
     const style = document.createElement('style');
     style.textContent = `
         @keyframes pulse {
-            0%,100%{transform:scale(1);}
-            50%{transform:scale(1.1);color:#10b981;}
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); color: #10b981; }
         }
     `;
     document.head.appendChild(style);
 });
-//===== admin-script.js (PART 6/6 END) =====
-
-
-
-
-
