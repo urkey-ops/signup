@@ -1,3 +1,10 @@
+// ================================================================================================
+// admin-script.js  (FULL MERGED VERSION)
+// - Original code preserved and expanded
+// - New: WEEKEND logic (auto-generate next 8 weekends) integrated
+// - No duplicate functions
+// ================================================================================================
+
 const API_URL = "/api/admin";
 
 // Configuration Constants
@@ -10,6 +17,10 @@ const CONFIG = {
     GRID: {
         MIN_CARD_WIDTH: 150,
         MOBILE_COLUMNS: 2
+    },
+    WEEKEND: {
+        TOTAL: 8,
+        DAYS: [0, 6] // Sunday=0, Saturday=6
     },
     SLOTS: {
         MIN_CAPACITY: 1,
@@ -53,18 +64,18 @@ function sanitizeHTML(str) {
 function isValidDate(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return false;
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return false;
-    
+
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
-    
-    return date.getMonth() === month - 1 && 
-           date.getDate() === day && 
+
+    return date.getMonth() === month - 1 &&
+           date.getDate() === day &&
            date.getFullYear() === year;
 }
 
 function isPastDate(dateStr) {
     if (!isValidDate(dateStr)) return true;
-    
+
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
     const today = new Date();
@@ -86,10 +97,10 @@ function showMessage(elementId, message, isError) {
 
 function formatDateShort(dateStr) {
     if (!isValidDate(dateStr)) return { monthName: '', dayNum: '', weekday: '' };
-    
+
     const [month, day, year] = dateStr.split('/').map(Number);
     const date = new Date(year, month - 1, day);
-    
+
     return {
         monthName: date.toLocaleDateString('en-US', { month: 'short' }),
         dayNum: date.getDate(),
@@ -122,77 +133,117 @@ function invalidateCache() {
 }
 
 // ================================================================================================
-// MULTI-DATE SELECTOR
+// WEEKEND UTILITIES (NEW)
+// ================================================================================================
+
+function isWeekendDateObj(dateObj) {
+    return CONFIG.WEEKEND.DAYS.includes(dateObj.getDay());
+}
+
+function formatDateFromObj(date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+}
+
+function getNextWeekends(count) {
+    const weekends = [];
+    let current = new Date();
+    current.setHours(0, 0, 0, 0);
+
+    while (weekends.length < count) {
+        current.setDate(current.getDate() + 1);
+        if (isWeekendDateObj(current) && !isPastDate(formatDateFromObj(current))) {
+            weekends.push(new Date(current));
+        }
+    }
+
+    return weekends;
+}
+
+// ================================================================================================
+// SHARED DATE CHIP CREATION & LISTENERS
+// (We keep one canonical implementation used in both selectors)
+// ================================================================================================
+
+function createDateChip(dateStr, hasSlots, isSelected, options = {}) {
+    // options: { isWeekendChip: bool, highlightWeekend: bool }
+    const { isWeekendChip = false, highlightWeekend = false } = options;
+    const { monthName, dayNum, weekday } = formatDateShort(dateStr) || {};
+
+    const chip = document.createElement('div');
+    chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''} ${isWeekendChip ? 'weekend-chip' : ''} ${highlightWeekend ? 'weekend-highlight' : ''}`;
+    chip.dataset.date = dateStr;
+    chip.setAttribute('role', 'button');
+    chip.tabIndex = hasSlots ? -1 : 0;
+    chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+    chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to select ${dateStr}`;
+
+    // innerHTML: month, day, weekday, optional badges
+    chip.innerHTML = `
+        <span class="date-month">${sanitizeHTML(monthName)}</span>
+        <span class="date-day">${sanitizeHTML(String(dayNum))}</span>
+        <span class="date-weekday ${highlightWeekend ? 'weekend' : ''}">${sanitizeHTML(weekday)}</span>
+        ${isWeekendChip ? '<small class="weekend-badge">WKND</small>' : ''}
+        ${highlightWeekend && !isWeekendChip ? '<small class="weekend-dot">●</small>' : ''}
+    `;
+
+    return chip;
+}
+
+function setupDateChipListeners(container) {
+    // remove previous listeners if any (safe re-attach)
+    if (container._adminChipHandler) {
+        container.removeEventListener('click', container._adminChipHandler);
+        container.removeEventListener('keypress', container._adminChipHandler);
+    }
+
+    const handleInteraction = (e) => {
+        if (e.type === 'keypress' && e.key !== 'Enter' && e.key !== ' ') return;
+        if (e.type === 'keypress') e.preventDefault();
+
+        const chip = e.target.closest('.date-chip');
+        if (!chip || chip.classList.contains('past')) return;
+
+        const dateStr = chip.dataset.date;
+        toggleDateSelection(dateStr);
+    };
+
+    container._adminChipHandler = handleInteraction;
+    container.addEventListener('click', handleInteraction);
+    container.addEventListener('keypress', handleInteraction);
+}
+
+// ================================================================================================
+// MULTI-DATE SELECTOR (UPDATED to highlight weekends)
 // ================================================================================================
 
 function generateDateOptions() {
     const container = document.getElementById('multiDateSelector');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
     const fragment = document.createDocumentFragment();
-    
-    // Generate next 60 days
+
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
-        
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        const dateStr = `${month}/${day}/${year}`;
-        
+        const dateStr = `${String(date.getMonth() + 1).padStart(2, '0')}/${String(date.getDate()).padStart(2, '0')}/${date.getFullYear()}`;
+
         const hasSlots = existingDateSet.has(dateStr);
         const isSelected = selectedDates.has(dateStr);
-        
-        const { monthName, dayNum, weekday } = formatDateShort(dateStr);
-        
-        const chip = document.createElement('div');
-        chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''}`;
-        chip.dataset.date = dateStr;
-        chip.setAttribute('role', 'button');
-        chip.setAttribute('tabindex', hasSlots ? '-1' : '0');
-        chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
-        chip.setAttribute('aria-label', `Select ${dateStr}`);
-        chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to select ${dateStr}`;
-        
-        chip.innerHTML = `
-            <span class="date-month">${sanitizeHTML(monthName)}</span>
-            <span class="date-day">${sanitizeHTML(String(dayNum))}</span>
-            <span class="date-weekday">${sanitizeHTML(weekday)}</span>
-        `;
-        
+        const isWeekendDay = isWeekendDateObj(date);
+
+        const chip = createDateChip(dateStr, hasSlots, isSelected, { isWeekendChip: false, highlightWeekend: isWeekendDay });
         fragment.appendChild(chip);
     }
-    
+
     container.appendChild(fragment);
-    
-    // Setup event delegation
-    const oldListener = container._clickListener;
-    if (oldListener) {
-        container.removeEventListener('click', oldListener);
-        container.removeEventListener('keypress', oldListener);
-    }
-    
-    const handleInteraction = (e) => {
-        if (e.type === 'keypress' && e.key !== 'Enter' && e.key !== ' ') return;
-        if (e.type === 'keypress') e.preventDefault();
-        
-        const chip = e.target.closest('.date-chip');
-        if (!chip || chip.classList.contains('past')) return;
-        
-        const dateStr = chip.dataset.date;
-        toggleDateSelection(dateStr);
-    };
-    
-    container._clickListener = handleInteraction;
-    container.addEventListener('click', handleInteraction);
-    container.addEventListener('keypress', handleInteraction);
-    
+    setupDateChipListeners(container);
     updateSelectedDatesCount();
 }
 
@@ -200,24 +251,23 @@ function toggleDateSelection(dateStr) {
     if (!isValidDate(dateStr) || existingDateSet.has(dateStr) || isPastDate(dateStr)) {
         return;
     }
-    
+
     if (!selectedDates.has(dateStr) && selectedDates.size >= CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE) {
         alert(`⚠️ Maximum ${CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE} dates can be selected at once.\n\nThis prevents overwhelming the system.`);
         return;
     }
-    
+
     if (selectedDates.has(dateStr)) {
         selectedDates.delete(dateStr);
     } else {
         selectedDates.add(dateStr);
     }
-    
-    const chip = document.querySelector(`.date-chip[data-date="${dateStr}"]`);
-    if (chip) {
+
+    document.querySelectorAll(`.date-chip[data-date="${dateStr}"]`).forEach(chip => {
         chip.classList.toggle('selected');
         chip.setAttribute('aria-pressed', selectedDates.has(dateStr) ? 'true' : 'false');
-    }
-    
+    });
+
     updateSelectedDatesCount();
 }
 
@@ -231,19 +281,48 @@ function updateSelectedDatesCount() {
 }
 
 // ================================================================================================
+// WEEKEND SELECTOR (NEW UI)
+// ================================================================================================
+
+function generateWeekendOptions() {
+    const container = document.getElementById('weekendSelector');
+    if (!container) return;
+
+    container.innerHTML = '';
+    const weekends = getNextWeekends(CONFIG.WEEKEND.TOTAL);
+    const fragment = document.createDocumentFragment();
+
+    weekends.forEach(dateObj => {
+        const dateStr = formatDateFromObj(dateObj);
+        const hasSlots = existingDateSet.has(dateStr);
+        const isSelected = selectedDates.has(dateStr);
+
+        const chip = createDateChip(dateStr, hasSlots, isSelected, { isWeekendChip: true, highlightWeekend: false });
+        fragment.appendChild(chip);
+    });
+
+    container.appendChild(fragment);
+
+    const countEl = document.getElementById('weekendCount');
+    if (countEl) countEl.textContent = weekends.length;
+
+    setupDateChipListeners(container);
+}
+
+// ================================================================================================
 // SLOT CONFIGURATION
 // ================================================================================================
 
 function renderCheckboxes() {
     const container = document.getElementById('slotCheckboxes');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     DEFAULT_SLOT_LABELS.forEach((label, index) => {
         const div = document.createElement('div');
         div.className = 'slot-capacity-control';
-        
+
         div.innerHTML = `
             <label class="slot-label">
                 <input type="checkbox" class="slot-checkbox" checked value="${index}" aria-label="Include ${sanitizeHTML(label)}">
@@ -271,28 +350,29 @@ function renderCheckboxes() {
 async function login() {
     const passwordInput = document.getElementById("adminPassword");
     const password = passwordInput.value.trim();
-    
+
     if (!password) {
         showMessage("loginMsg", "Please enter a password", true);
         passwordInput.focus();
         return;
     }
-    
+
     adminToken = password;
     showMessage("loginMsg", "Logging in...", false);
-    
+
     try {
         const res = await fetch(API_URL, {
             headers: { "Authorization": `Bearer ${adminToken}` }
         });
         const data = await res.json();
-        
+
         if (data.ok) {
             document.getElementById("loginSection").style.display = "none";
             document.getElementById("adminSection").style.display = "block";
             showMessage("loginMsg", "Login successful!", false);
-            
+
             await loadSlots();
+            generateWeekendOptions(); // NEW: show 8 weekends
             generateDateOptions();
             renderCheckboxes();
         } else {
@@ -313,47 +393,47 @@ async function login() {
 async function submitNewSlots() {
     const submitBtn = document.getElementById("submitSlotsBtn");
     const checkboxes = document.querySelectorAll(".slot-checkbox");
-    
+
     if (selectedDates.size === 0) {
         showMessage("addMsg", "Please select at least one date.", true);
         return;
     }
-    
+
     const slots = [];
     let slotsSelected = false;
-    
+
     checkboxes.forEach((cb, index) => {
         const capacityInput = document.getElementById(`capacity-${index}`);
-        
+
         if (cb.checked) {
             slotsSelected = true;
             let capacity = parseInt(capacityInput.value) || CONFIG.SLOTS.DEFAULT_CAPACITY;
             capacity = Math.max(CONFIG.SLOTS.MIN_CAPACITY, Math.min(CONFIG.SLOTS.MAX_CAPACITY, capacity));
-            
+
             slots.push({
                 label: DEFAULT_SLOT_LABELS[index],
                 capacity: capacity
             });
         }
     });
-    
+
     if (!slotsSelected) {
         showMessage("addMsg", "Please select at least one time slot.", true);
         return;
     }
-    
+
     submitBtn.disabled = true;
     const originalText = submitBtn.textContent;
-    
+
     const totalDates = selectedDates.size;
     let completed = 0;
-    
+
     submitBtn.textContent = `Processing 0/${totalDates}...`;
     showMessage("addMsg", `Submitting slots for ${totalDates} date(s)...`, false);
-    
+
     try {
         const startTime = performance.now();
-        
+
         // Parallel submission with progress tracking
         const promises = Array.from(selectedDates).map(async date => {
             try {
@@ -365,13 +445,13 @@ async function submitNewSlots() {
                     },
                     body: JSON.stringify({ date, slots })
                 });
-                
+
                 const data = await response.json();
-                
+
                 // Update progress
                 completed++;
                 submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
-                
+
                 return { date, success: data.ok, error: data.error };
             } catch (err) {
                 completed++;
@@ -379,15 +459,15 @@ async function submitNewSlots() {
                 return { date, success: false, error: err.message };
             }
         });
-        
+
         const results = await Promise.all(promises);
         const duration = performance.now() - startTime;
-        
+
         console.log(`⏱️ Batch submission took ${duration.toFixed(0)}ms`);
-        
+
         const successful = results.filter(r => r.success);
         const failed = results.filter(r => !r.success);
-        
+
         // Show results
         if (failed.length === 0) {
             showMessage("addMsg", `✅ Successfully added slots for all ${successful.length} date(s) in ${(duration/1000).toFixed(1)}s!`, false);
@@ -398,15 +478,16 @@ async function submitNewSlots() {
             const firstError = failed[0]?.error || 'Unknown error';
             showMessage("addMsg", `❌ Failed to add slots: ${firstError}`, true);
         }
-        
+
         // Reset state
         selectedDates.clear();
         invalidateCache(); // Clear admin cache
-        
+
         await loadSlots();
+        generateWeekendOptions();
         generateDateOptions();
         renderCheckboxes();
-        
+
         // Animate stats
         ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
             const el = document.getElementById(id);
@@ -415,7 +496,7 @@ async function submitNewSlots() {
                 setTimeout(() => el.style.animation = 'pulse 0.5s', 10);
             }
         });
-        
+
     } catch (err) {
         handleError('SubmitSlots', err, 'Failed to add slots. Please try again.');
     } finally {
@@ -430,7 +511,7 @@ async function submitNewSlots() {
 
 async function loadSlots() {
     const display = document.getElementById("slotsDisplay");
-    
+
     // Check cache first
     const cached = getCachedData();
     if (cached) {
@@ -438,41 +519,41 @@ async function loadSlots() {
         renderSlots(cached);
         return;
     }
-    
+
     // Show loading skeleton
     display.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
             ${Array(6).fill('<div class="slot-date-group" style="height: 200px; background: #f1f5f9; animation: pulse 1.5s infinite;"></div>').join('')}
         </div>
     `;
-    
+
     slotsToDelete = [];
     existingDateSet = new Set();
     allSlots = [];
     updateDeleteButton();
-    
+
     try {
         const startTime = performance.now();
-        
+
         const res = await fetch(API_URL, {
             headers: { "Authorization": `Bearer ${adminToken}` }
         });
-        
+
         const fetchTime = performance.now() - startTime;
         console.log(`⏱️ Admin API fetch took ${fetchTime.toFixed(0)}ms`);
-        
+
         const data = await res.json();
-        
+
         if (!data.ok) {
             display.innerHTML = "<p class='msg-box error'>Failed to load slots</p>";
             return;
         }
-        
+
         // Cache the data
         setCachedData(data);
-        
+
         renderSlots(data);
-        
+
     } catch (err) {
         handleError('LoadSlots', err, 'Error loading slots. Please refresh the page.');
         display.innerHTML = "<p class='msg-box error'>Error loading slots. Check console and refresh.</p>";
@@ -481,46 +562,51 @@ async function loadSlots() {
 
 function renderSlots(data) {
     const display = document.getElementById("slotsDisplay");
-    
+
     allSlots = data.slots;
-    
+
     // Group by date
     const grouped = {};
     let totalBookings = 0;
     let totalAvailable = 0;
-    
+
     data.slots.forEach(slot => {
         if (!grouped[slot.date]) grouped[slot.date] = [];
         grouped[slot.date].push(slot);
         existingDateSet.add(slot.date);
-        totalBookings += slot.taken;
-        totalAvailable += slot.available;
+        totalBookings += slot.taken || 0;
+        totalAvailable += slot.available || 0;
     });
-    
+
     // Update statistics
     document.getElementById('totalDates').textContent = Object.keys(grouped).length;
     document.getElementById('totalSlots').textContent = data.slots.length;
     document.getElementById('totalBookings').textContent = totalBookings;
     document.getElementById('totalAvailable').textContent = totalAvailable;
     document.getElementById('statsBar').style.display = 'flex';
-    
+
     if (Object.keys(grouped).length === 0) {
         display.innerHTML = "<p style='text-align: center; padding: 40px; color: #64748b;'>📅 No slots added yet. Add some dates above!</p>";
         document.getElementById('statsBar').style.display = 'none';
         return;
     }
-    
+
     // Sort dates chronologically
-    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
-    
+    const sortedDates = Object.keys(grouped).sort((a, b) => {
+        // parse mm/dd/yyyy to Date
+        const [am, ad, ay] = a.split('/').map(Number);
+        const [bm, bd, by] = b.split('/').map(Number);
+        return new Date(ay, am - 1, ad) - new Date(by, bm - 1, bd);
+    });
+
     let html = '<div class="compact-slots-grid">';
-    
+
     sortedDates.forEach(date => {
         const slots = grouped[date];
         const isPast = isPastDate(date);
         const pastClass = isPast ? 'past' : '';
         const { monthName, dayNum, weekday } = formatDateShort(date);
-        
+
         html += `
             <div class="slot-date-group ${pastClass}">
                 <div class="date-header">
@@ -535,9 +621,9 @@ function renderSlots(data) {
                            title="Select all slots for this date">
                 </div>
         `;
-        
+
         slots.forEach(slot => {
-            const isFull = slot.available <= 0;
+            const isFull = (slot.available || 0) <= 0;
             html += `
                 <div class="slot-row">
                     <input type="checkbox" 
@@ -549,16 +635,16 @@ function renderSlots(data) {
                     <div class="slot-info">
                         <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
-                            ${slot.taken}/${slot.capacity} booked
+                            ${slot.taken || 0}/${slot.capacity || 0} booked
                         </span>
                     </div>
                 </div>
             `;
         });
-        
+
         html += `</div>`;
     });
-    
+
     html += '</div>';
     display.innerHTML = html;
 }
@@ -589,7 +675,7 @@ function toggleSelectAllForDate(date, isChecked) {
 function selectAllSlots() {
     const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
     const allSelected = slotsToDelete.length === allCheckboxes.length;
-    
+
     if (allSelected) {
         allCheckboxes.forEach(cb => cb.checked = false);
         slotsToDelete = [];
@@ -602,7 +688,7 @@ function selectAllSlots() {
             }
         });
     }
-    
+
     updateDeleteButton();
 }
 
@@ -610,7 +696,7 @@ function updateDeleteButton() {
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     const selectAllBtn = document.getElementById('selectAllBtn');
     const count = slotsToDelete.length;
-    
+
     if (deleteBtn) {
         if (count > 0) {
             deleteBtn.textContent = `🗑️ Delete Selected (${count})`;
@@ -619,7 +705,7 @@ function updateDeleteButton() {
             deleteBtn.style.display = 'none';
         }
     }
-    
+
     if (selectAllBtn) {
         const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
         const allSelected = allCheckboxes.length > 0 && slotsToDelete.length === allCheckboxes.length;
@@ -632,31 +718,31 @@ async function deleteSelectedSlots() {
         alert("⚠️ Please select at least one slot to delete.");
         return;
     }
-    
+
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
         if (!slot) return null;
         return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
     }).filter(Boolean).join('\n');
-    
+
     const totalBookings = slotsToDelete.reduce((sum, id) => {
         const slot = allSlots.find(s => s.id === id);
         return sum + (slot ? slot.taken : 0);
     }, 0);
-    
+
     const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
                        `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
                        `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
-    
+
     if (!confirm(confirmMsg)) {
         return;
     }
-    
+
     const deleteBtn = document.getElementById('deleteSelectedBtn');
     const originalText = deleteBtn.textContent;
     deleteBtn.disabled = true;
     deleteBtn.textContent = "Deleting...";
-    
+
     try {
         const res = await fetch(API_URL, {
             method: "DELETE",
@@ -666,13 +752,14 @@ async function deleteSelectedSlots() {
             },
             body: JSON.stringify({ rowIds: slotsToDelete })
         });
-        
+
         const data = await res.json();
-        
+
         if (data.ok) {
             alert(`✅ ${data.message}`);
             invalidateCache(); // Clear cache after deletion
             await loadSlots();
+            generateWeekendOptions();
             generateDateOptions();
         } else {
             alert(`❌ ${data.error || 'Failed to delete'}`);
@@ -684,6 +771,10 @@ async function deleteSelectedSlots() {
         alert(`❌ Failed to delete slots: ${err.message}`);
         deleteBtn.disabled = false;
         deleteBtn.textContent = originalText;
+    } finally {
+        // Clear local selection after a successful or failed attempt
+        slotsToDelete = [];
+        updateDeleteButton();
     }
 }
 
@@ -701,7 +792,7 @@ function setupKeyboardShortcuts() {
                 selectAllSlots();
             }
         }
-        
+
         // Ctrl/Cmd + D: Delete selected
         if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
             if (slotsToDelete.length > 0 && document.getElementById('adminSection').style.display !== 'none') {
@@ -709,7 +800,7 @@ function setupKeyboardShortcuts() {
                 deleteSelectedSlots();
             }
         }
-        
+
         // ESC: Clear selection
         if (e.key === 'Escape' && slotsToDelete.length > 0) {
             const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
@@ -727,14 +818,14 @@ function setupKeyboardShortcuts() {
 document.addEventListener('DOMContentLoaded', () => {
     renderCheckboxes();
     setupKeyboardShortcuts();
-    
+
     const passwordInput = document.getElementById('adminPassword');
     if (passwordInput) {
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') login();
         });
     }
-    
+
     // Add CSS animation for stats pulse
     const style = document.createElement('style');
     style.textContent = `
