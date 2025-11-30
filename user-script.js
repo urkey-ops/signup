@@ -5,12 +5,86 @@ const CONFIG = {
     MAX_SLOTS_PER_BOOKING: 10,
     API_COOLDOWN: 1000, // 1 second between submissions
     RETRY_DELAY: 3000, // 3 seconds before allowing retry
+    CLIENT_CACHE_TTL: 30000, // 30 seconds client-side cache
 };
 
 // State management
 let selectedSlots = [];
 let lastApiCall = 0;
 let isSubmitting = false;
+
+// Client-side cache
+const API_CACHE = {
+    data: null,
+    timestamp: 0,
+    TTL: CONFIG.CLIENT_CACHE_TTL
+};
+
+// --- Add skeleton styles immediately ---
+(function() {
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes shimmer {
+            0% { background-position: -468px 0; }
+            100% { background-position: 468px 0; }
+        }
+        .skeleton-card {
+            background: #f8f8f8;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            animation: fadeIn 0.3s ease;
+        }
+        .skeleton-title {
+            height: 24px;
+            width: 150px;
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border-radius: 4px;
+            margin-bottom: 16px;
+        }
+        .skeleton-slot {
+            background: linear-gradient(90deg, #f8f8f8 25%, #f0f0f0 50%, #f8f8f8 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            border: 1px solid #e0e0e0;
+            pointer-events: none;
+            min-height: 64px;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .skeleton-text {
+            height: 16px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            margin: 8px auto;
+            width: 80%;
+        }
+        .skeleton-text-small {
+            height: 12px;
+            background: #e8e8e8;
+            border-radius: 4px;
+            margin: 4px auto;
+            width: 50%;
+        }
+        .fade-in {
+            animation: fadeInUp 0.4s ease-out forwards;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    `;
+    document.head.appendChild(style);
+})();
 
 // --- Security: Input Sanitization ---
 function sanitizeHTML(str) {
@@ -116,167 +190,216 @@ function resetPage() {
     selectedSlots = [];
     isSubmitting = false;
     document.getElementById("successMessage").style.display = "none";
-    document.getElementById("loadingMsg").style.display = "block";
     document.getElementById("floatingSignupBtnContainer").style.display = "none";
     loadSlots();
 }
 
-// --- Core Logic with Error Recovery ---
+// --- OPTIMIZED: Show skeleton UI immediately ---
+function showSkeletonUI() {
+    const datesContainer = document.getElementById("datesContainer");
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const loadingMsg = document.getElementById("loadingMsg");
+    
+    loadingMsg.style.display = "none";
+    slotsDisplay.style.display = "block";
+    
+    const skeletonHTML = Array(3).fill(0).map(() => `
+        <div class="date-card card skeleton-card">
+            <div class="skeleton-title"></div>
+            <div class="slots-grid">
+                ${Array(4).fill(0).map(() => `
+                    <div class="slot skeleton-slot">
+                        <div class="skeleton-text"></div>
+                        <div class="skeleton-text-small"></div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
+    
+    datesContainer.innerHTML = skeletonHTML;
+}
 
+// --- OPTIMIZED: Core Logic with Client-Side Cache ---
 async function loadSlots() {
     const loadingMsg = document.getElementById("loadingMsg");
     const slotsDisplay = document.getElementById("slotsDisplay");
     const signupSection = document.getElementById("signupSection");
     
-    loadingMsg.innerHTML = "Loading available slots...";
-    loadingMsg.style.display = "block";
-    slotsDisplay.style.display = "none";
+    // Show skeleton immediately for instant feedback
+    showSkeletonUI();
     signupSection.style.display = "none";
 
+    // Check client-side cache first
+    const now = Date.now();
+    if (API_CACHE.data && (now - API_CACHE.timestamp) < API_CACHE.TTL) {
+        console.log('✅ Using client cache');
+        renderSlotsData(API_CACHE.data);
+        return;
+    }
+
     try {
+        const startTime = performance.now();
         const res = await fetch(API_URL);
+        const fetchTime = performance.now() - startTime;
+        console.log(`⏱️ API fetch took ${fetchTime.toFixed(0)}ms`);
         
         if (!res.ok) {
-            const errorMsg = getErrorMessage(res.status, "Failed to fetch available slots.");
-            loadingMsg.innerHTML = `
-                <p style="color: #dc2626; margin-bottom: 15px;">⚠️ ${errorMsg}</p>
-                <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
-                    🔄 Retry
-                </button>
-            `;
-            console.error(`API Call failed with status: ${res.status}`);
+            handleLoadError(res.status);
             return;
         }
 
         const data = await res.json();
         
         if (!data.ok) {
-            loadingMsg.innerHTML = `
-                <p style="color: #dc2626; margin-bottom: 15px;">⚠️ ${sanitizeHTML(data.error || 'Failed to load slots')}</p>
-                <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
-                    🔄 Retry
-                </button>
-            `;
+            handleLoadError(null, data.error || 'Failed to load slots');
             return;
         }
 
-        // Access the 'dates' object from the response
-        const groupedSlotsByDate = data.dates || {};
-        
-        let html = "";
-        
-        // Filter out past dates before sorting
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Reset time to compare only dates
-        
-        const futureDates = Object.keys(groupedSlotsByDate).filter(dateStr => {
-            const slotDate = new Date(dateStr);
-            return slotDate >= today; // Only show today and future dates
-        });
-        
-        // Sort dates chronologically
-        const sortedDates = futureDates.sort((a, b) => {
-            const dateA = new Date(a);
-            const dateB = new Date(b);
-            return dateA - dateB;
-        });
-        
-        const datesContainer = document.getElementById("datesContainer");
+        // Cache the response
+        API_CACHE.data = data;
+        API_CACHE.timestamp = now;
 
-        if (sortedDates.length === 0) {
-            html = `
-                <div style="text-align: center; padding: 40px 20px;">
-                    <p style="font-size: 1.1rem; color: #64748b; margin-bottom: 20px;">
-                        📅 No available slots at this time.
-                    </p>
-                    <p style="color: #94a3b8;">Please check back later!</p>
-                    <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 20px auto 0;">
-                        🔄 Refresh
-                    </button>
-                </div>
-            `;
-            datesContainer.innerHTML = html;
-        } else {
-            sortedDates.forEach(date => {
-                const dateSlots = groupedSlotsByDate[date];
-                
-                // Filter and sort slots by time
-                const availableSlotsForDate = dateSlots
-                    .filter(slot => slot.available > 0)
-                    .sort((a, b) => {
-                        // Sort by slot label (time) to ensure chronological order
-                        return a.slotLabel.localeCompare(b.slotLabel);
-                    });
-                
-                if (availableSlotsForDate.length > 0) {
-                    html += `
-                        <div class="date-card card">
-                            <h3>📅 ${sanitizeHTML(date)}</h3>
-                            <div class="slots-grid">
-                    `;
-                    
-                    availableSlotsForDate.forEach(slot => {
-                        const isSelected = selectedSlots.some(s => s.id === slot.id);
-                        const selectedClass = isSelected ? 'selected' : '';
-                        const safeDate = sanitizeHTML(slot.date);
-                        const safeLabel = sanitizeHTML(slot.slotLabel);
-                        
-                        html += `
-                            <div class="slot ${selectedClass}" 
-                                 id="slot-btn-${slot.id}"
-                                 onclick="toggleSlot('${safeDate}', '${safeLabel}', ${slot.id}, this)">
-                                ${safeLabel}<br>
-                                <small>(${slot.available} left)</small>
-                            </div>
-                        `;
-                    });
-                    html += `
-                            </div>
-                        </div>
-                    `;
-                }
-            });
-            
-            if (html === "") {
-                datesContainer.innerHTML = `
-                    <div style="text-align: center; padding: 40px 20px;">
-                        <p style="font-size: 1.1rem; color: #64748b; margin-bottom: 20px;">
-                            📅 No available slots at this time.
-                        </p>
-                        <p style="color: #94a3b8;">Please check back later!</p>
-                        <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 20px auto 0;">
-                            🔄 Refresh
-                        </button>
-                    </div>
-                `;
-            } else {
-                datesContainer.innerHTML = html;
-            }
-        }
-
-        loadingMsg.style.display = "none";
-        slotsDisplay.style.display = "block";
-        updateFloatingButton();
+        renderSlotsData(data);
 
     } catch (err) {
-        loadingMsg.innerHTML = `
-            <p style="color: #dc2626; margin-bottom: 15px;">
-                ⚠️ Unable to connect to the server. Please check your internet connection.
-            </p>
-            <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
-                🔄 Retry
-            </button>
-        `;
+        handleLoadError(null, err.message);
         console.error("Load Slots Error:", err);
     }
 }
 
+// --- OPTIMIZED: Render slots with DocumentFragment ---
+function renderSlotsData(data) {
+    const datesContainer = document.getElementById("datesContainer");
+    const groupedSlotsByDate = data.dates || {};
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const futureDates = Object.keys(groupedSlotsByDate)
+        .filter(dateStr => {
+            const slotDate = new Date(dateStr);
+            return slotDate >= today;
+        })
+        .sort((a, b) => new Date(a) - new Date(b));
+    
+    if (futureDates.length === 0) {
+        showNoSlotsMessage();
+        return;
+    }
+    
+    // Clear skeleton
+    datesContainer.innerHTML = '';
+    
+    // Use DocumentFragment for better performance
+    const fragment = document.createDocumentFragment();
+    
+    futureDates.forEach(date => {
+        const dateSlots = groupedSlotsByDate[date];
+        const availableSlots = dateSlots
+            .filter(slot => slot.available > 0)
+            .sort((a, b) => parseTimeForSorting(a.slotLabel) - parseTimeForSorting(b.slotLabel));
+        
+        if (availableSlots.length > 0) {
+            const card = createDateCard(date, availableSlots);
+            fragment.appendChild(card);
+        }
+    });
+    
+    // Single DOM update
+    datesContainer.appendChild(fragment);
+    
+    document.getElementById("loadingMsg").style.display = "none";
+    document.getElementById("slotsDisplay").style.display = "block";
+    updateFloatingButton();
+}
+
+// --- OPTIMIZED: Create DOM elements instead of HTML strings ---
+function createDateCard(date, slots) {
+    const card = document.createElement('div');
+    card.className = 'date-card card fade-in';
+    
+    const title = document.createElement('h3');
+    title.textContent = `📅 ${date}`;
+    card.appendChild(title);
+    
+    const grid = document.createElement('div');
+    grid.className = 'slots-grid';
+    
+    slots.forEach(slot => {
+        const slotDiv = createSlotElement(slot);
+        grid.appendChild(slotDiv);
+    });
+    
+    card.appendChild(grid);
+    return card;
+}
+
+function createSlotElement(slot) {
+    const div = document.createElement('div');
+    const isSelected = selectedSlots.some(s => s.id === slot.id);
+    div.className = `slot ${isSelected ? 'selected' : ''}`;
+    div.id = `slot-btn-${slot.id}`;
+    
+    const label = document.createElement('span');
+    label.textContent = slot.slotLabel;
+    div.appendChild(label);
+    
+    div.appendChild(document.createElement('br'));
+    
+    const small = document.createElement('small');
+    small.textContent = `(${slot.available} left)`;
+    div.appendChild(small);
+    
+    div.onclick = function() {
+        toggleSlot(slot.date, slot.slotLabel, slot.id, this);
+    };
+    
+    return div;
+}
+
+function showNoSlotsMessage() {
+    const datesContainer = document.getElementById("datesContainer");
+    datesContainer.innerHTML = `
+        <div style="text-align: center; padding: 40px 20px;">
+            <p style="font-size: 1.1rem; color: #64748b; margin-bottom: 20px;">
+                📅 No available slots at this time.
+            </p>
+            <p style="color: #94a3b8;">Please check back later!</p>
+            <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 20px auto 0;">
+                🔄 Refresh
+            </button>
+        </div>
+    `;
+    document.getElementById("loadingMsg").style.display = "none";
+    document.getElementById("slotsDisplay").style.display = "block";
+}
+
+function handleLoadError(status, message) {
+    const loadingMsg = document.getElementById("loadingMsg");
+    const datesContainer = document.getElementById("datesContainer");
+    
+    datesContainer.innerHTML = '';
+    
+    const errorMessage = status ? 
+        getErrorMessage(status, "Failed to load slots") :
+        (message || "Connection error. Please check your internet.");
+    
+    loadingMsg.innerHTML = `
+        <p style="color: #dc2626; margin-bottom: 15px;">
+            ⚠️ ${sanitizeHTML(errorMessage)}
+        </p>
+        <button onclick="loadSlots()" class="btn secondary-btn" style="max-width: 200px; margin: 0 auto;">
+            🔄 Retry
+        </button>
+    `;
+    loadingMsg.style.display = "block";
+    document.getElementById("slotsDisplay").style.display = "none";
+}
+
 // Helper function to parse time from slot label and convert to comparable number
 function parseTimeForSorting(slotLabel) {
-    // Extract time like "10:00 AM - 12:00 PM" -> "10:00 AM"
     const startTime = slotLabel.split('-')[0].trim();
-    
-    // Parse hour and AM/PM
     const match = startTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
     if (!match) return 0;
     
@@ -284,11 +407,10 @@ function parseTimeForSorting(slotLabel) {
     const minute = parseInt(match[2]);
     const period = match[3].toUpperCase();
     
-    // Convert to 24-hour format
     if (period === 'PM' && hour !== 12) hour += 12;
     if (period === 'AM' && hour === 12) hour = 0;
     
-    return hour * 60 + minute; // Return total minutes for comparison
+    return hour * 60 + minute;
 }
 
 // Function to remove a slot from selection (used in summary)
@@ -297,19 +419,16 @@ function removeSlotFromSummary(slotId) {
     if (index > -1) {
         selectedSlots.splice(index, 1);
         
-        // Update the slot button visual state on the main page
         const slotElement = document.getElementById(`slot-btn-${slotId}`);
         if (slotElement) {
             slotElement.classList.remove("selected");
         }
         
-        // If no slots left, go back to selection page
         if (selectedSlots.length === 0) {
             backToSlotSelection();
             return;
         }
         
-        // Refresh the summary display
         updateSummaryDisplay();
         updateFloatingButton();
     }
@@ -322,27 +441,23 @@ function updateSummaryDisplay() {
     
     summaryHTML += `<div class="chips-container">`;
     
-    // Sort all slots by date first, then by time
     const sortedSlots = [...selectedSlots].sort((a, b) => {
         const dateCompare = new Date(a.date) - new Date(b.date);
         if (dateCompare !== 0) return dateCompare;
         return parseTimeForSorting(a.label) - parseTimeForSorting(b.label);
     });
     
-    // Create a chip for each slot
     sortedSlots.forEach(slot => {
         const safeDate = sanitizeHTML(slot.date);
         const safeLabel = sanitizeHTML(slot.label);
         
-        // Format date to be shorter (e.g., "Dec 15" instead of "December 15, 2024")
         const dateObj = new Date(slot.date);
         const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
-        // Shorten time format (e.g., "10AM-12PM" instead of "10:00 AM - 12:00 PM")
         const shortTime = slot.label
-            .replace(/:\d{2}/g, '') // Remove minutes if :00
-            .replace(/\s*-\s*/g, '-') // Remove spaces around dash
-            .replace(/\s/g, ''); // Remove remaining spaces
+            .replace(/:\d{2}/g, '')
+            .replace(/\s*-\s*/g, '-')
+            .replace(/\s/g, '');
         
         summaryHTML += `
             <div class="slot-chip" data-slot-id="${slot.id}">
@@ -361,37 +476,7 @@ function updateSummaryDisplay() {
     });
     
     summaryHTML += `</div>`;
-    
     summaryEl.innerHTML = summaryHTML;
-}
-
-// Function to remove all slots for a specific date
-function removeAllSlotsForDate(date, event) {
-    if (event) event.preventDefault();
-    
-    // Find all slots for this date
-    const slotsToRemove = selectedSlots.filter(slot => sanitizeHTML(slot.date) === date);
-    
-    // Remove visual selection from main page
-    slotsToRemove.forEach(slot => {
-        const slotElement = document.getElementById(`slot-btn-${slot.id}`);
-        if (slotElement) {
-            slotElement.classList.remove("selected");
-        }
-    });
-    
-    // Remove from selectedSlots array
-    selectedSlots = selectedSlots.filter(slot => sanitizeHTML(slot.date) !== date);
-    
-    // If no slots left, go back to selection page
-    if (selectedSlots.length === 0) {
-        backToSlotSelection();
-        return;
-    }
-    
-    // Refresh the summary display
-    updateSummaryDisplay();
-    updateFloatingButton();
 }
 
 // Function to show signup form with selected slots summary
@@ -401,10 +486,8 @@ function showSignupForm() {
         return;
     }
 
-    // Update and display the summary
     updateSummaryDisplay();
 
-    // Show signup form and hide slots display
     document.getElementById("slotsDisplay").style.display = "none";
     document.getElementById("floatingSignupBtnContainer").style.display = "none";
     document.getElementById("signupSection").style.display = "block";
@@ -412,13 +495,11 @@ function showSignupForm() {
 }
 
 async function submitSignup() {
-    // Prevent double submission
     if (isSubmitting) {
         showMessage("signupMsg", "Please wait, your booking is being processed...", true);
         return;
     }
     
-    // Rate limiting
     const now = Date.now();
     if (now - lastApiCall < CONFIG.API_COOLDOWN) {
         showMessage("signupMsg", "Please wait a moment before submitting again.", true);
@@ -430,7 +511,6 @@ async function submitSignup() {
     const phone = sanitizeInput(document.getElementById("phoneInput").value, 20);
     const notes = sanitizeInput(document.getElementById("notesInput").value, 500);
 
-    // Client-side validation
     if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
         return;
@@ -456,7 +536,6 @@ async function submitSignup() {
         return;
     }
 
-    // Set submitting state
     isSubmitting = true;
     lastApiCall = now;
     
@@ -465,7 +544,6 @@ async function submitSignup() {
     submitBtn.disabled = true;
     submitBtn.textContent = "Processing...";
 
-    // Extract slot IDs for backend
     const slotIds = selectedSlots.map(slot => slot.id);
 
     const signupData = {
@@ -488,7 +566,6 @@ async function submitSignup() {
         const data = await res.json();
         
         if (data.ok) {
-            // Build confirmation message with sanitized data
             let confirmationHTML = `Thank you, <strong>${sanitizeHTML(name)}</strong>! Your spot${selectedSlots.length > 1 ? 's have' : ' has'} been reserved for:<br><br>`;
             
             const slotsByDate = {};
@@ -500,9 +577,7 @@ async function submitSignup() {
                 slotsByDate[safeDate].push(sanitizeHTML(slot.label));
             });
             
-            // Sort dates chronologically
             Object.keys(slotsByDate).sort((a, b) => new Date(a) - new Date(b)).forEach(date => {
-                // Sort time slots chronologically within each date
                 const sortedSlots = slotsByDate[date].sort((a, b) => {
                     return parseTimeForSorting(a) - parseTimeForSorting(b);
                 });
@@ -517,12 +592,14 @@ async function submitSignup() {
             document.getElementById("confirmationDetails").innerHTML = confirmationHTML;
             document.getElementById("successMessage").style.display = "block";
             
-            // Clear form and selections
             document.getElementById("nameInput").value = "";
             document.getElementById("emailInput").value = "";
             document.getElementById("phoneInput").value = "";
             document.getElementById("notesInput").value = "";
             selectedSlots = [];
+            
+            // Invalidate cache so fresh data loads on next view
+            API_CACHE.data = null;
             
         } else {
             const errorMessage = data.error || "Booking failed. Please try again.";
@@ -554,7 +631,6 @@ async function lookupBookings() {
         return;
     }
 
-    // Disable button and show loading state
     searchBtn.disabled = true;
     searchBtn.textContent = 'Searching...';
     displayEl.innerHTML = '<p>🔍 Searching for your bookings...</p>';
@@ -582,7 +658,6 @@ async function lookupBookings() {
             return;
         }
 
-        // Display bookings with sanitized data
         let html = '<div class="bookings-list">';
         bookings.forEach(booking => {
             const safeDate = sanitizeHTML(booking.date);
@@ -611,7 +686,6 @@ async function lookupBookings() {
         displayEl.innerHTML = '<p class="msg-box error">⚠️ Unable to connect to the server. Please check your internet connection and try again.</p>';
         console.error("Lookup error:", err);
     } finally {
-        // Re-enable button
         searchBtn.disabled = false;
         searchBtn.textContent = 'Search';
     }
@@ -649,7 +723,10 @@ async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 
         if (data.ok) {
             alert(`✅ ${data.message || "Booking cancelled successfully!"}`);
-            // Refresh the bookings list
+            
+            // Invalidate cache
+            API_CACHE.data = null;
+            
             lookupBookings();
         } else {
             alert(`❌ Error: ${sanitizeHTML(data.error)}`);
@@ -666,7 +743,6 @@ async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 document.addEventListener('DOMContentLoaded', () => {
     loadSlots();
     
-    // Add keyboard accessibility
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.getElementById("signupSection").style.display === "block") {
             backToSlotSelection();
