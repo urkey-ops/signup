@@ -1010,3 +1010,22 @@ small {
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     }
 }
+/* --- New Styles for Collapsible Lookup Section --- */
+
+/** Hides the content by default until toggled by JavaScript */
+.hidden {
+    display: none;
+}
+
+/** Ensures the toggle button takes full width on mobile devices for easier tapping */
+.full-width-mobile {
+    width: 100%;
+    text-align: center; /* Center the text inside the button */
+    padding: 12px 20px; /* Adjust padding for better look as a button */
+    margin-bottom: 20px; /* Creates space below the button */
+}
+
+/* Optional: Override the card padding for a slightly cleaner look if the button is within a card */
+.lookup-section {
+    padding-bottom: 0 !important;
+}
