@@ -1,16 +1,6 @@
 {
   "version": 2,
   "name": "booking-system",
-  "routes": [
-    {
-      "src": "/api/signup",
-      "dest": "/api/signup.js"
-    },
-    {
-      "src": "/api/admin",
-      "dest": "/api/admin.js"
-    }
-  ],
   "env": {
     "NODE_ENV": "production"
   },
