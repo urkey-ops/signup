@@ -15,7 +15,8 @@ const CONFIG = {
         MIN_CAPACITY: 1,
         MAX_CAPACITY: 99,
         DEFAULT_CAPACITY: 6
-    }
+    },
+    CACHE_TTL: 5000 // 5 second cache for admin panel
 };
 
 const DEFAULT_SLOT_LABELS = [
@@ -31,6 +32,12 @@ let existingDateSet = new Set();
 let selectedDates = new Set();
 let slotsToDelete = [];
 let allSlots = [];
+
+// Admin cache (shorter TTL than user side)
+const adminCache = {
+    data: null,
+    timestamp: 0
+};
 
 // ================================================================================================
 // SECURITY & VALIDATION
@@ -95,15 +102,33 @@ function handleError(context, error, userMessage) {
     showMessage('addMsg', userMessage, true);
 }
 
+// Check admin cache
+function getCachedData() {
+    const now = Date.now();
+    if (adminCache.data && (now - adminCache.timestamp) < CONFIG.CACHE_TTL) {
+        return adminCache.data;
+    }
+    return null;
+}
+
+function setCachedData(data) {
+    adminCache.data = data;
+    adminCache.timestamp = Date.now();
+}
+
+function invalidateCache() {
+    adminCache.data = null;
+    adminCache.timestamp = 0;
+}
+
 // ================================================================================================
-// MULTI-DATE SELECTOR (Fixed: Event Delegation)
+// MULTI-DATE SELECTOR
 // ================================================================================================
 
 function generateDateOptions() {
     const container = document.getElementById('multiDateSelector');
     if (!container) return;
     
-    // Clear container
     container.innerHTML = '';
     
     const today = new Date();
@@ -146,7 +171,7 @@ function generateDateOptions() {
     
     container.appendChild(fragment);
     
-    // Setup event delegation ONCE (remove old listener first)
+    // Setup event delegation
     const oldListener = container._clickListener;
     if (oldListener) {
         container.removeEventListener('click', oldListener);
@@ -154,7 +179,6 @@ function generateDateOptions() {
     }
     
     const handleInteraction = (e) => {
-        // Handle keyboard
         if (e.type === 'keypress' && e.key !== 'Enter' && e.key !== ' ') return;
         if (e.type === 'keypress') e.preventDefault();
         
@@ -177,7 +201,6 @@ function toggleDateSelection(dateStr) {
         return;
     }
     
-    // Check max limit
     if (!selectedDates.has(dateStr) && selectedDates.size >= CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE) {
         alert(`⚠️ Maximum ${CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE} dates can be selected at once.\n\nThis prevents overwhelming the system.`);
         return;
@@ -189,7 +212,6 @@ function toggleDateSelection(dateStr) {
         selectedDates.add(dateStr);
     }
     
-    // Update visual state
     const chip = document.querySelector(`.date-chip[data-date="${dateStr}"]`);
     if (chip) {
         chip.classList.toggle('selected');
@@ -285,7 +307,7 @@ async function login() {
 }
 
 // ================================================================================================
-// SUBMIT NEW SLOTS (Fixed: Parallel API Calls)
+// SUBMIT NEW SLOTS (Optimized with Progress Indicator)
 // ================================================================================================
 
 async function submitNewSlots() {
@@ -297,7 +319,6 @@ async function submitNewSlots() {
         return;
     }
     
-    // Build slots array
     const slots = [];
     let slotsSelected = false;
     
@@ -321,39 +342,55 @@ async function submitNewSlots() {
         return;
     }
     
-    // Disable button during submission
     submitBtn.disabled = true;
     const originalText = submitBtn.textContent;
-    submitBtn.textContent = "Processing...";
     
     const totalDates = selectedDates.size;
+    let completed = 0;
+    
+    submitBtn.textContent = `Processing 0/${totalDates}...`;
     showMessage("addMsg", `Submitting slots for ${totalDates} date(s)...`, false);
     
     try {
-        // FIXED: Parallel submission with Promise.all
-        const promises = Array.from(selectedDates).map(date =>
-            fetch(API_URL, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${adminToken}`
-                },
-                body: JSON.stringify({ date, slots })
-            })
-            .then(res => res.json())
-            .then(data => ({ date, success: data.ok, error: data.error }))
-            .catch(err => ({ date, success: false, error: err.message }))
-        );
+        const startTime = performance.now();
+        
+        // Parallel submission with progress tracking
+        const promises = Array.from(selectedDates).map(async date => {
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Authorization": `Bearer ${adminToken}`
+                    },
+                    body: JSON.stringify({ date, slots })
+                });
+                
+                const data = await response.json();
+                
+                // Update progress
+                completed++;
+                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
+                
+                return { date, success: data.ok, error: data.error };
+            } catch (err) {
+                completed++;
+                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
+                return { date, success: false, error: err.message };
+            }
+        });
         
         const results = await Promise.all(promises);
+        const duration = performance.now() - startTime;
         
-        // Analyze results
+        console.log(`⏱️ Batch submission took ${duration.toFixed(0)}ms`);
+        
         const successful = results.filter(r => r.success);
         const failed = results.filter(r => !r.success);
         
         // Show results
         if (failed.length === 0) {
-            showMessage("addMsg", `✅ Successfully added slots for all ${successful.length} date(s)!`, false);
+            showMessage("addMsg", `✅ Successfully added slots for all ${successful.length} date(s) in ${(duration/1000).toFixed(1)}s!`, false);
         } else if (successful.length > 0) {
             showMessage("addMsg", `⚠️ Added ${successful.length} dates, but ${failed.length} failed. Check console for details.`, true);
             console.error("Failed dates:", failed);
@@ -362,13 +399,15 @@ async function submitNewSlots() {
             showMessage("addMsg", `❌ Failed to add slots: ${firstError}`, true);
         }
         
-        // Reset and reload
+        // Reset state
         selectedDates.clear();
+        invalidateCache(); // Clear admin cache
+        
         await loadSlots();
         generateDateOptions();
         renderCheckboxes();
         
-        // Animate stats to show update
+        // Animate stats
         ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
             const el = document.getElementById(id);
             if (el) {
@@ -386,11 +425,19 @@ async function submitNewSlots() {
 }
 
 // ================================================================================================
-// LOAD SLOTS (COMPACT VIEW)
+// LOAD SLOTS (With Caching)
 // ================================================================================================
 
 async function loadSlots() {
     const display = document.getElementById("slotsDisplay");
+    
+    // Check cache first
+    const cached = getCachedData();
+    if (cached) {
+        console.log('✅ Using admin cache');
+        renderSlots(cached);
+        return;
+    }
     
     // Show loading skeleton
     display.innerHTML = `
@@ -405,9 +452,15 @@ async function loadSlots() {
     updateDeleteButton();
     
     try {
+        const startTime = performance.now();
+        
         const res = await fetch(API_URL, {
             headers: { "Authorization": `Bearer ${adminToken}` }
         });
+        
+        const fetchTime = performance.now() - startTime;
+        console.log(`⏱️ Admin API fetch took ${fetchTime.toFixed(0)}ms`);
+        
         const data = await res.json();
         
         if (!data.ok) {
@@ -415,90 +468,99 @@ async function loadSlots() {
             return;
         }
         
-        allSlots = data.slots;
+        // Cache the data
+        setCachedData(data);
         
-        // Group by date
-        const grouped = {};
-        let totalBookings = 0;
-        let totalAvailable = 0;
-        
-        data.slots.forEach(slot => {
-            if (!grouped[slot.date]) grouped[slot.date] = [];
-            grouped[slot.date].push(slot);
-            existingDateSet.add(slot.date);
-            totalBookings += slot.taken;
-            totalAvailable += slot.available;
-        });
-        
-        // Update statistics
-        document.getElementById('totalDates').textContent = Object.keys(grouped).length;
-        document.getElementById('totalSlots').textContent = data.slots.length;
-        document.getElementById('totalBookings').textContent = totalBookings;
-        document.getElementById('totalAvailable').textContent = totalAvailable;
-        document.getElementById('statsBar').style.display = 'flex';
-        
-        if (Object.keys(grouped).length === 0) {
-            display.innerHTML = "<p style='text-align: center; padding: 40px; color: #64748b;'>📅 No slots added yet. Add some dates above!</p>";
-            document.getElementById('statsBar').style.display = 'none';
-            return;
-        }
-        
-        // Sort dates chronologically
-        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
-        
-        let html = '<div class="compact-slots-grid">';
-        
-        sortedDates.forEach(date => {
-            const slots = grouped[date];
-            const isPast = isPastDate(date);
-            const pastClass = isPast ? 'past' : '';
-            const { monthName, dayNum, weekday } = formatDateShort(date);
-            
-            html += `
-                <div class="slot-date-group ${pastClass}">
-                    <div class="date-header">
-                        <div class="date-title">
-                            ${sanitizeHTML(monthName)} ${sanitizeHTML(String(dayNum))}
-                            <span style="font-size: 0.7rem; opacity: 0.7; display: block;">${sanitizeHTML(weekday)}</span>
-                        </div>
-                        <input type="checkbox" 
-                               class="date-select-all" 
-                               onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
-                               aria-label="Select all slots for ${sanitizeHTML(date)}"
-                               title="Select all slots for this date">
-                    </div>
-            `;
-            
-            slots.forEach(slot => {
-                const isFull = slot.available <= 0;
-                html += `
-                    <div class="slot-row">
-                        <input type="checkbox" 
-                               class="slot-row-checkbox" 
-                               data-row-id="${slot.id}" 
-                               data-date="${date}"
-                               onchange="toggleSlotSelection(${slot.id}, this.checked)"
-                               aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
-                        <div class="slot-info">
-                            <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
-                            <span class="slot-capacity ${isFull ? 'full' : ''}">
-                                ${slot.taken}/${slot.capacity} booked
-                            </span>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += `</div>`;
-        });
-        
-        html += '</div>';
-        display.innerHTML = html;
+        renderSlots(data);
         
     } catch (err) {
         handleError('LoadSlots', err, 'Error loading slots. Please refresh the page.');
         display.innerHTML = "<p class='msg-box error'>Error loading slots. Check console and refresh.</p>";
     }
+}
+
+function renderSlots(data) {
+    const display = document.getElementById("slotsDisplay");
+    
+    allSlots = data.slots;
+    
+    // Group by date
+    const grouped = {};
+    let totalBookings = 0;
+    let totalAvailable = 0;
+    
+    data.slots.forEach(slot => {
+        if (!grouped[slot.date]) grouped[slot.date] = [];
+        grouped[slot.date].push(slot);
+        existingDateSet.add(slot.date);
+        totalBookings += slot.taken;
+        totalAvailable += slot.available;
+    });
+    
+    // Update statistics
+    document.getElementById('totalDates').textContent = Object.keys(grouped).length;
+    document.getElementById('totalSlots').textContent = data.slots.length;
+    document.getElementById('totalBookings').textContent = totalBookings;
+    document.getElementById('totalAvailable').textContent = totalAvailable;
+    document.getElementById('statsBar').style.display = 'flex';
+    
+    if (Object.keys(grouped).length === 0) {
+        display.innerHTML = "<p style='text-align: center; padding: 40px; color: #64748b;'>📅 No slots added yet. Add some dates above!</p>";
+        document.getElementById('statsBar').style.display = 'none';
+        return;
+    }
+    
+    // Sort dates chronologically
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+    
+    let html = '<div class="compact-slots-grid">';
+    
+    sortedDates.forEach(date => {
+        const slots = grouped[date];
+        const isPast = isPastDate(date);
+        const pastClass = isPast ? 'past' : '';
+        const { monthName, dayNum, weekday } = formatDateShort(date);
+        
+        html += `
+            <div class="slot-date-group ${pastClass}">
+                <div class="date-header">
+                    <div class="date-title">
+                        ${sanitizeHTML(monthName)} ${sanitizeHTML(String(dayNum))}
+                        <span style="font-size: 0.7rem; opacity: 0.7; display: block;">${sanitizeHTML(weekday)}</span>
+                    </div>
+                    <input type="checkbox" 
+                           class="date-select-all" 
+                           onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
+                           aria-label="Select all slots for ${sanitizeHTML(date)}"
+                           title="Select all slots for this date">
+                </div>
+        `;
+        
+        slots.forEach(slot => {
+            const isFull = slot.available <= 0;
+            html += `
+                <div class="slot-row">
+                    <input type="checkbox" 
+                           class="slot-row-checkbox" 
+                           data-row-id="${slot.id}" 
+                           data-date="${date}"
+                           onchange="toggleSlotSelection(${slot.id}, this.checked)"
+                           aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
+                    <div class="slot-info">
+                        <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
+                        <span class="slot-capacity ${isFull ? 'full' : ''}">
+                            ${slot.taken}/${slot.capacity} booked
+                        </span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        html += `</div>`;
+    });
+    
+    html += '</div>';
+    display.innerHTML = html;
 }
 
 // ================================================================================================
@@ -529,11 +591,9 @@ function selectAllSlots() {
     const allSelected = slotsToDelete.length === allCheckboxes.length;
     
     if (allSelected) {
-        // Deselect all
         allCheckboxes.forEach(cb => cb.checked = false);
         slotsToDelete = [];
     } else {
-        // Select all
         allCheckboxes.forEach(cb => {
             cb.checked = true;
             const rowId = parseInt(cb.dataset.rowId);
@@ -573,7 +633,6 @@ async function deleteSelectedSlots() {
         return;
     }
     
-    // Build detailed confirmation message
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
         if (!slot) return null;
@@ -586,7 +645,7 @@ async function deleteSelectedSlots() {
     }, 0);
     
     const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
-                       `This will delete ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
+                       `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
                        `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
     
     if (!confirm(confirmMsg)) {
@@ -612,10 +671,11 @@ async function deleteSelectedSlots() {
         
         if (data.ok) {
             alert(`✅ ${data.message}`);
+            invalidateCache(); // Clear cache after deletion
             await loadSlots();
             generateDateOptions();
         } else {
-            alert(`❌ Failed to delete: ${data.error}`);
+            alert(`❌ ${data.error || 'Failed to delete'}`);
             deleteBtn.disabled = false;
             deleteBtn.textContent = originalText;
         }
@@ -668,7 +728,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderCheckboxes();
     setupKeyboardShortcuts();
     
-    // Enable Enter key for password
     const passwordInput = document.getElementById('adminPassword');
     if (passwordInput) {
         passwordInput.addEventListener('keypress', (e) => {
