@@ -143,35 +143,37 @@ function generateDateOptions() {
     const weekendSelectionDates = new Set();
     let weekendsFound = 0;
     
-    // --- New Continuous Selection Logic: Find and mark the next 8 available weekends ---
+    // --- New Continuous Selection Logic: Ensure 8 unique weekend *pairs* ---
 
-    // First pass: Find and mark the next 8 available weekends
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
         
         const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
 
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        const dateStr = `${month}/${day}/${year}`;
-        
-        // If it's a weekend (Sat or Sun) AND doesn't already have slots
-        if ((dayOfWeek === 0 || dayOfWeek === 6) && !existingDateSet.has(dateStr)) {
-            if (weekendsFound < maxWeekends) {
-                // Add the date string to a temporary set for selection
+        // Only process if we need more weekends
+        if (weekendsFound < maxWeekends) {
+            
+            // Format the date string once for consistency
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const year = date.getFullYear();
+            const dateStr = `${month}/${day}/${year}`;
+            
+            // Check if this date is a weekend and is available (not in existingDateSet)
+            if ((dayOfWeek === 0 || dayOfWeek === 6) && !existingDateSet.has(dateStr)) {
+                
+                // Add the date to the temporary selection set
                 weekendSelectionDates.add(dateStr);
+                
+                // If it's Saturday, and we successfully added it, we count it as a new weekend block.
+                if (dayOfWeek === 6) { 
+                    weekendsFound++;
+                }
             }
-            // Increment the counter only when a new weekend starts (Saturday is a good anchor)
-            if (dayOfWeek === 6 && !existingDateSet.has(dateStr)) { 
-                weekendsFound++;
-            }
-        }
-        
-        // Break once 8 weekends are found (16 days max)
-        if (weekendSelectionDates.size >= maxWeekends * 2 && weekendsFound >= maxWeekends) {
-            break; 
+        } else {
+            // Once 8 weekends are found, we stop looking for more to auto-select.
+            // We still need the loop to continue to render the chips for later dates.
         }
     }
     
@@ -361,7 +363,6 @@ async function submitNewSlots() {
     const submitBtn = document.getElementById("submitSlotsBtn");
     const checkboxes = document.querySelectorAll(".slot-checkbox");
     
-
 
     if (selectedDates.size === 0) {
         showMessage("addMsg", "Please select at least one date. Note: No new future weekends were found to pre-select.", true);
