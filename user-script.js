@@ -121,6 +121,18 @@ function showMessage(elementId, message, isError) {
     el.style.display = message ? "block" : "none";
 }
 
+// --- Helper function to format date with weekday ---
+function formatDateWithDay(dateString) {
+    // Create a Date object from the YYYY-MM-DD string
+    const date = new Date(dateString); 
+    
+    // Options: e.g., "Fri, Dec 5"
+    const options = { weekday: 'short', month: 'short', day: 'numeric' }; 
+    
+    // Format the date using the specified options
+    return date.toLocaleDateString('en-US', options); 
+}
+
 // --- Improved Error Messages ---
 function getErrorMessage(status, defaultMessage) {
     const errorMessages = {
@@ -320,7 +332,7 @@ function createDateCard(date, slots) {
     card.className = 'date-card card fade-in';
     
     const title = document.createElement('h3');
-    title.textContent = `📅 ${date}`;
+    title.textContent = `📅 ${formatDateWithDay(date)}`;
     card.appendChild(title);
     
     const grid = document.createElement('div');
@@ -452,7 +464,7 @@ function updateSummaryDisplay() {
         const safeLabel = sanitizeHTML(slot.label);
         
         const dateObj = new Date(slot.date);
-        const shortDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const shortDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
         
         const shortTime = slot.label
             .replace(/:\d{2}/g, '')
