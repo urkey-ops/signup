@@ -1,2 +1,59 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment Variables (NEVER COMMIT THESE!)
+.env
+.env.local
+.env.production
+.env.development
+.env.*.local
+
+# Vercel
 .vercel
-.env*.local
+.vercel.json
+
+# Build Output
+dist/
+build/
+.next/
+
+# OS Files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+logs/
+*.log
+
+# Temporary Files
+tmp/
+temp/
+*.tmp
+
+# Service Account JSON (CRITICAL - NEVER COMMIT!)
+*service-account*.json
+*credentials*.json
+google-credentials.json
+
+# Backup Files
+*.bak
+*.backup
+
+# Testing
+coverage/
+.nyc_output/
+
+# Local Development
+.cache/
