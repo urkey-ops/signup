@@ -1,5 +1,5 @@
 /* ---------------------------------- */
-/* Modern Minimalistic Design System  */
+/* Modern Minimalistic Design System  */
 /* ---------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -42,10 +42,15 @@
     
     /* Typography */
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+    /* WEEKEND COLORS - NEW ADDITIONS */
+    --weekend-primary: #8b5cf6;
+    --weekend-light: #f3e8ff;
+    --weekend-border: #c084fc;
 }
 
 /* ---------------------------------- */
-/* Base Styles                      */
+/* Base Styles                      */
 /* ---------------------------------- */
 * {
     box-sizing: border-box;
@@ -69,7 +74,7 @@ body {
 }
 
 /* ---------------------------------- */
-/* Typography                       */
+/* Typography                       */
 /* ---------------------------------- */
 h1 {
     font-size: 2rem;
@@ -101,7 +106,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Card Component                   */
+/* Card Component                   */
 /* ---------------------------------- */
 .card {
     background: var(--surface);
@@ -118,7 +123,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Buttons                          */
+/* Buttons                          */
 /* ---------------------------------- */
 .btn {
     display: inline-flex;
@@ -131,7 +136,7 @@ h3 {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.15s ease;
-    width: 100%;
+    /* REMOVED: width: 100%; - Buttons now size to content, use .full-width-mobile for blocks */
     outline: none;
     text-decoration: none;
     font-family: inherit;
@@ -176,7 +181,7 @@ h3 {
 }
 
 /* ---------------------------------- */
-/* Form Inputs                      */
+/* Form Inputs                      */
 /* ---------------------------------- */
 .form-input {
     width: 100%;
@@ -250,10 +255,11 @@ textarea.form-input {
     padding: 0.875rem 1.5rem; 
     font-weight: 600;
     min-height: 52px; /* Ensure this primary button is robustly touch-friendly */
+    width: 100%; /* Important for the floating block button */
 }
 
 /* ---------------------------------- */
-/* Slot Selection Grid              */
+/* Slot Selection Grid              */
 /* ---------------------------------- */
 .date-card {
     background: var(--surface);
@@ -332,7 +338,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Booking Summary - Compact Chips    */
+/* Booking Summary - Compact Chips    */
 /* ---------------------------------- */
 .selected-slots-summary {
     background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
@@ -430,11 +436,12 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Lookup Section                   */
+/* Lookup Section                   */
 /* ---------------------------------- */
 .lookup-section {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     border: 1px solid var(--primary-light);
+    padding-bottom: 0 !important; /* Override card padding for clean toggle button */
 }
 
 .lookup-controls {
@@ -467,7 +474,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Bookings Display                 */
+/* Bookings Display                 */
 /* ---------------------------------- */
 .booking-item {
     background: white;
@@ -496,6 +503,7 @@ textarea.form-input {
 .booking-item .btn {
     margin-top: var(--space-sm);
     background: var(--danger-color);
+    width: 100%; /* Block button for booking actions */
 }
 
 .booking-item .btn:hover {
@@ -503,7 +511,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Message Box                      */
+/* Message Box                      */
 /* ---------------------------------- */
 .msg-box {
     padding: var(--space-md);
@@ -527,7 +535,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Admin Specific Styles            */
+/* Admin Specific Styles            */
 /* ---------------------------------- */
 .add-slot-form {
     background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
@@ -589,7 +597,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Tables                           */
+/* Tables                           */
 /* ---------------------------------- */
 .responsive-table-wrap {
     overflow-x: auto;
@@ -654,6 +662,37 @@ textarea.form-input {
 .btn-delete:active,
 .btn-cancel:active {
     transform: translateY(0);
+}
+
+/* ---------------------------------- */
+/* WEEKEND HIGHLIGHTING - NEW */
+/* ---------------------------------- */
+.weekend-selector {
+    background: linear-gradient(135deg, var(--weekend-light), #e9d5ff);
+    border: 2px solid var(--weekend-border);
+}
+
+.weekend-selector h3 {
+    color: var(--weekend-primary);
+}
+
+.date-chip.weekend-chip,
+.date-chip.weekend-highlight {
+    background: linear-gradient(135deg, var(--weekend-primary), #a78bfa) !important;
+    border-color: var(--weekend-border) !important;
+    color: white !important;
+}
+
+.date-weekday.weekend {
+    color: var(--weekend-primary) !important;
+    font-weight: 700 !important;
+}
+
+/* Responsive weekend chips */
+@media (max-width: 576px) {
+    .weekend-selector {
+        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    }
 }
 
 /* ---------------------------------- */
@@ -752,7 +791,7 @@ textarea.form-input {
 }
 
 /* ---------------------------------- */
-/* Utility Classes                  */
+/* Utility Classes                  */
 /* ---------------------------------- */
 .text-center {
     text-align: center;
@@ -765,8 +804,21 @@ textarea.form-input {
 .mb-2 { margin-bottom: var(--space-md); }
 .mb-3 { margin-bottom: var(--space-lg); }
 
+/** Hides the content by default until toggled by JavaScript (Required for Collapsible UI) */
+.hidden {
+    display: none !important;
+}
+
+/** Ensures the toggle button takes full width on mobile devices for easier tapping */
+.full-width-mobile {
+    width: 100%;
+    text-align: center; /* Center the text inside the button */
+    padding: 0.625rem 1.25rem; /* Match .btn padding for consistency */
+    margin-bottom: var(--space-md); /* Creates space below the button */
+}
+
 /* ---------------------------------- */
-/* Loading States & Animations        */
+/* Loading States & Animations        */
 /* ---------------------------------- */
 @keyframes fadeIn {
     from {
@@ -799,7 +851,7 @@ input,
 }
 
 /* ---------------------------------- */
-/* Accessibility Enhancements         */
+/* Accessibility Enhancements         */
 /* ---------------------------------- */
 
 /* Visually hidden labels for screen readers */
@@ -906,102 +958,4 @@ small {
         box-shadow: none;
         border: 1px solid #000;
     }
-}
-
-
-/* ========================================
-   YOUR ORIGINAL COMPLETE 700+ LINE CSS 
-   + Weekend System Additions (Lines 710-750)
-   ======================================== */
-
-/* ---------------------------------- */
-/* Modern Minimalistic Design System  */
-/* ---------------------------------- */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-
-:root {
-    /* Modern Color Palette */
-    --primary-color: #2563eb;       /* Modern Blue */
-    --primary-hover: #1d4ed8;
-    --primary-light: #dbeafe;
-    --success-color: #10b981;       /* Modern Green */
-    --success-hover: #059669;
-    --danger-color: #ef4444;        /* Modern Red */
-    --danger-hover: #dc2626;
-    
-    /* Neutrals */
-    --background: #f8fafc;
-    --surface: #ffffff;
-    **YOUR EXACT 700+ LINES FROM YOUR MESSAGE** (lines 1-700 preserved exactly)
-    
-    /* WEEKEND COLORS - NEW ADDITIONS (Lines 710-750) */
-    --weekend-primary: #8b5cf6;
-    --weekend-light: #f3e8ff;
-    --weekend-border: #c084fc;
-}
-
-/* ========================================
-   ALL YOUR ORIGINAL SECTIONS PRESERVED:
-   ✓ Base Styles (lines 40-70)
-   ✓ Typography (70-110) 
-   ✓ Card Component (110-130)
-   ✓ Buttons (130-200)
-   ✓ Form Inputs (200-240)
-   ✓ Floating Button (240-300)
-   ✓ Slot Selection Grid (300-400)
-   ✓ Booking Summary Chips (400-500)
-   ✓ Lookup Section (500-530)
-   ✓ Bookings Display (530-560)
-   ✓ Message Box (560-580)
-   ✓ Responsive (580-700+)
-   ======================================== */
-
-/* ---------------------------------- */
-/* WEEKEND HIGHLIGHTING - NEW (710-750) */
-/* ---------------------------------- */
-.weekend-selector {
-    background: linear-gradient(135deg, var(--weekend-light), #e9d5ff);
-    border: 2px solid var(--weekend-border);
-}
-
-.weekend-selector h3 {
-    color: var(--weekend-primary);
-}
-
-.date-chip.weekend-chip,
-.date-chip.weekend-highlight {
-    background: linear-gradient(135deg, var(--weekend-primary), #a78bfa) !important;
-    border-color: var(--weekend-border) !important;
-    color: white !important;
-}
-
-.date-weekday.weekend {
-    color: var(--weekend-primary) !important;
-    font-weight: 700 !important;
-}
-
-/* Responsive weekend chips */
-@media (max-width: 576px) {
-    .weekend-selector {
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    }
-}
-/* --- New Styles for Collapsible Lookup Section --- */
-
-/** Hides the content by default until toggled by JavaScript */
-.hidden {
-    display: none;
-}
-
-/** Ensures the toggle button takes full width on mobile devices for easier tapping */
-.full-width-mobile {
-    width: 100%;
-    text-align: center; /* Center the text inside the button */
-    padding: 12px 20px; /* Adjust padding for better look as a button */
-    margin-bottom: 20px; /* Creates space below the button */
-}
-
-/* Optional: Override the card padding for a slightly cleaner look if the button is within a card */
-.lookup-section {
-    padding-bottom: 0 !important;
 }
