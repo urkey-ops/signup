@@ -131,12 +131,56 @@ function generateDateOptions() {
     
     container.innerHTML = '';
     
+    // 1. Clear current user selection to prepare for default auto-selection
+    selectedDates.clear();
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
     const fragment = document.createDocumentFragment();
     
-    // Generate next 60 days
+    const maxWeekends = 8;
+    const weekendSelectionDates = new Set();
+    let weekendsFound = 0;
+    
+    // --- New Continuous Selection Logic: Find and mark the next 8 available weekends ---
+
+    // First pass: Find and mark the next 8 available weekends
+    for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
+
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        const dateStr = `${month}/${day}/${year}`;
+        
+        // If it's a weekend (Sat or Sun) AND doesn't already have slots
+        if ((dayOfWeek === 0 || dayOfWeek === 6) && !existingDateSet.has(dateStr)) {
+            if (weekendsFound < maxWeekends) {
+                // Add the date string to a temporary set for selection
+                weekendSelectionDates.add(dateStr);
+            }
+            // Increment the counter only when a new weekend starts (Saturday is a good anchor)
+            if (dayOfWeek === 6 && !existingDateSet.has(dateStr)) { 
+                weekendsFound++;
+            }
+        }
+        
+        // Break once 8 weekends are found (16 days max)
+        if (weekendSelectionDates.size >= maxWeekends * 2 && weekendsFound >= maxWeekends) {
+            break; 
+        }
+    }
+    
+    // Add all found dates to the main selectedDates state
+    weekendSelectionDates.forEach(date => selectedDates.add(date));
+
+    // --- End New Continuous Selection Logic ---
+    
+    // Second pass: Generate the chips using the updated selectedDates state
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
@@ -147,18 +191,21 @@ function generateDateOptions() {
         const dateStr = `${month}/${day}/${year}`;
         
         const hasSlots = existingDateSet.has(dateStr);
-        const isSelected = selectedDates.has(dateStr);
+        // Check against the state updated by the new logic
+        const isSelected = selectedDates.has(dateStr); 
         
         const { monthName, dayNum, weekday } = formatDateShort(dateStr);
         
         const chip = document.createElement('div');
+        // Use 'past' class for dates already in the sheet or dates in the past
         chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''}`;
         chip.dataset.date = dateStr;
         chip.setAttribute('role', 'button');
-        chip.setAttribute('tabindex', hasSlots ? '-1' : '0');
+        // Past (existing) dates should not be tab-selectable
+        chip.setAttribute('tabindex', hasSlots ? '-1' : '0'); 
         chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         chip.setAttribute('aria-label', `Select ${dateStr}`);
-        chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to select ${dateStr}`;
+        chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to toggle selection for ${dateStr}`;
         
         chip.innerHTML = `
             <span class="date-month">${sanitizeHTML(monthName)}</span>
@@ -183,10 +230,10 @@ function generateDateOptions() {
         if (e.type === 'keypress') e.preventDefault();
         
         const chip = e.target.closest('.date-chip');
-        if (!chip || chip.classList.contains('past')) return;
+        if (!chip || chip.classList.contains('past')) return; // 'past' class is now used for existing slots
         
         const dateStr = chip.dataset.date;
-        toggleDateSelection(dateStr);
+        toggleDateSelection(dateStr); 
     };
     
     container._clickListener = handleInteraction;
@@ -252,12 +299,12 @@ function renderCheckboxes() {
             <div class="capacity-input-group">
                 <label for="capacity-${index}">Capacity:</label>
                 <input type="number" 
-                       id="capacity-${index}" 
-                       class="capacity-input form-input" 
-                       value="${CONFIG.SLOTS.DEFAULT_CAPACITY}" 
-                       min="${CONFIG.SLOTS.MIN_CAPACITY}" 
-                       max="${CONFIG.SLOTS.MAX_CAPACITY}"
-                       aria-label="Capacity for ${sanitizeHTML(label)}">
+                        id="capacity-${index}" 
+                        class="capacity-input form-input" 
+                        value="${CONFIG.SLOTS.DEFAULT_CAPACITY}" 
+                        min="${CONFIG.SLOTS.MIN_CAPACITY}" 
+                        max="${CONFIG.SLOTS.MAX_CAPACITY}"
+                        aria-label="Capacity for ${sanitizeHTML(label)}">
             </div>
         `;
         container.appendChild(div);
@@ -529,10 +576,10 @@ function renderSlots(data) {
                         <span style="font-size: 0.7rem; opacity: 0.7; display: block;">${sanitizeHTML(weekday)}</span>
                     </div>
                     <input type="checkbox" 
-                           class="date-select-all" 
-                           onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
-                           aria-label="Select all slots for ${sanitizeHTML(date)}"
-                           title="Select all slots for this date">
+                            class="date-select-all" 
+                            onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
+                            aria-label="Select all slots for ${sanitizeHTML(date)}"
+                            title="Select all slots for this date">
                 </div>
         `;
         
@@ -541,11 +588,11 @@ function renderSlots(data) {
             html += `
                 <div class="slot-row">
                     <input type="checkbox" 
-                           class="slot-row-checkbox" 
-                           data-row-id="${slot.id}" 
-                           data-date="${date}"
-                           onchange="toggleSlotSelection(${slot.id}, this.checked)"
-                           aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
+                            class="slot-row-checkbox" 
+                            data-row-id="${slot.id}" 
+                            data-date="${date}"
+                            onchange="toggleSlotSelection(${slot.id}, this.checked)"
+                            aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
                     <div class="slot-info">
                         <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
@@ -645,8 +692,8 @@ async function deleteSelectedSlots() {
     }, 0);
     
     const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
-                       `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
-                       `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
+                        `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
+                        `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
     
     if (!confirm(confirmMsg)) {
         return;
