@@ -908,30 +908,6 @@ small {
     }
 }
 
-/* Dark mode support (optional enhancement) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0f172a;
-        --surface: #1e293b;
-        --border: #334155;
-        --text-primary: #f1f5f9;
-        --text-secondary: #cbd5e1;
-        --text-muted: #94a3b8;
-    }
-    
-    .date-card,
-    .card {
-        background: var(--surface);
-    }
-    
-    .slot {
-        background: var(--surface);
-    }
-    
-    .slot:hover:not(.disabled):not(.selected) {
-        background: #334155;
-    }
-}
 
 /* ========================================
    YOUR ORIGINAL COMPLETE 700+ LINE CSS 
