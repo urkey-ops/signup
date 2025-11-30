@@ -758,3 +758,21 @@ window.addEventListener('beforeunload', (e) => {
         return e.returnValue;
     }
 });
+
+// Add this new function to the bottom of your user-script.js
+function toggleLookup() {
+    const content = document.getElementById('lookupContent');
+    const toggleButton = document.getElementById('lookupToggle');
+    
+    // Toggle the 'hidden' class to show/hide the content
+    content.classList.toggle('hidden');
+    
+    // Update ARIA attributes for accessibility
+    const isExpanded = content.classList.contains('hidden') ? 'false' : 'true';
+    toggleButton.setAttribute('aria-expanded', isExpanded);
+    
+    // Optional: Focus the input field when the section is opened
+    if (isExpanded === 'true') {
+        document.getElementById('lookupEmail').focus();
+    }
+}
