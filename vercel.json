@@ -1,12 +1,7 @@
 {
   "version": 2,
   "name": "booking-system",
-  "builds": [
-    {
-      "src": "api/**/*.js",
-      "use": "@vercel/node"
-    }
-  ],
+  // ⚠️ REMOVED THE CONFLICTING 'builds' PROPERTY ⚠️
   "routes": [
     {
       "src": "/api/signup",
