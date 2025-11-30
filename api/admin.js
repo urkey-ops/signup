@@ -2,8 +2,19 @@ const { google } = require("googleapis");
 
 // Simple authentication - replace with your secret
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your-secret-password";
-// FIXED: Use environment variable for SLOTS_GID like SIGNUPS_GID
-const SLOTS_GID = parseInt(process.env.SLOTS_GID) || 0; 
+const SLOTS_GID = parseInt(process.env.SLOTS_GID) || 0;
+const SHEET_ID = process.env.SHEET_ID;
+
+// Validate environment on startup
+if (!SHEET_ID) {
+    console.error('❌ CRITICAL: Missing SHEET_ID environment variable');
+    throw new Error('Missing required environment variable: SHEET_ID');
+}
+
+if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
+    console.error('❌ CRITICAL: Missing GOOGLE_SERVICE_ACCOUNT environment variable');
+    throw new Error('Missing required environment variable: GOOGLE_SERVICE_ACCOUNT');
+}
 
 module.exports = async function handler(req, res) {
     try {
@@ -32,7 +43,7 @@ module.exports = async function handler(req, res) {
         if (req.method === "GET") {
             try {
                 const response = await sheets.spreadsheets.values.get({
-                    spreadsheetId: process.env.SHEET_ID,
+                    spreadsheetId: SHEET_ID,
                     range: "Slots!A2:E",
                 });
 
@@ -66,7 +77,7 @@ module.exports = async function handler(req, res) {
                 return res.status(400).json({ ok: false, error: "Invalid date format. Use MM/DD/YYYY" });
             }
 
-            // FIXED: Validate date is not in the past
+            // Validate date is not in the past
             const [month, day, year] = date.split('/').map(num => parseInt(num));
             const selectedDate = new Date(year, month - 1, day);
             const today = new Date();
@@ -76,10 +87,10 @@ module.exports = async function handler(req, res) {
                 return res.status(400).json({ ok: false, error: "Cannot add slots for past dates" });
             }
 
-            // FIXED: Check for duplicate dates
+            // Check for duplicate dates
             try {
                 const existingSlots = await sheets.spreadsheets.values.get({
-                    spreadsheetId: process.env.SHEET_ID,
+                    spreadsheetId: SHEET_ID,
                     range: "Slots!A2:A",
                 });
 
@@ -93,21 +104,20 @@ module.exports = async function handler(req, res) {
                 }
             } catch (err) {
                 console.error("Error checking existing dates:", err);
-                // Continue anyway - duplicate check is a nice-to-have
             }
 
-            // ✅ FIXED: Correct 5-column structure for signup.js
+            // Prepare rows with correct 5-column structure
             const rows = slots.map(slot => [
                 date,                           // A: Date
                 slot.label || "",               // B: Slot label
                 Math.max(1, Math.min(99, parseInt(slot.capacity) || 6)), // C: Capacity (1-99)
-                0,                              // D: Taken = 0 ✅ NEW SLOTS START EMPTY
+                0,                              // D: Taken = 0 (NEW SLOTS START EMPTY)
                 ""                              // E: Notes
             ]);
 
             try {
                 await sheets.spreadsheets.values.append({
-                    spreadsheetId: process.env.SHEET_ID,
+                    spreadsheetId: SHEET_ID,
                     range: "Slots!A2",
                     valueInputOption: "RAW",
                     requestBody: { values: rows },
@@ -120,7 +130,7 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // --- DELETE: Remove multiple slots ---
+        // --- DELETE: Remove multiple slots (WITH BOOKING CHECK) ---
         if (req.method === "DELETE") {
             const { rowIds } = req.body;
 
@@ -128,7 +138,6 @@ module.exports = async function handler(req, res) {
                 return res.status(400).json({ ok: false, error: "Missing or invalid rowIds array" });
             }
 
-            // Validate all rowIds are valid numbers
             const validRowIds = rowIds.filter(id => typeof id === 'number' && id >= 2);
 
             if (validRowIds.length === 0) {
@@ -136,6 +145,30 @@ module.exports = async function handler(req, res) {
             }
 
             try {
+                // SAFETY CHECK: Check for active bookings before deletion
+                const signupsResponse = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: 'Signups!A2:I'
+                });
+
+                const signupRows = signupsResponse.data.values || [];
+                
+                // Find active bookings for these slots
+                const affectedBookings = signupRows.filter(row => {
+                    const slotRowId = parseInt(row[7]); // Column H (Slot Row ID)
+                    const status = row[8] || 'ACTIVE';   // Column I (Status)
+                    return validRowIds.includes(slotRowId) && status === 'ACTIVE';
+                });
+
+                if (affectedBookings.length > 0) {
+                    console.warn(`Cannot delete slots: ${affectedBookings.length} active bookings exist`);
+                    return res.status(400).json({
+                        ok: false,
+                        error: `Cannot delete: ${affectedBookings.length} active booking(s) exist. Cancel bookings first or contact users.`,
+                        affectedCount: affectedBookings.length
+                    });
+                }
+
                 // Sort row IDs in descending order to avoid re-indexing errors
                 const sortedRowIds = [...new Set(validRowIds)].sort((a, b) => b - a);
 
@@ -151,7 +184,7 @@ module.exports = async function handler(req, res) {
                 }));
 
                 await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: process.env.SHEET_ID,
+                    spreadsheetId: SHEET_ID,
                     requestBody: { requests: requests },
                 });
 
