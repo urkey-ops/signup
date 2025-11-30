@@ -545,41 +545,33 @@ function getNextWeekends(count) {
 // ================================================================================================
 
 async function login() {
-    const passwordInput = document.getElementById("adminPassword");
+    const passwordInput = document.getElementById('adminPassword');
+    if (!passwordInput) return alert("Password input not found");
+
     const password = passwordInput.value.trim();
-
-    if (!password) {
-        showMessage("loginMsg", "Please enter a password", true);
-        passwordInput.focus();
-        return;
-    }
-
-    adminToken = password;
-    showMessage("loginMsg", "Logging in...", false);
+    if (!password) return alert("Please enter password");
 
     try {
-        const res = await fetch(API_URL, {
-            headers: { "Authorization": `Bearer ${adminToken}` }
+        const res = await fetch('/api/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
         });
         const data = await res.json();
 
-        if (data.ok) {
-            document.getElementById("loginSection").style.display = "none";
-            document.getElementById("adminSection").style.display = "block";
-            showMessage("loginMsg", "Login successful!", false);
-
-            await loadSlots();
-            renderWeekendChips();
-            renderDateChips();
-            renderSlotCapacityControls();
+        if (data.ok && data.token) {
+            adminToken = data.token;  // store token globally
+            alert('✅ Login successful');
+            // optionally hide login form and show admin panel
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadSlots();  // load data after login
         } else {
-            showMessage("loginMsg", "Invalid password", true);
-            adminToken = null;
-            passwordInput.select();
+            alert(`❌ Login failed: ${data.error || 'Invalid password'}`);
         }
-    } catch (err) {
-        handleError('Login', err, 'Login failed. Please check your connection.');
-        adminToken = null;
+    } catch(err) {
+        console.error('Login error:', err);
+        alert('❌ Failed to login');
     }
 }
 
