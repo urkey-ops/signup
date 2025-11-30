@@ -28,6 +28,7 @@ const DEFAULT_SLOT_LABELS = [
 
 // State management
 let adminToken = null;
+let sessionExpiryTimeout = null;
 let existingDateSet = new Set();
 let selectedDates = new Set();
 let slotsToDelete = [];
@@ -131,7 +132,7 @@ function generateDateOptions() {
     
     container.innerHTML = '';
     
-    // 1. Clear current user selection to prepare for default auto-selection
+    // Clear current selection
     selectedDates.clear();
 
     const today = new Date();
@@ -139,50 +140,10 @@ function generateDateOptions() {
     
     const fragment = document.createDocumentFragment();
     
-    const maxWeekends = 8;
-    const weekendSelectionDates = new Set();
-    let weekendsFound = 0;
+    // FIX: Simplified weekend auto-selection
+    autoSelectWeekends(8);
     
-    // --- New Continuous Selection Logic: Ensure 8 unique weekend *pairs* ---
-
-    for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
-        
-        const dayOfWeek = date.getDay(); // 0 (Sunday) to 6 (Saturday)
-
-        // Only process if we need more weekends
-        if (weekendsFound < maxWeekends) {
-            
-            // Format the date string once for consistency
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            const year = date.getFullYear();
-            const dateStr = `${month}/${day}/${year}`;
-            
-            // Check if this date is a weekend and is available (not in existingDateSet)
-            if ((dayOfWeek === 0 || dayOfWeek === 6) && !existingDateSet.has(dateStr)) {
-                
-                // Add the date to the temporary selection set
-                weekendSelectionDates.add(dateStr);
-                
-                // If it's Saturday, and we successfully added it, we count it as a new weekend block.
-                if (dayOfWeek === 6) { 
-                    weekendsFound++;
-                }
-            }
-        } else {
-            // Once 8 weekends are found, we stop looking for more to auto-select.
-            // We still need the loop to continue to render the chips for later dates.
-        }
-    }
-    
-    // Add all found dates to the main selectedDates state
-    weekendSelectionDates.forEach(date => selectedDates.add(date));
-
-    // --- End New Continuous Selection Logic ---
-    
-    // Second pass: Generate the chips using the updated selectedDates state
+    // Render date chips
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
         const date = new Date(today);
         date.setDate(today.getDate() + i);
@@ -193,18 +154,15 @@ function generateDateOptions() {
         const dateStr = `${month}/${day}/${year}`;
         
         const hasSlots = existingDateSet.has(dateStr);
-        // Check against the state updated by the new logic
-        const isSelected = selectedDates.has(dateStr); 
+        const isSelected = selectedDates.has(dateStr);
         
         const { monthName, dayNum, weekday } = formatDateShort(dateStr);
         
         const chip = document.createElement('div');
-        // Use 'past' class for dates already in the sheet or dates in the past
         chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''}`;
         chip.dataset.date = dateStr;
         chip.setAttribute('role', 'button');
-        // Past (existing) dates should not be tab-selectable
-        chip.setAttribute('tabindex', hasSlots ? '-1' : '0'); 
+        chip.setAttribute('tabindex', hasSlots ? '-1' : '0');
         chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         chip.setAttribute('aria-label', `Select ${dateStr}`);
         chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to toggle selection for ${dateStr}`;
@@ -232,7 +190,7 @@ function generateDateOptions() {
         if (e.type === 'keypress') e.preventDefault();
         
         const chip = e.target.closest('.date-chip');
-        if (!chip || chip.classList.contains('past')) return; // 'past' class is now used for existing slots
+        if (!chip || chip.classList.contains('past')) return;
         
         const dateStr = chip.dataset.date;
         toggleDateSelection(dateStr); 
@@ -243,6 +201,45 @@ function generateDateOptions() {
     container.addEventListener('keypress', handleInteraction);
     
     updateSelectedDatesCount();
+}
+
+// FIX: Simplified weekend auto-selection logic
+function autoSelectWeekends(maxPairs = 8) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let pairsFound = 0;
+    
+    for (let i = 0; i < 180 && pairsFound < maxPairs; i++) { // 6 months max
+        const date = new Date(today);
+        date.setDate(today.getDate() + i);
+        
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        const dateStr = `${month}/${day}/${year}`;
+        
+        if (existingDateSet.has(dateStr)) continue;
+        
+        const dayOfWeek = date.getDay();
+        
+        if (dayOfWeek === 6) { // Saturday
+            const sunday = new Date(date);
+            sunday.setDate(date.getDate() + 1);
+            const sundayMonth = String(sunday.getMonth() + 1).padStart(2, '0');
+            const sundayDay = String(sunday.getDate()).padStart(2, '0');
+            const sundayYear = sunday.getFullYear();
+            const sundayStr = `${sundayMonth}/${sundayDay}/${sundayYear}`;
+            
+            // Add both Saturday and Sunday if both are available
+            if (!existingDateSet.has(sundayStr)) {
+                selectedDates.add(dateStr);
+                selectedDates.add(sundayStr);
+                pairsFound++;
+                i++; // Skip Sunday in next iteration
+            }
+        }
+    }
 }
 
 function toggleDateSelection(dateStr) {
@@ -314,7 +311,7 @@ function renderCheckboxes() {
 }
 
 // ================================================================================================
-// LOGIN
+// FIX #6: IMPROVED LOGIN WITH SESSION MANAGEMENT
 // ================================================================================================
 
 async function login() {
@@ -327,16 +324,25 @@ async function login() {
         return;
     }
     
-    adminToken = password;
     showMessage("loginMsg", "Logging in...", false);
     
     try {
         const res = await fetch(API_URL, {
-            headers: { "Authorization": `Bearer ${adminToken}` }
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({ 
+                action: "login",
+                password 
+            })
         });
+        
         const data = await res.json();
         
         if (data.ok) {
+            adminToken = data.token;
+            
             document.getElementById("loginSection").style.display = "none";
             document.getElementById("adminSection").style.display = "block";
             showMessage("loginMsg", "Login successful!", false);
@@ -344,32 +350,43 @@ async function login() {
             await loadSlots();
             generateDateOptions();
             renderCheckboxes();
+            
+            // Setup auto-logout on token expiry
+            if (sessionExpiryTimeout) {
+                clearTimeout(sessionExpiryTimeout);
+            }
+            
+            sessionExpiryTimeout = setTimeout(() => {
+                alert("⏰ Session expired (8 hours). Please log in again.");
+                adminToken = null;
+                location.reload();
+            }, data.expiresIn * 1000);
+            
+            console.log(`✅ Session will expire in ${data.expiresIn / 3600} hours`);
+            
         } else {
-            showMessage("loginMsg", "Invalid password", true);
-            adminToken = null;
+            showMessage("loginMsg", data.error || "Login failed", true);
             passwordInput.select();
         }
     } catch (err) {
         handleError('Login', err, 'Login failed. Please check your connection.');
-        adminToken = null;
     }
 }
 
 // ================================================================================================
-// SUBMIT NEW SLOTS (Optimized for Batch Submission)
+// SUBMIT NEW SLOTS (Batch Submission with Validation)
 // ================================================================================================
 
 async function submitNewSlots() {
     const submitBtn = document.getElementById("submitSlotsBtn");
     const checkboxes = document.querySelectorAll(".slot-checkbox");
     
-
     if (selectedDates.size === 0) {
-        showMessage("addMsg", "Please select at least one date. Note: No new future weekends were found to pre-select.", true);
+        showMessage("addMsg", "Please select at least one date.", true);
         return;
     }
     
-    // 1. Determine which time slots to add
+    // Determine which time slots to add
     const slots = [];
     let slotsSelected = false;
     
@@ -393,19 +410,35 @@ async function submitNewSlots() {
         return;
     }
     
-    // 2. Prepare the batch payload array
-    const totalDates = selectedDates.size;
-    const newSlotsData = [];
+    // FIX #3: Client-side validation before sending
+    const errors = [];
+    selectedDates.forEach(dateStr => {
+        if (!isValidDate(dateStr)) {
+            errors.push(`Invalid date format: ${dateStr}`);
+        }
+        if (isPastDate(dateStr)) {
+            errors.push(`Date is in the past: ${dateStr}`);
+        }
+        if (existingDateSet.has(dateStr)) {
+            errors.push(`Date already has slots: ${dateStr}`);
+        }
+    });
     
+    if (errors.length > 0) {
+        showMessage("addMsg", `Validation errors:\n${errors.join('\n')}`, true);
+        return;
+    }
+    
+    // Prepare the batch payload
+    const newSlotsData = [];
     selectedDates.forEach(dateString => {
         newSlotsData.push({
             date: dateString,
-            slots: slots // Use the determined time slots for every selected date
+            slots: slots
         });
     });
 
     if (newSlotsData.length === 0) {
-        // This should not happen if selectedDates.size > 0, but as a safeguard
         showMessage("addMsg", "Internal error: No slot data was prepared.", true);
         return;
     }
@@ -413,22 +446,18 @@ async function submitNewSlots() {
     submitBtn.disabled = true;
     const originalText = submitBtn.textContent;
     
-    // *** NEW BATCH SUBMISSION LOGIC STARTS HERE ***
-    
-    submitBtn.textContent = `Processing ${totalDates} date(s)...`;
-    showMessage("addMsg", `🚀 Submitting ${totalDates} date(s) in a single batch...`, false);
+    submitBtn.textContent = `Processing ${selectedDates.size} date(s)...`;
+    showMessage("addMsg", `🚀 Submitting ${selectedDates.size} date(s) in a single batch...`, false);
     
     try {
         const startTime = performance.now();
         
-        // Send a single POST request with the newSlotsData array
         const response = await fetch(API_URL, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${adminToken}`,
             },
-            // The request body now contains one object with the array of dates/slots
             body: JSON.stringify({ newSlotsData }), 
         });
 
@@ -436,16 +465,15 @@ async function submitNewSlots() {
         const duration = performance.now() - startTime;
         
         if (response.ok && result.ok) {
-            // Success response message comes from the backend now
-            const message = result.message || `Successfully added ${totalDates} date(s)!`;
+            const message = result.message || `Successfully added ${selectedDates.size} date(s)!`;
             
             showMessage("addMsg", `✅ ${message} in ${(duration/1000).toFixed(1)}s!`, false);
 
-            // 3. Clear state and reload after successful batch
+            // Clear state and reload
             selectedDates.clear();
-            invalidateCache(); // Clear admin cache
+            invalidateCache();
             await loadSlots(); 
-            generateDateOptions(); // Rerender date selector with new existing dates
+            generateDateOptions();
 
             // Animate stats
             ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
@@ -457,9 +485,15 @@ async function submitNewSlots() {
             });
 
         } else {
-            // Error handling for the single batch request
-            const errorMsg = result.error || "Failed to add slots due to a server error.";
-            throw new Error(errorMsg);
+            // Handle validation errors from backend
+            const errorMsg = result.error || "Failed to add slots";
+            let displayError = errorMsg;
+            
+            if (result.details && Array.isArray(result.details)) {
+                displayError = `${errorMsg}\n\nDetails:\n${result.details.join('\n')}`;
+            }
+            
+            showMessage("addMsg", `❌ ${displayError}`, true);
         }
     } catch (error) {
         console.error("Batch Submission failed:", error);
@@ -510,6 +544,12 @@ async function loadSlots() {
         const data = await res.json();
         
         if (!data.ok) {
+            if (res.status === 401) {
+                alert("⚠️ Session expired. Please log in again.");
+                adminToken = null;
+                location.reload();
+                return;
+            }
             display.innerHTML = "<p class='msg-box error'>Failed to load slots</p>";
             return;
         }
@@ -682,7 +722,7 @@ async function deleteSelectedSlots() {
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
         if (!slot) return null;
-        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
+        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
     }).filter(Boolean).join('\n');
     
     const totalBookings = slotsToDelete.reduce((sum, id) => {
@@ -717,7 +757,7 @@ async function deleteSelectedSlots() {
         
         if (data.ok) {
             alert(`✅ ${data.message}`);
-            invalidateCache(); // Clear cache after deletion
+            invalidateCache();
             await loadSlots();
             generateDateOptions();
         } else {
