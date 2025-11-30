@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "vercel dev",
-    "build": "vercel build",
+    "build": "echo 'Static files + Serverless Functions - No build step required'",
     "deploy": "vercel --prod",
     "test": "echo \"No tests yet\" && exit 0"
   },
@@ -21,7 +21,7 @@
     "googleapis": "^128.0.0"
   },
   "devDependencies": {
-    "vercel": "^33.0.0"
+    "vercel": "^33.7.1"
   },
   "engines": {
     "node": ">=18.x"
