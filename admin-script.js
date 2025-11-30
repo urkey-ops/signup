@@ -361,8 +361,10 @@ async function submitNewSlots() {
     const submitBtn = document.getElementById("submitSlotsBtn");
     const checkboxes = document.querySelectorAll(".slot-checkbox");
     
+
+
     if (selectedDates.size === 0) {
-        showMessage("addMsg", "Please select at least one date.", true);
+        showMessage("addMsg", "Please select at least one date. Note: No new future weekends were found to pre-select.", true);
         return;
     }
     
