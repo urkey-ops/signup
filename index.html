@@ -2,11 +2,57 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <!-- UPDATED: Added viewport-fit=cover to support safe area insets on modern mobile browsers -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Book your time slots easily and manage your bookings online">
     <title>Book a Slot - Online Booking System</title>
-    <!-- File name kept as style.css to match existing reference -->
+    
+    <!-- Preconnect to external resources for faster loading -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="user-script.js" as="script">
+    
+    <!-- Load fonts asynchronously (non-blocking) -->
+    <link rel="stylesheet" 
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
+          media="print" 
+          onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    </noscript>
+    
+    <!-- Inline critical CSS for instant render -->
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+            margin: 0;
+            background: #f8fafc;
+            line-height: 1.6;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            padding: 1.5rem; 
+        }
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.025em;
+        }
+        #loadingMsg {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+    </style>
+    
+    <!-- Main stylesheet -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -24,7 +70,7 @@
                     <strong>All times shown are in Eastern Time (ET)</strong>.
                 </p>
                 <div id="datesContainer" role="region" aria-label="Available time slots"></div>
-                <!-- Spacer for floating button: This is crucial to prevent content from being hidden by the fixed bottom bar -->
+                <!-- Spacer for floating button -->
                 <div style="height: 100px;" aria-hidden="true"></div> 
             </div>
             
