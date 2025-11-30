@@ -356,7 +356,7 @@ async function login() {
 }
 
 // ================================================================================================
-// SUBMIT NEW SLOTS (Optimized with Progress Indicator)
+// SUBMIT NEW SLOTS (Optimized for Batch Submission)
 // ================================================================================================
 
 async function submitNewSlots() {
@@ -369,6 +369,7 @@ async function submitNewSlots() {
         return;
     }
     
+    // 1. Determine which time slots to add
     const slots = [];
     let slotsSelected = false;
     
@@ -392,82 +393,77 @@ async function submitNewSlots() {
         return;
     }
     
+    // 2. Prepare the batch payload array
+    const totalDates = selectedDates.size;
+    const newSlotsData = [];
+    
+    selectedDates.forEach(dateString => {
+        newSlotsData.push({
+            date: dateString,
+            slots: slots // Use the determined time slots for every selected date
+        });
+    });
+
+    if (newSlotsData.length === 0) {
+        // This should not happen if selectedDates.size > 0, but as a safeguard
+        showMessage("addMsg", "Internal error: No slot data was prepared.", true);
+        return;
+    }
+
     submitBtn.disabled = true;
     const originalText = submitBtn.textContent;
     
-    const totalDates = selectedDates.size;
-    let completed = 0;
+    // *** NEW BATCH SUBMISSION LOGIC STARTS HERE ***
     
-    submitBtn.textContent = `Processing 0/${totalDates}...`;
-    showMessage("addMsg", `Submitting slots for ${totalDates} date(s)...`, false);
+    submitBtn.textContent = `Processing ${totalDates} date(s)...`;
+    showMessage("addMsg", `🚀 Submitting ${totalDates} date(s) in a single batch...`, false);
     
     try {
         const startTime = performance.now();
         
-        // Parallel submission with progress tracking
-        const promises = Array.from(selectedDates).map(async date => {
-            try {
-                const response = await fetch(API_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${adminToken}`
-                    },
-                    body: JSON.stringify({ date, slots })
-                });
-                
-                const data = await response.json();
-                
-                // Update progress
-                completed++;
-                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
-                
-                return { date, success: data.ok, error: data.error };
-            } catch (err) {
-                completed++;
-                submitBtn.textContent = `Processing ${completed}/${totalDates}...`;
-                return { date, success: false, error: err.message };
-            }
+        // Send a single POST request with the newSlotsData array
+        const response = await fetch(API_URL, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${adminToken}`,
+            },
+            // The request body now contains one object with the array of dates/slots
+            body: JSON.stringify({ newSlotsData }), 
         });
-        
-        const results = await Promise.all(promises);
+
+        const result = await response.json();
         const duration = performance.now() - startTime;
         
-        console.log(`⏱️ Batch submission took ${duration.toFixed(0)}ms`);
-        
-        const successful = results.filter(r => r.success);
-        const failed = results.filter(r => !r.success);
-        
-        // Show results
-        if (failed.length === 0) {
-            showMessage("addMsg", `✅ Successfully added slots for all ${successful.length} date(s) in ${(duration/1000).toFixed(1)}s!`, false);
-        } else if (successful.length > 0) {
-            showMessage("addMsg", `⚠️ Added ${successful.length} dates, but ${failed.length} failed. Check console for details.`, true);
-            console.error("Failed dates:", failed);
+        if (response.ok && result.ok) {
+            // Success response message comes from the backend now
+            const message = result.message || `Successfully added ${totalDates} date(s)!`;
+            
+            showMessage("addMsg", `✅ ${message} in ${(duration/1000).toFixed(1)}s!`, false);
+
+            // 3. Clear state and reload after successful batch
+            selectedDates.clear();
+            invalidateCache(); // Clear admin cache
+            await loadSlots(); 
+            generateDateOptions(); // Rerender date selector with new existing dates
+
+            // Animate stats
+            ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.animation = 'none';
+                    setTimeout(() => el.style.animation = 'pulse 0.5s', 10);
+                }
+            });
+
         } else {
-            const firstError = failed[0]?.error || 'Unknown error';
-            showMessage("addMsg", `❌ Failed to add slots: ${firstError}`, true);
+            // Error handling for the single batch request
+            const errorMsg = result.error || "Failed to add slots due to a server error.";
+            throw new Error(errorMsg);
         }
-        
-        // Reset state
-        selectedDates.clear();
-        invalidateCache(); // Clear admin cache
-        
-        await loadSlots();
-        generateDateOptions();
-        renderCheckboxes();
-        
-        // Animate stats
-        ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.style.animation = 'none';
-                setTimeout(() => el.style.animation = 'pulse 0.5s', 10);
-            }
-        });
-        
-    } catch (err) {
-        handleError('SubmitSlots', err, 'Failed to add slots. Please try again.');
+    } catch (error) {
+        console.error("Batch Submission failed:", error);
+        showMessage("addMsg", `❌ Submission failed: ${error.message}`, true);
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
@@ -686,7 +682,7 @@ async function deleteSelectedSlots() {
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
         if (!slot) return null;
-        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
+        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
     }).filter(Boolean).join('\n');
     
     const totalBookings = slotsToDelete.reduce((sum, id) => {
@@ -695,8 +691,8 @@ async function deleteSelectedSlots() {
     }, 0);
     
     const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
-                        `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
-                        `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
+                         `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
+                         `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
     
     if (!confirm(confirmMsg)) {
         return;
