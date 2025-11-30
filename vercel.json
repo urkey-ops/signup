@@ -1,7 +1,6 @@
 {
   "version": 2,
   "name": "booking-system",
-  // ⚠️ REMOVED THE CONFLICTING 'builds' PROPERTY ⚠️
   "routes": [
     {
       "src": "/api/signup",
