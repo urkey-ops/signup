@@ -1,13 +1,27 @@
 {
-  "name": "slot-booking",
-  "version": "1.0.0",
-  "description": "Slot booking system with Google Sheets integration",
+  "name": "booking-system",
+  "version": "2.0.0",
+  "description": "Optimized multi-slot booking system with caching and performance enhancements",
+  "main": "index.js",
   "scripts": {
     "dev": "vercel dev",
-    "deploy": "vercel"
+    "build": "vercel build",
+    "deploy": "vercel --prod",
+    "test": "echo \"No tests yet\" && exit 0"
   },
+  "keywords": [
+    "booking",
+    "scheduling",
+    "google-sheets",
+    "vercel"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
-    "googleapis": "^118.0.0"
+    "googleapis": "^128.0.0"
+  },
+  "devDependencies": {
+    "vercel": "^33.0.0"
   },
   "engines": {
     "node": ">=18.x"
