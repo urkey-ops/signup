@@ -40,7 +40,6 @@
       ]
     },
     {
-      // Corrected source pattern by removing the outer forward slashes
       "source": "(.*\\.(css|js|jpg|jpeg|png|gif|svg|woff|woff2|ttf|eot|ico))",
       "headers": [
         {
