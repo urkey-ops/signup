@@ -131,9 +131,10 @@ function generateDateOptions() {
     if (!container) return;
     
     container.innerHTML = '';
-    
-    // Clear current selection
-    selectedDates.clear();
+    // Only remove previously selected dates that are NOT already added as slots
+selectedDates.forEach(date => {
+    if (existingDateSet.has(date)) selectedDates.delete(date);
+});
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
