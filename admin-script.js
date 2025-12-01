@@ -315,47 +315,37 @@ function renderCheckboxes() {
 // ================================================================================================
 
 async function login() {
-    const pwdEl = document.getElementById("adminPassword");
-if (!pwdEl) {
-    alert("Password field missing (id='adminPassword')");
-    return;
-}
-const password = pwdEl.value.trim();
+    const password = document.getElementById("adminPassword").value.trim();
+    const loginMsg = document.getElementById("loginMsg");
 
+    loginMsg.textContent = "Checking...";
+    loginMsg.style.color = "#444";
 
-    console.log("Attempting login…");
+    try {
+        const res = await fetch(API_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "login", password })
+        });
 
-    const res = await fetch(API_URL, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            action: "login",
-            password
-        })
-    });
+        const data = await res.json();
 
-    const data = await res.json();
-    console.log("LOGIN RESPONSE FROM SERVER:", data);
+        if (data.success) {
+            loginMsg.textContent = "Login successful!";
+            loginMsg.style.color = "green";
 
-    if (!data.ok) {
-        alert("Login failed: " + data.error);
-        return;
+            document.getElementById("loginSection").style.display = "none";
+            document.getElementById("adminSection").style.display = "block";
+
+            loadSlots();
+        } else {
+            loginMsg.textContent = data.error || "Invalid password";
+            loginMsg.style.color = "red";
+        }
+    } catch (err) {
+        loginMsg.textContent = "Network error";
+        loginMsg.style.color = "red";
     }
-
-    adminToken = data.token;
-    console.log("TOKEN SET:", adminToken);
-
-    sessionExpiryTimeout = setTimeout(() => {
-        alert("Session expired. Please log in again.");
-        location.reload();
-    }, data.expiresIn * 1000);
-
-    document.getElementById("loginSection").style.display = "none";
-    document.getElementById("adminPanel").style.display = "block";
-
-    loadSlots();
 }
 
 
