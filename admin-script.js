@@ -129,20 +129,18 @@ function invalidateCache() {
 function generateDateOptions() {
     const container = document.getElementById('multiDateSelector');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    // Only remove previously selected dates that are NOT already added as slots
-selectedDates.forEach(date => {
-    if (existingDateSet.has(date)) selectedDates.delete(date);
-});
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const fragment = document.createDocumentFragment();
-    
-    // FIX: Simplified weekend auto-selection
-    autoSelectWeekends(8);
+
+    // Only auto-select weekends if there are no previous selections
+    if (selectedDates.size === 0) {
+        autoSelectWeekends(8);
+    }
     
     // Render date chips
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
