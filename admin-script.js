@@ -315,7 +315,13 @@ function renderCheckboxes() {
 // ================================================================================================
 
 async function login() {
-    const password = document.getElementById("password").value;
+    const pwdEl = document.getElementById("adminPassword");
+if (!pwdEl) {
+    alert("Password field missing (id='adminPassword')");
+    return;
+}
+const password = pwdEl.value.trim();
+
 
     console.log("Attempting login…");
 
