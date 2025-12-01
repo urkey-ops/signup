@@ -220,8 +220,8 @@ function autoSelectWeekends(maxPairs = 8) {
         const year = date.getFullYear();
         const dateStr = `${month}/${day}/${year}`;
 
-        // skip if this date already has slots
-        if (existingDateSet.has(dateStr)) continue;
+        // skip if this date already has slots or is already selected
+        if (existingDateSet.has(dateStr) || selectedDates.has(dateStr)) continue;
 
         const dayOfWeek = date.getDay();
 
@@ -234,8 +234,8 @@ function autoSelectWeekends(maxPairs = 8) {
             const sundayYear = sunday.getFullYear();
             const sundayStr = `${sundayMonth}/${sundayDay}/${sundayYear}`;
 
-            // Only add weekend if neither day already has slots
-            if (!existingDateSet.has(dateStr) && !existingDateSet.has(sundayStr)) {
+            // Only add weekend if neither day already has slots or is already selected
+            if (!existingDateSet.has(sundayStr) && !selectedDates.has(sundayStr)) {
                 selectedDates.add(dateStr);
                 selectedDates.add(sundayStr);
                 pairsFound++;
@@ -244,6 +244,7 @@ function autoSelectWeekends(maxPairs = 8) {
         }
     }
 }
+
 
 
 function toggleDateSelection(dateStr) {
