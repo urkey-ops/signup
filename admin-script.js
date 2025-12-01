@@ -793,6 +793,7 @@ function setupKeyboardShortcuts() {
 document.addEventListener('DOMContentLoaded', () => {
     renderCheckboxes();
     setupKeyboardShortcuts();
+    generateDateOptions(); 
     
     const passwordInput = document.getElementById('adminPassword');
     if (passwordInput) {
