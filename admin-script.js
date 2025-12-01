@@ -208,40 +208,43 @@ selectedDates.forEach(date => {
 function autoSelectWeekends(maxPairs = 8) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     let pairsFound = 0;
-    
-    for (let i = 0; i < 180 && pairsFound < maxPairs; i++) { // 6 months max
+
+    for (let i = 0; i < 180 && pairsFound < maxPairs; i++) { // look ahead up to 6 months
         const date = new Date(today);
         date.setDate(today.getDate() + i);
-        
+
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const day = String(date.getDate()).padStart(2, '0');
         const year = date.getFullYear();
         const dateStr = `${month}/${day}/${year}`;
-        
+
+        // skip if this date already has slots
         if (existingDateSet.has(dateStr)) continue;
-        
+
         const dayOfWeek = date.getDay();
-        
+
         if (dayOfWeek === 6) { // Saturday
             const sunday = new Date(date);
             sunday.setDate(date.getDate() + 1);
+
             const sundayMonth = String(sunday.getMonth() + 1).padStart(2, '0');
             const sundayDay = String(sunday.getDate()).padStart(2, '0');
             const sundayYear = sunday.getFullYear();
             const sundayStr = `${sundayMonth}/${sundayDay}/${sundayYear}`;
-            
-            // Add both Saturday and Sunday if both are available
-            if (!existingDateSet.has(sundayStr)) {
+
+            // Only add weekend if neither day already has slots
+            if (!existingDateSet.has(dateStr) && !existingDateSet.has(sundayStr)) {
                 selectedDates.add(dateStr);
                 selectedDates.add(sundayStr);
                 pairsFound++;
-                i++; // Skip Sunday in next iteration
+                i++; // skip Sunday in next iteration
             }
         }
     }
 }
+
 
 function toggleDateSelection(dateStr) {
     if (!isValidDate(dateStr) || existingDateSet.has(dateStr) || isPastDate(dateStr)) {
