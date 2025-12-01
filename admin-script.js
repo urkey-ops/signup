@@ -315,63 +315,43 @@ function renderCheckboxes() {
 // ================================================================================================
 
 async function login() {
-    const passwordInput = document.getElementById("adminPassword");
-    const password = passwordInput.value.trim();
-    
-    if (!password) {
-        showMessage("loginMsg", "Please enter a password", true);
-        passwordInput.focus();
+    const password = document.getElementById("password").value;
+
+    console.log("Attempting login…");
+
+    const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            action: "login",
+            password
+        })
+    });
+
+    const data = await res.json();
+    console.log("LOGIN RESPONSE FROM SERVER:", data);
+
+    if (!data.ok) {
+        alert("Login failed: " + data.error);
         return;
     }
-    
-    showMessage("loginMsg", "Logging in...", false);
-    
-    try {
-        const res = await fetch(API_URL, {
-            method: "POST",
-            headers: { 
-                "Content-Type": "application/json" 
-            },
-            body: JSON.stringify({ 
-                action: "login",
-                password 
-            })
-        });
-        
-        const data = await res.json();
-        
-        if (data.ok) {
-            adminToken = data.token;
-            
-            document.getElementById("loginSection").style.display = "none";
-            document.getElementById("adminSection").style.display = "block";
-            showMessage("loginMsg", "Login successful!", false);
-            
-            await loadSlots();
-            generateDateOptions();
-            renderCheckboxes();
-            
-            // Setup auto-logout on token expiry
-            if (sessionExpiryTimeout) {
-                clearTimeout(sessionExpiryTimeout);
-            }
-            
-            sessionExpiryTimeout = setTimeout(() => {
-                alert("⏰ Session expired (8 hours). Please log in again.");
-                adminToken = null;
-                location.reload();
-            }, data.expiresIn * 1000);
-            
-            console.log(`✅ Session will expire in ${data.expiresIn / 3600} hours`);
-            
-        } else {
-            showMessage("loginMsg", data.error || "Login failed", true);
-            passwordInput.select();
-        }
-    } catch (err) {
-        handleError('Login', err, 'Login failed. Please check your connection.');
-    }
+
+    adminToken = data.token;
+    console.log("TOKEN SET:", adminToken);
+
+    sessionExpiryTimeout = setTimeout(() => {
+        alert("Session expired. Please log in again.");
+        location.reload();
+    }, data.expiresIn * 1000);
+
+    document.getElementById("loginSection").style.display = "none";
+    document.getElementById("adminPanel").style.display = "block";
+
+    loadSlots();
 }
+
 
 // ================================================================================================
 // SUBMIT NEW SLOTS (Batch Submission with Validation)
