@@ -329,20 +329,24 @@ async function login() {
         });
 
         const data = await res.json();
+        console.log("Login response:", data); // Debug
 
-        if (data.success) {
+        if (data.ok) {
+            adminToken = data.token; // ← store the token
+
             loginMsg.textContent = "Login successful!";
             loginMsg.style.color = "green";
 
             document.getElementById("loginSection").style.display = "none";
             document.getElementById("adminSection").style.display = "block";
 
-            loadSlots();
+            await loadSlots(); // Now will work with the token
         } else {
             loginMsg.textContent = data.error || "Invalid password";
             loginMsg.style.color = "red";
         }
     } catch (err) {
+        console.error("Login error:", err);
         loginMsg.textContent = "Network error";
         loginMsg.style.color = "red";
     }
