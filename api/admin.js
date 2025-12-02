@@ -4,15 +4,46 @@
 
 const { google } = require("googleapis");
 
-// Environment Variables
+// Environment Variables - Validate on startup
+const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT', 'ADMIN_PASSWORD', 'SLOTS_GID'];
+REQUIRED_ENV.forEach(key => {
+    if (!process.env[key]) {
+        console.error(`❌ CRITICAL: Missing environment variable: ${key}`);
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+});
+
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const SLOTS_GID = parseInt(process.env.SLOTS_GID); // Add this to your Vercel env vars!
 
 const SESSION_EXPIRY_SECONDS = 3600;
 const SIMPLE_TOKEN_VALUE = "valid_admin_session";
 let sheets;
 
-// Helper to initialize Google Sheets
+// ================================================================================================
+// LOGGING
+// ================================================================================================
+
+function log(level, message, data = {}) {
+    const logEntry = {
+        timestamp: new Date().toISOString(),
+        level: level.toUpperCase(),
+        message,
+        ...data
+    };
+    
+    if (level === 'error') {
+        console.error(JSON.stringify(logEntry));
+    } else {
+        console.log(JSON.stringify(logEntry));
+    }
+}
+
+// ================================================================================================
+// GOOGLE SHEETS HELPER
+// ================================================================================================
+
 async function getSheets() {
     if (sheets) return sheets;
     
@@ -25,25 +56,25 @@ async function getSheets() {
         sheets = google.sheets({ version: "v4", auth });
         return sheets;
     } catch (err) {
-        console.error('Failed to initialize Google Sheets:', err.message);
+        log('error', 'Failed to initialize Google Sheets', { error: err.message });
         throw new Error("Service configuration error");
     }
 }
 
 // ================================================================================================
-// SECURITY HANDLERS (SIMPLE COOKIE)
+// SECURITY HANDLERS
 // ================================================================================================
 
 function setAuthCookie(res) {
     const expiry = new Date(Date.now() + SESSION_EXPIRY_SECONDS * 1000);
     res.setHeader('Set-Cookie', 
-        `admin_token=${SIMPLE_TOKEN_VALUE}; SameSite=Lax; Path=/; Expires=${expiry.toUTCString()}`
+        `admin_token=${SIMPLE_TOKEN_VALUE}; HttpOnly; SameSite=Strict; Path=/; Expires=${expiry.toUTCString()}; Secure`
     );
 }
 
 function clearAuthCookie(res) {
     res.setHeader('Set-Cookie', 
-        `admin_token=; SameSite=Lax; Path=/; Expires=${new Date(0).toUTCString()}`
+        `admin_token=; HttpOnly; SameSite=Strict; Path=/; Expires=${new Date(0).toUTCString()}; Secure`
     );
 }
 
@@ -64,6 +95,22 @@ function checkPassword(password) {
 }
 
 // ================================================================================================
+// VALIDATION HELPERS
+// ================================================================================================
+
+function isValidDate(dateString) {
+    const date = new Date(dateString);
+    return date instanceof Date && !isNaN(date);
+}
+
+function isFutureDate(dateString) {
+    const date = new Date(dateString);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date >= today;
+}
+
+// ================================================================================================
 // API HANDLERS
 // ================================================================================================
 
@@ -76,9 +123,11 @@ async function handleLogin(req, res) {
 
     if (checkPassword(password)) {
         setAuthCookie(res);
+        log('info', 'Admin login successful');
         return res.status(200).json({ ok: true, message: 'Login successful' });
     } else {
         clearAuthCookie(res);
+        log('warn', 'Failed login attempt');
         return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
 }
@@ -94,7 +143,7 @@ async function handleLoadSlots(req, res) {
 
         const rows = response.data.values || [];
         const slots = rows.map((row, idx) => ({
-            id: idx + 2, // Row number in sheet
+            id: idx + 2,
             date: row[0] || '',
             slotLabel: row[1] || '',
             capacity: parseInt(row[2], 10) || 0,
@@ -104,9 +153,10 @@ async function handleLoadSlots(req, res) {
 
         slots.sort((a, b) => new Date(a.date) - new Date(b.date));
         
+        log('info', 'Slots loaded', { count: slots.length });
         return res.status(200).json({ ok: true, slots });
     } catch (err) {
-        console.error('Error loading slots:', err.message);
+        log('error', 'Error loading slots', { error: err.message });
         return res.status(500).json({ ok: false, error: 'Failed to load slots' });
     }
 }
@@ -118,10 +168,37 @@ async function handleAddSlots(req, res) {
         return res.status(400).json({ ok: false, error: 'Invalid or empty slot data provided.' });
     }
 
+    // Validate all dates are valid and in the future
+    const invalidDates = [];
+    const pastDates = [];
+    
+    for (const dateData of newSlotsData) {
+        if (!isValidDate(dateData.date)) {
+            invalidDates.push(dateData.date);
+        } else if (!isFutureDate(dateData.date)) {
+            pastDates.push(dateData.date);
+        }
+    }
+
+    if (invalidDates.length > 0) {
+        return res.status(400).json({ 
+            ok: false, 
+            error: 'Invalid dates found',
+            details: [`Invalid dates: ${invalidDates.join(', ')}`]
+        });
+    }
+
+    if (pastDates.length > 0) {
+        return res.status(400).json({ 
+            ok: false, 
+            error: 'Cannot add slots for past dates',
+            details: [`Past dates: ${pastDates.join(', ')}`]
+        });
+    }
+
     const sheets = await getSheets();
 
     try {
-        // Get existing slots to check for duplicates
         const existingResponse = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: 'Slots!A2:E',
@@ -143,8 +220,8 @@ async function handleAddSlots(req, res) {
                         dateData.date,
                         slot.label,
                         slot.capacity,
-                        0, // taken
-                        slot.capacity, // available
+                        0,
+                        slot.capacity,
                     ]);
                     datesAdded.add(dateData.date);
                 } else if (existingKeys.has(rowKey)) {
@@ -157,11 +234,10 @@ async function handleAddSlots(req, res) {
             return res.status(400).json({ 
                 ok: false, 
                 error: 'No new slots were added.', 
-                details: datesSkipped.length > 0 ? [`${datesSkipped.length} slot(s) already exist or were invalid.`] : ['No valid rows to insert.']
+                details: datesSkipped.length > 0 ? [`${datesSkipped.length} slot(s) already exist.`] : ['No valid slots to insert.']
             });
         }
 
-        // Append new rows
         await sheets.spreadsheets.values.append({
             spreadsheetId: SPREADSHEET_ID,
             range: 'Slots!A2',
@@ -171,13 +247,18 @@ async function handleAddSlots(req, res) {
             }
         });
         
+        log('info', 'Slots added', { 
+            count: rowsToAdd.length, 
+            dates: Array.from(datesAdded) 
+        });
+
         return res.status(201).json({ 
             ok: true, 
             message: `Successfully added ${rowsToAdd.length} slot(s) across ${datesAdded.size} date(s).`,
             details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} existing slot(s).`] : []
         });
     } catch (err) {
-        console.error('Error adding slots:', err.message);
+        log('error', 'Error adding slots', { error: err.message });
         return res.status(500).json({ ok: false, error: 'Failed to add slots' });
     }
 }
@@ -192,37 +273,70 @@ async function handleDeleteSlots(req, res) {
     const sheets = await getSheets();
 
     try {
-        // Get all rows to find which ones to delete
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: 'Slots!A2:E',
-        });
+        // Get all slots and signups
+        const [slotsResponse, signupsResponse] = await Promise.all([
+            sheets.spreadsheets.values.get({
+                spreadsheetId: SPREADSHEET_ID,
+                range: 'Slots!A2:E',
+            }),
+            sheets.spreadsheets.values.get({
+                spreadsheetId: SPREADSHEET_ID,
+                range: 'Signups!A2:I',
+            })
+        ]);
 
-        const allRows = response.data.values || [];
-        const rowsToDelete = [];
-
-        // Find matching rows (rowIds are 2-indexed, array is 0-indexed)
+        const allSlots = slotsResponse.data.values || [];
+        const allSignups = signupsResponse.data.values || [];
+        
+        // Check if any slots to delete have active bookings
+        const slotsWithBookings = [];
+        
         rowIds.forEach(rowId => {
-            const arrayIndex = rowId - 2;
-            if (arrayIndex >= 0 && arrayIndex < allRows.length) {
-                rowsToDelete.push(rowId);
+            const hasActiveBookings = allSignups.some(signup => {
+                const signupSlotId = parseInt(signup[7]); // SLOT_ROW_ID column
+                const status = signup[8] || 'ACTIVE';
+                return signupSlotId === rowId && status === 'ACTIVE';
+            });
+            
+            if (hasActiveBookings) {
+                const slotIndex = rowId - 2;
+                if (slotIndex >= 0 && slotIndex < allSlots.length) {
+                    const slot = allSlots[slotIndex];
+                    slotsWithBookings.push(`${slot[0]} - ${slot[1]}`);
+                }
             }
         });
 
-        if (rowsToDelete.length === 0) {
-            return res.status(200).json({ ok: true, message: 'No matching slots found, deletion complete (0 slots removed).' });
+        if (slotsWithBookings.length > 0) {
+            return res.status(400).json({ 
+                ok: false, 
+                error: 'Cannot delete slots with active bookings',
+                details: [`Slots with bookings: ${slotsWithBookings.join(', ')}`]
+            });
         }
 
-        // Sort in descending order to delete from bottom up (prevents index shifting issues)
+        // Find valid rows to delete
+        const rowsToDelete = rowIds.filter(rowId => {
+            const arrayIndex = rowId - 2;
+            return arrayIndex >= 0 && arrayIndex < allSlots.length;
+        });
+
+        if (rowsToDelete.length === 0) {
+            return res.status(200).json({ 
+                ok: true, 
+                message: 'No matching slots found (0 slots removed).' 
+            });
+        }
+
+        // Sort descending to delete from bottom up
         rowsToDelete.sort((a, b) => b - a);
 
-        // Delete rows using batchUpdate
         const requests = rowsToDelete.map(rowId => ({
             deleteDimension: {
                 range: {
-                    sheetId: 0, // Assuming "Slots" is the first sheet
+                    sheetId: SLOTS_GID, // Use actual GID from env
                     dimension: 'ROWS',
-                    startIndex: rowId - 1, // 0-indexed
+                    startIndex: rowId - 1,
                     endIndex: rowId
                 }
             }
@@ -235,12 +349,14 @@ async function handleDeleteSlots(req, res) {
             }
         });
 
+        log('info', 'Slots deleted', { count: rowsToDelete.length });
+
         return res.status(200).json({ 
             ok: true, 
             message: `Successfully deleted ${rowsToDelete.length} slot(s).`
         });
     } catch (err) {
-        console.error('Error deleting slots:', err.message);
+        log('error', 'Error deleting slots', { error: err.message, stack: err.stack });
         return res.status(500).json({ ok: false, error: 'Failed to delete slots' });
     }
 }
@@ -249,13 +365,18 @@ async function handleDeleteSlots(req, res) {
  * Main handler function for the Vercel Serverless Function.
  */
 module.exports = async (req, res) => {
-    // Set CORS headers
+    // Security headers
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    
+    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
     res.setHeader('Access-Control-Allow-Credentials', 'true'); 
 
-    // Handle preflight requests
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
     }
@@ -264,12 +385,12 @@ module.exports = async (req, res) => {
         const { method } = req;
         const { action } = req.body || {};
 
-        // --- PUBLIC ROUTE: LOGIN (NO SHEET CONNECTION NEEDED) ---
+        // PUBLIC ROUTE: LOGIN
         if (method === 'POST' && action === 'login') {
             return await handleLogin(req, res);
         }
 
-        // --- AUTHENTICATION GATE ---
+        // AUTHENTICATION GATE
         if (!isAuthenticated(req)) {
             clearAuthCookie(res); 
             return res.status(401).json({ 
@@ -279,7 +400,7 @@ module.exports = async (req, res) => {
             });
         }
         
-        // --- PROTECTED ROUTES ---
+        // PROTECTED ROUTES
         switch (method) {
             case 'GET':
                 return await handleLoadSlots(req, res);
@@ -301,7 +422,7 @@ module.exports = async (req, res) => {
         }
 
     } catch (error) {
-        console.error("Backend Error:", error);
+        log('error', 'Unhandled error', { error: error.message, stack: error.stack });
         return res.status(500).json({ 
             ok: false, 
             error: 'Internal Server Error', 
