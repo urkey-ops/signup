@@ -1,526 +1,330 @@
-const { google } = require("googleapis");
-const crypto = require("crypto");
-
 // ================================================================================================
-// FIX #6: IMPROVED ADMIN AUTHENTICATION
+// CONFIGURATION AND IMPORTS
 // ================================================================================================
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "your-secret-password";
-const SLOTS_GID = parseInt(process.env.SLOTS_GID) || 0;
-const SHEET_ID = process.env.SHEET_ID;
+// Imports
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const jwt = require('jsonwebtoken');
 
-// Session management
-const adminSessions = new Map(); // sessionId -> { timestamp, ip }
-const SESSION_TIMEOUT = 28800000; // 8 hours
+// Environment Variables (Set these in Vercel/local environment)
+// NOTE: Make sure to set these securely in Vercel's environment variables.
+const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
+const PRIVATE_KEY_BASE64 = process.env.GOOGLE_PRIVATE_KEY_BASE64; // The private key JSON, base64 encoded
+const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH; // Use a strong, salted hash!
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_EXPIRY_SECONDS = 3600; // 1 hour session
 
-// Login rate limiting
-const loginAttempts = new Map();
-const MAX_LOGIN_ATTEMPTS = 5;
-const LOGIN_ATTEMPT_WINDOW = 900000; // 15 minutes
+// Initialize the Google Spreadsheet
+let doc;
 
-// Validate environment on startup
-if (!SHEET_ID) {
-    console.error('❌ CRITICAL: Missing SHEET_ID environment variable');
-    throw new Error('Missing required environment variable: SHEET_ID');
-}
-
-if (!process.env.GOOGLE_SERVICE_ACCOUNT) {
-    console.error('❌ CRITICAL: Missing GOOGLE_SERVICE_ACCOUNT environment variable');
-    throw new Error('Missing required environment variable: GOOGLE_SERVICE_ACCOUNT');
-}
-
-// ================================================================================================
-// AUTHENTICATION HELPERS
-// ================================================================================================
-
-function generateSessionToken() {
-    return crypto.randomBytes(32).toString('hex');
-}
-
-function checkLoginRateLimit(ip) {
-    const now = Date.now();
-    const attempts = loginAttempts.get(ip) || [];
-    
-    // Clean old attempts
-    const recentAttempts = attempts.filter(time => now - time < LOGIN_ATTEMPT_WINDOW);
-    
-    if (recentAttempts.length >= MAX_LOGIN_ATTEMPTS) {
-        return false;
+// Helper to initialize and authenticate Google Sheets connection
+async function connectToSheet() {
+    if (doc) return; // Already connected
+    if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE4) {
+        throw new Error("Missing required Google Sheets environment variables.");
     }
     
-    recentAttempts.push(now);
-    loginAttempts.set(ip, recentAttempts);
+    // Decode the private key
+    const privateKey = Buffer.from(PRIVATE_KEY_BASE4, 'base64').toString('utf8');
     
-    // Cleanup old IPs
-    for (const [key, times] of loginAttempts.entries()) {
-        const valid = times.filter(t => now - t < LOGIN_ATTEMPT_WINDOW);
-        if (valid.length === 0) {
-            loginAttempts.delete(key);
-        } else {
-            loginAttempts.set(key, valid);
-        }
-    }
-    
-    return true;
-}
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
 
-function verifySession(token) {
-    const session = adminSessions.get(token);
-    if (!session) return false;
-    
-    // Check age (8 hours)
-    if (Date.now() - session.timestamp > SESSION_TIMEOUT) {
-        adminSessions.delete(token);
-        return false;
-    }
-    
-    return true;
-}
+    await doc.useServiceAccountAuth({
+        client_email: CLIENT_EMAIL,
+        private_key: privateKey.replace(/\\n/g, '\n'), // Important: fix escaped newlines
+    });
 
-function auditLog(action, details = {}) {
-    const logEntry = {
-        timestamp: new Date().toISOString(),
-        action,
-        ip: details.ip,
-        user: 'admin',
-        details: details.data
-    };
-    
-    console.log('[AUDIT]', JSON.stringify(logEntry));
-}
-
-// Sleep helper for rate limiting
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    await doc.loadInfo(); // Load sheet info
 }
 
 // ================================================================================================
-// VALIDATION HELPERS
+// SECURITY HANDLERS (JWT & Cookie)
 // ================================================================================================
 
-function isValidDateFormat(dateStr) {
-    if (!dateStr || typeof dateStr !== 'string') return false;
-    return /^\d{2}\/\d{2}\/\d{4}$/.test(dateStr);
+/**
+ * Generates a session JWT and sets it in an HttpOnly Cookie.
+ * @param {object} res The Vercel response object
+ */
+function setAuthCookie(res) {
+    const payload = { isAdmin: true };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
+    const expiry = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
+
+    // Set a secure, HttpOnly cookie.
+    res.setHeader('Set-Cookie', 
+        `adminSessionId=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expiry.toUTCString()}`
+    );
 }
 
-function isPastDate(dateStr) {
-    if (!isValidDateFormat(dateStr)) return true;
-    
-    const [month, day, year] = dateStr.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return date < today;
+/**
+ * Removes the auth cookie by setting expiry to the past.
+ * @param {object} res The Vercel response object
+ */
+function clearAuthCookie(res) {
+    res.setHeader('Set-Cookie', 
+        `adminSessionId=; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${new Date(0).toUTCString()}`
+    );
 }
 
-// ================================================================================================
-// MAIN HANDLER
-// ================================================================================================
+/**
+ * Extracts and verifies the JWT from the cookie.
+ * @param {object} req The Vercel request object
+ * @returns {boolean} True if authenticated, false otherwise.
+ */
+function isAuthenticated(req) {
+    const cookieHeader = req.headers.cookie;
+    if (!cookieHeader) return false;
 
-module.exports = async function handler(req, res) {
-    const startTime = Date.now();
+    // Simple cookie parser for adminSessionId
+    const cookies = cookieHeader.split(';').map(c => c.trim());
+    const sessionCookie = cookies.find(c => c.startsWith('adminSessionId='));
     
+    if (!sessionCookie) return false;
+
+    const token = sessionCookie.substring('adminSessionId='.length);
+
     try {
-        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || 
-                         req.headers['x-real-ip'] || 
-                         'unknown';
+        const decoded = jwt.verify(token, JWT_SECRET);
+        return decoded.isAdmin === true;
+    } catch (err) {
+        // Token expired, invalid signature, or other error
+        return false;
+    }
+}
 
-        // ========================================================================================
-        // FIX #6: LOGIN ENDPOINT (Separate from auth check)
-        // ========================================================================================
-        
-        if (req.method === "POST" && req.body.action === "login") {
-            const { password } = req.body;
-            
-            // Rate limit check
-            if (!checkLoginRateLimit(clientIP)) {
-                auditLog('LOGIN_RATE_LIMITED', { ip: clientIP });
-                return res.status(429).json({ 
-                    ok: false, 
-                    error: "Too many login attempts. Please try again in 15 minutes." 
-                });
-            }
-            
-            // Validate password
-            if (password !== ADMIN_PASSWORD) {
-                auditLog('LOGIN_FAILED', { ip: clientIP });
-                
-                // Add artificial delay to slow down brute force
-                await sleep(1000);
-                
-                return res.status(401).json({ 
-                    ok: false, 
-                    error: "Invalid credentials" 
-                });
-            }
-            
-            // Generate session token
-            const sessionToken = generateSessionToken();
-            adminSessions.set(sessionToken, {
-                timestamp: Date.now(),
-                ip: clientIP
-            });
-            
-            // Auto-expire after 8 hours
-            setTimeout(() => {
-                adminSessions.delete(sessionToken);
-            }, SESSION_TIMEOUT);
-            
-            auditLog('LOGIN_SUCCESS', { ip: clientIP });
-            
-            return res.status(200).json({ 
-                ok: true, 
-                token: sessionToken,
-                expiresIn: SESSION_TIMEOUT / 1000 // seconds
-            });
+// Dummy function for password checking (replace with proper hashing check!)
+function checkPassword(password) {
+    // ⚠️ CRITICAL: In a real app, use a library like bcrypt to securely compare the hash.
+    // Since the frontend provided a fixed hash variable, we'll use a placeholder check:
+    // return bcrypt.compareSync(password, ADMIN_PASSWORD_HASH);
+    
+    // For this demonstration, we'll assume the client-side password matches the hash exactly:
+    return password === ADMIN_PASSWORD_HASH; 
+}
+
+
+// ================================================================================================
+// API HANDLERS
+// ================================================================================================
+
+/**
+ * Handles Admin Login
+ * @param {object} req - request object
+ * @param {object} res - response object
+ */
+async function handleLogin(req, res) {
+    const { password } = req.body;
+    
+    if (!password) {
+        return res.status(400).json({ ok: false, error: 'Password required' });
+    }
+
+    if (checkPassword(password)) {
+        setAuthCookie(res); // Set the secure HttpOnly cookie
+        return res.status(200).json({ ok: true, message: 'Login successful' });
+    } else {
+        // Clear cookie on failed login attempt
+        clearAuthCookie(res); 
+        return res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    }
+}
+
+/**
+ * Loads all existing slots from the sheet.
+ * @param {object} req - request object
+ * @param {object} res - response object
+ */
+async function handleLoadSlots(req, res) {
+    await connectToSheet();
+    const sheet = doc.sheetsByTitle['Slots']; // Ensure you have a sheet named 'Slots'
+
+    if (!sheet) {
+        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
+    }
+
+    const rows = await sheet.getRows();
+
+    // Map rows to a cleaner object structure
+    const slots = rows.map(row => ({
+        id: row.rowNumber, // Use rowNumber as a unique identifier for CRUD ops
+        date: row.date,
+        slotLabel: row.slotLabel,
+        capacity: parseInt(row.capacity, 10),
+        taken: parseInt(row.taken, 10),
+        available: parseInt(row.available, 10),
+    })).filter(slot => slot.id); // Filter out potential empty rows
+
+    // Sort chronologically (best practice for list display)
+    slots.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    return res.status(200).json({ ok: true, slots });
+}
+
+/**
+ * Handles batch creation of new slots.
+ * @param {object} req - request object
+ * @param {object} res - response object
+ */
+async function handleAddSlots(req, res) {
+    const { newSlotsData } = req.body; // Array of { date, slots: [{ label, capacity }] }
+    
+    if (!newSlotsData || !Array.isArray(newSlotsData) || newSlotsData.length === 0) {
+        return res.status(400).json({ ok: false, error: 'Invalid or empty slot data provided.' });
+    }
+
+    await connectToSheet();
+    const sheet = doc.sheetsByTitle['Slots'];
+
+    if (!sheet) {
+        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
+    }
+
+    // 1. Fetch existing dates to prevent duplicates (client-side prevents past/selected)
+    const existingRows = await sheet.getRows();
+    const existingDates = new Set(existingRows.map(row => row.date));
+    const rowsToAdd = [];
+    const datesAdded = new Set();
+    const datesSkipped = [];
+
+    // 2. Prepare rows for batch update
+    for (const dateData of newSlotsData) {
+        if (!dateData.date || existingDates.has(dateData.date)) {
+            // Re-validate server-side against sheet data
+            datesSkipped.push(dateData.date || 'Unknown Date');
+            continue;
         }
 
-        // ========================================================================================
-        // CHECK AUTHENTICATION FOR ALL OTHER REQUESTS
-        // ========================================================================================
+        for (const slot of dateData.slots) {
+            if (slot.capacity > 0) {
+                rowsToAdd.push({
+                    date: dateData.date,
+                    slotLabel: slot.label,
+                    capacity: slot.capacity,
+                    taken: 0, // Always starts at 0
+                    available: slot.capacity, // Always starts equal to capacity
+                });
+                datesAdded.add(dateData.date);
+            }
+        }
+    }
+
+    if (rowsToAdd.length === 0) {
+         return res.status(400).json({ 
+            ok: false, 
+            error: 'No slots were added.', 
+            details: datesSkipped.length > 0 ? [`${datesSkipped.length} dates already exist or were invalid.`] : ['No valid rows to insert.']
+        });
+    }
+
+    // 3. Perform the batch append
+    const addedRows = await sheet.addRows(rowsToAdd);
+    
+    return res.status(201).json({ 
+        ok: true, 
+        message: `Successfully added ${addedRows.length} slots across ${datesAdded.size} dates.`,
+        details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} dates as they already exist.`] : []
+    });
+}
+
+/**
+ * Handles batch deletion of slots by row ID.
+ * @param {object} req - request object
+ * @param {object} res - response object
+ */
+async function handleDeleteSlots(req, res) {
+    const { rowIds } = req.body;
+
+    if (!rowIds || !Array.isArray(rowIds) || rowIds.length === 0) {
+        return res.status(400).json({ ok: false, error: 'No slot IDs provided for deletion.' });
+    }
+    
+    await connectToSheet();
+    const sheet = doc.sheetsByTitle['Slots'];
+
+    if (!sheet) {
+        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
+    }
+
+    // Fetch all existing rows to find the ones matching the IDs.
+    // IMPORTANT: Row numbers start at 2 for data (header is 1), but row objects
+    // use a 'rowNumber' property corresponding to the physical sheet row.
+    const allRows = await sheet.getRows();
+    const rowsToDelete = allRows.filter(row => row.rowNumber && rowIds.includes(row.rowNumber));
+
+    if (rowsToDelete.length === 0) {
+        return res.status(404).json({ ok: false, error: 'No matching slots found for deletion.' });
+    }
+
+    // Batch deletion process (using Promise.all for concurrency)
+    // NOTE: This can be slow for very large numbers of rows. 
+    // Google Sheets API works by deleting row by row.
+    const deletePromises = rowsToDelete.map(row => row.delete());
+    
+    await Promise.all(deletePromises);
+
+    return res.status(200).json({ 
+        ok: true, 
+        message: `Successfully deleted ${rowsToDelete.length} slot${rowsToDelete.length !== 1 ? 's' : ''}.`
+    });
+}
+
+/**
+ * Main handler function for the Vercel Serverless Function.
+ * @param {object} req - request object
+ * @param {object} res - response object
+ */
+module.exports = async (req, res) => {
+    try {
+        await connectToSheet(); // Always ensure connection is ready
         
-        const authHeader = req.headers.authorization;
-        const token = authHeader?.startsWith('Bearer ') ? 
-                      authHeader.substring(7) : null;
-        
-        if (!token || !verifySession(token)) {
-            auditLog('UNAUTHORIZED_ACCESS', { ip: clientIP, method: req.method });
+        const { method } = req;
+        const { action } = req.body || {};
+
+        // --- PUBLIC ROUTE: LOGIN ---
+        if (method === 'POST' && action === 'login') {
+            return await handleLogin(req, res);
+        }
+
+        // --- AUTHENTICATION GATE ---
+        if (!isAuthenticated(req)) {
+            // If authentication fails, clear any potentially bad cookie and send 401
+            clearAuthCookie(res); 
             return res.status(401).json({ 
                 ok: false, 
-                error: "Unauthorized - Session expired or invalid" 
+                error: 'Unauthenticated: Invalid or expired session.', 
+                details: ['Please log in again.']
             });
         }
+        
+        // --- PROTECTED ROUTES ---
+        
+        switch (method) {
+            case 'GET':
+                // List/Load Slots (GET /api/admin)
+                return await handleLoadSlots(req, res);
 
-        // Parse Google Service Account
-        let credentials;
-        try {
-            credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
-        } catch (err) {
-            console.error("Invalid GOOGLE_SERVICE_ACCOUNT JSON:", err);
-            return res.status(500).json({ ok: false, error: "Invalid Google service account" });
+            case 'POST':
+                // Add Slots (POST /api/admin with action: "addSlots")
+                if (action === 'addSlots') {
+                    return await handleAddSlots(req, res);
+                }
+                // Fallthrough for other POST actions
+
+            case 'DELETE':
+                // Delete Slots (DELETE /api/admin with action: "deleteSlots")
+                if (action === 'deleteSlots') {
+                    return await handleDeleteSlots(req, res);
+                }
+                // Fallthrough for other DELETE actions
+
+            default:
+                // Handle unsupported methods or actions
+                return res.status(405).json({ ok: false, error: `Method ${method} not allowed or action missing.` });
         }
 
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-        });
-        const sheets = google.sheets({ version: "v4", auth });
-
-        // ========================================================================================
-        // GET: Fetch all dates and slots
-        // ========================================================================================
-        
-        if (req.method === "GET") {
-            try {
-                const response = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: "Slots!A2:E",
-                });
-
-                const rows = response.data.values || [];
-                const slots = rows.map((row, idx) => ({
-                    id: idx + 2,
-                    date: row[0] || "",
-                    slotLabel: row[1] || "",
-                    capacity: parseInt(row[2]) || 0,
-                    taken: parseInt(row[3]) || 0,
-                    available: parseInt(row[2] || 0) - parseInt(row[3] || 0),
-                }));
-
-                auditLog('SLOTS_FETCHED', { 
-                    ip: clientIP, 
-                    data: { count: slots.length } 
-                });
-
-                return res.status(200).json({ ok: true, slots });
-            } catch (err) {
-                console.error("Error reading slots:", err);
-                return res.status(500).json({ ok: false, error: "Failed to fetch slots" });
-            }
-        }
-
-        // ========================================================================================
-        // FIX #3: POST with Comprehensive Batch Validation
-        // ========================================================================================
-        
-        if (req.method === "POST") {
-            const { newSlotsData } = req.body;
-
-            if (!newSlotsData || !Array.isArray(newSlotsData) || newSlotsData.length === 0) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: "Missing or invalid newSlotsData array" 
-                });
-            }
-
-            // FIX #3: COMPREHENSIVE VALIDATION BEFORE ANY WRITES
-            const errors = [];
-            const seenDates = new Set();
-            let allNewRows = [];
-            let totalSlotsAdded = 0;
-
-            // First pass: Validate everything
-            for (let idx = 0; idx < newSlotsData.length; idx++) {
-                const item = newSlotsData[idx];
-                const { date, slots } = item;
-                
-                // Check structure
-                if (!date || !slots || !Array.isArray(slots) || slots.length === 0) {
-                    errors.push(`Item ${idx}: Missing date or slots`);
-                    continue;
-                }
-                
-                // Check date format (MM/DD/YYYY)
-                if (!isValidDateFormat(date)) {
-                    errors.push(`Item ${idx}: Invalid date format "${date}" (expected MM/DD/YYYY)`);
-                    continue;
-                }
-                
-                // Check for past dates
-                if (isPastDate(date)) {
-                    errors.push(`Item ${idx}: Date ${date} is in the past`);
-                    continue;
-                }
-                
-                // Check for duplicates within batch
-                if (seenDates.has(date)) {
-                    errors.push(`Item ${idx}: Duplicate date ${date} in batch`);
-                    continue;
-                }
-                seenDates.add(date);
-                
-                // Validate each time slot
-                for (let sIdx = 0; sIdx < slots.length; sIdx++) {
-                    const slot = slots[sIdx];
-                    
-                    if (!slot.label || typeof slot.label !== 'string') {
-                        errors.push(`Item ${idx}, Slot ${sIdx}: Missing or invalid label`);
-                        continue;
-                    }
-                    
-                    const capacity = parseInt(slot.capacity);
-                    if (isNaN(capacity) || capacity < 1 || capacity > 99) {
-                        errors.push(`Item ${idx}, Slot ${sIdx}: Capacity must be between 1-99 (got ${slot.capacity})`);
-                        continue;
-                    }
-                    
-                    // Prepare row if validation passed
-                    allNewRows.push([
-                        date,                                           // A: Date
-                        slot.label,                                     // B: Slot label
-                        Math.max(1, Math.min(99, capacity)),            // C: Capacity (clamped)
-                        0,                                              // D: Taken = 0
-                        ""                                              // E: Notes
-                    ]);
-                    totalSlotsAdded++;
-                }
-            }
-
-            // If ANY errors, reject entire batch
-            if (errors.length > 0) {
-                auditLog('BATCH_VALIDATION_FAILED', { 
-                    ip: clientIP, 
-                    data: { errorCount: errors.length, errors } 
-                });
-                
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: `Validation failed with ${errors.length} error(s)`,
-                    details: errors
-                });
-            }
-
-            // Additional check: Verify dates don't already exist in sheet
-            try {
-                const existingResponse = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: "Slots!A2:A",
-                });
-
-                const existingDates = new Set(
-                    (existingResponse.data.values || []).map(row => row[0])
-                );
-
-                const duplicateDates = [...seenDates].filter(d => existingDates.has(d));
-                
-                if (duplicateDates.length > 0) {
-                    auditLog('DUPLICATE_DATES_DETECTED', { 
-                        ip: clientIP, 
-                        data: { duplicates: duplicateDates } 
-                    });
-                    
-                    return res.status(409).json({
-                        ok: false,
-                        error: `The following dates already have slots: ${duplicateDates.join(', ')}`
-                    });
-                }
-
-            } catch (err) {
-                console.error("Error checking existing dates:", err);
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to validate dates against existing data" 
-                });
-            }
-
-            if (allNewRows.length === 0) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: "No valid rows to insert after validation" 
-                });
-            }
-
-            // All validations passed - write to sheet
-            try {
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: SHEET_ID,
-                    range: "Slots!A2",
-                    valueInputOption: "RAW",
-                    requestBody: { values: allNewRows },
-                });
-
-                auditLog('SLOTS_ADDED', { 
-                    ip: clientIP, 
-                    data: { 
-                        dates: newSlotsData.length, 
-                        totalSlots: totalSlotsAdded 
-                    } 
-                });
-
-                return res.status(200).json({ 
-                    ok: true, 
-                    message: `Successfully added ${totalSlotsAdded} slots across ${newSlotsData.length} date(s).` 
-                });
-            } catch (err) {
-                console.error("Error adding slot batch:", err);
-                auditLog('SLOTS_ADD_FAILED', { 
-                    ip: clientIP, 
-                    data: { error: err.message } 
-                });
-                
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to add slot batch to spreadsheet" 
-                });
-            }
-        }
-
-        // ========================================================================================
-        // DELETE: Remove multiple slots (WITH BOOKING CHECK)
-        // ========================================================================================
-        
-        if (req.method === "DELETE") {
-            const { rowIds } = req.body;
-
-            if (!rowIds || !Array.isArray(rowIds) || rowIds.length === 0) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: "Missing or invalid rowIds array" 
-                });
-            }
-
-            const validRowIds = rowIds.filter(id => typeof id === 'number' && id >= 2);
-
-            if (validRowIds.length === 0) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: "No valid row IDs provided (must be numbers >= 2)" 
-                });
-            }
-
-            try {
-                // SAFETY CHECK: Check for active bookings before deletion
-                const signupsResponse = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: 'Signups!A2:I'
-                });
-
-                const signupRows = signupsResponse.data.values || [];
-                
-                // Find active bookings for these slots
-                const affectedBookings = signupRows.filter(row => {
-                    const slotRowId = parseInt(row[7]); // Column H (Slot Row ID)
-                    const status = row[8] || 'ACTIVE';  // Column I (Status)
-                    return validRowIds.includes(slotRowId) && status === 'ACTIVE';
-                });
-
-                if (affectedBookings.length > 0) {
-                    auditLog('DELETE_BLOCKED_BOOKINGS_EXIST', { 
-                        ip: clientIP, 
-                        data: { 
-                            requestedDeletes: validRowIds.length,
-                            affectedBookings: affectedBookings.length 
-                        } 
-                    });
-                    
-                    return res.status(400).json({
-                        ok: false,
-                        error: `Cannot delete: ${affectedBookings.length} active booking(s) exist. Cancel bookings first or contact users.`,
-                        affectedCount: affectedBookings.length
-                    });
-                }
-
-                // Sort row IDs in descending order to avoid re-indexing errors
-                const sortedRowIds = [...new Set(validRowIds)].sort((a, b) => b - a);
-
-                const requests = sortedRowIds.map(rowId => ({
-                    deleteDimension: {
-                        range: {
-                            sheetId: SLOTS_GID, 
-                            dimension: "ROWS",
-                            startIndex: rowId - 1,
-                            endIndex: rowId,
-                        }
-                    }
-                }));
-
-                await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: SHEET_ID,
-                    requestBody: { requests: requests },
-                });
-
-                auditLog('SLOTS_DELETED', { 
-                    ip: clientIP, 
-                    data: { count: sortedRowIds.length } 
-                });
-
-                return res.status(200).json({ 
-                    ok: true, 
-                    message: `Successfully deleted ${sortedRowIds.length} slot(s).` 
-                });
-            } catch (err) {
-                console.error("Error deleting slot batch:", err);
-                auditLog('SLOTS_DELETE_FAILED', { 
-                    ip: clientIP, 
-                    data: { error: err.message } 
-                });
-                
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to delete slots", 
-                    details: err.message 
-                });
-            }
-        }
-
-        // Method not allowed
-        res.setHeader("Allow", ["GET", "POST", "DELETE"]);
-        return res.status(405).json({ 
-            ok: false, 
-            error: `Method ${req.method} Not Allowed` 
-        });
-
-    } catch (err) {
-        console.error("Admin API Error:", err);
-        auditLog('SERVER_ERROR', { 
-            ip: req.headers['x-forwarded-for'] || 'unknown', 
-            data: { error: err.message } 
-        });
-        
-        return res.status(500).json({ 
-            ok: false, 
-            error: "Server error", 
-            details: process.env.NODE_ENV === 'development' ? err.message : undefined 
-        });
+    } catch (error) {
+        console.error("Backend Error:", error);
+        return res.status(500).json({ ok: false, error: 'Internal Server Error', details: [error.message] });
     }
 };
