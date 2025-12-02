@@ -18,8 +18,8 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "google-spreadsheet": "^4.1.0",
-    "jsonwebtoken": "^9.0.2"
+    "google-spreadsheet": "^4.1.0" 
+    // Removed jsonwebtoken
   },
   "devDependencies": {
     "vercel": "^33.7.1"
