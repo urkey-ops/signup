@@ -836,22 +836,3 @@ function toggleLookup() {
     }
 }
 
-.date-chip.disabled {
-    opacity: 0.5;
-    cursor: not-allowed !important;
-}
-
-.exists-badge {
-    position: absolute;
-    top: 2px;
-    right: 2px;
-    background: #10b981;
-    color: white;
-    border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
