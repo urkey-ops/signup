@@ -11,9 +11,10 @@ const API_URL = '/api/admin';
 
 // Default slot times and capacities
 const DEFAULT_SLOTS = [
-    { label: "10AM - 12PM", capacity: 8 },
-    { label: "1PM - 3PM", capacity: 8 },
-    { label: "3PM - 5PM", capacity: 8 },
+    { label: "10AM - 12PM", capacity: 6 },
+    { label: "12PM - 2PM", capacity: 6 },
+    { label: "2PM - 4PM", capacity: 6 },
+    { label: "4PM - 6PM", capacity: 6 },
 ];
 
 // Cache to store the currently loaded slots
