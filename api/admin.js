@@ -27,12 +27,22 @@ let doc;
 async function connectToSheet() {
     const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
     const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
-    
+
     if (!SPREADSHEET_ID || !ADMIN_CLIENT_EMAIL || !ADMIN_PRIVATE_KEY) {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-    const privateKey = ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n');
+    // Fix OpenSSL 3 crypto issue - ENABLE LEGACY PROVIDER
+    const crypto = require('crypto');
+    if (!crypto.getFipsMode && typeof globalThis.legacyProvider === 'undefined') {
+        const { crypto: webcrypto } = require('crypto');
+        if (typeof webcrypto.subtle?.generateKey === 'function') {
+            globalThis.legacyProvider = require('node:crypto').webcrypto;
+        }
+    }
+    
+    // Your key is already perfect - just normalize whitespace
+    const privateKey = ADMIN_PRIVATE_KEY.trim();
 
     const jwtClient = new JWT({
         email: ADMIN_CLIENT_EMAIL,
@@ -43,6 +53,7 @@ async function connectToSheet() {
     doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
     await doc.loadInfo();
 }
+
 
 
 
