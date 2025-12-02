@@ -16,7 +16,6 @@ const SIMPLE_TOKEN_VALUE = "valid_admin_session";
 let doc;
 
 // Helper to initialize Google Sheets
-// REPLACE your connectToSheet() COMPLETELY with this:
 async function connectToSheet() {
     const serviceAccount = JSON.parse(process.env.GOOGLE_ADMIN_SERVICE_ACCOUNT);
     
@@ -24,7 +23,6 @@ async function connectToSheet() {
         throw new Error("Missing Google Sheets env vars");
     }
 
-    // EXACT SAME as signup.js - 100% PROVEN
     doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     await doc.useServiceAccountAuth(serviceAccount);
     await doc.loadInfo();
@@ -85,7 +83,6 @@ async function handleLogin(req, res) {
 }
 
 async function handleLoadSlots(req, res) {
-    await connectToSheet();
     const sheet = doc.sheetsByTitle['Slots'];
 
     if (!sheet) {
@@ -116,7 +113,6 @@ async function handleAddSlots(req, res) {
         return res.status(400).json({ ok: false, error: 'Invalid or empty slot data provided.' });
     }
 
-    await connectToSheet();
     const sheet = doc.sheetsByTitle['Slots'];
 
     if (!sheet) {
@@ -172,7 +168,6 @@ async function handleDeleteSlots(req, res) {
         return res.status(400).json({ ok: false, error: 'No slot IDs provided for deletion.' });
     }
     
-    await connectToSheet();
     const sheet = doc.sheetsByTitle['Slots'];
 
     if (!sheet) {
@@ -203,7 +198,7 @@ module.exports = async (req, res) => {
     // Set CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*'); 
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie'); // Cookie header is relevant here
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
     res.setHeader('Access-Control-Allow-Credentials', 'true'); 
 
     // Handle preflight requests
@@ -211,36 +206,29 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
 
-   try {
-    const { method } = req;
-    const { action } = req.body || {};
+    try {
+        const { method } = req;
+        const { action } = req.body || {};
 
-    // --- PUBLIC ROUTE: LOGIN (NO SHEET CONNECTION NEEDED) ---
-    if (method === 'POST' && action === 'login') {
-        return await handleLogin(req, res);  // ← Login works instantly!
-    }
+        // --- PUBLIC ROUTE: LOGIN (NO SHEET CONNECTION NEEDED) ---
+        if (method === 'POST' && action === 'login') {
+            return await handleLogin(req, res);
+        }
 
-    // --- NOW connectToSheet ONLY for authenticated/protected routes ---
-    if (req.method !== 'OPTIONS') {
+        // --- CONNECT TO SHEET FOR ALL PROTECTED ROUTES ---
         await connectToSheet();
-    }
 
-    // --- AUTHENTICATION GATE ---
-    if (!isAuthenticated(req)) {
-        clearAuthCookie(res); 
-        return res.status(401).json({ 
-            ok: false, 
-            error: 'Unauthenticated: Invalid or expired session.', 
-            details: ['Please log in again.']
-        });
-    }
-    
-    // --- PROTECTED ROUTES ---
-    // ... rest stays the same
-
+        // --- AUTHENTICATION GATE ---
+        if (!isAuthenticated(req)) {
+            clearAuthCookie(res); 
+            return res.status(401).json({ 
+                ok: false, 
+                error: 'Unauthenticated: Invalid or expired session.', 
+                details: ['Please log in again.']
+            });
+        }
         
         // --- PROTECTED ROUTES ---
-        
         switch (method) {
             case 'GET':
                 return await handleLoadSlots(req, res);
@@ -249,14 +237,16 @@ module.exports = async (req, res) => {
                 if (action === 'addSlots') {
                     return await handleAddSlots(req, res);
                 }
+                return res.status(400).json({ ok: false, error: 'Unknown action for POST method.' });
 
             case 'DELETE':
                 if (action === 'deleteSlots') {
                     return await handleDeleteSlots(req, res);
                 }
+                return res.status(400).json({ ok: false, error: 'Unknown action for DELETE method.' });
 
             default:
-                return res.status(405).json({ ok: false, error: `Method ${method} not allowed or action missing.` });
+                return res.status(405).json({ ok: false, error: `Method ${method} not allowed.` });
         }
 
     } catch (error) {
