@@ -19,11 +19,9 @@
   "license": "MIT",
   "dependencies": {
     "google-spreadsheet": "^4.1.0" 
-    // ERROR CHECK: If you had another dependency here, it needed a comma after its version number.
   },
   "devDependencies": {
     "vercel": "^33.7.1"
-    // CRITICAL CHECK: No comma is allowed after the LAST property in a list (i.e., after "33.7.1")
   },
   "engines": {
     "node": ">=18.x"
