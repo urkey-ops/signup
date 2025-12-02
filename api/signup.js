@@ -13,6 +13,7 @@ const CONFIG = {
     RATE_LIMIT_WINDOW: 60000, // 1 minute
     RATE_LIMIT_MAX_REQUESTS: 20,
     CACHE_TTL: 30000, // 30 seconds
+    MAX_CONCURRENT_BOOKINGS: 3, // Prevent booking spam
 };
 
 // Sheet column mappings
@@ -25,7 +26,7 @@ const SHEETS = {
             LABEL: 1,
             CAPACITY: 2,
             TAKEN: 3,
-            NOTES: 4
+            AVAILABLE: 4
         }
     },
     SIGNUPS: {
@@ -46,7 +47,7 @@ const SHEETS = {
 };
 
 // Environment variables - VALIDATE ON STARTUP
-const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT', 'SIGNUPS_GID'];
+const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT', 'SIGNUPS_GID', 'SLOTS_GID'];
 REQUIRED_ENV.forEach(key => {
     if (!process.env[key]) {
         console.error(`❌ CRITICAL: Missing environment variable: ${key}`);
@@ -55,11 +56,12 @@ REQUIRED_ENV.forEach(key => {
 });
 
 const SIGNUPS_GID = parseInt(process.env.SIGNUPS_GID);
+const SLOTS_GID = parseInt(process.env.SLOTS_GID);
 const SHEET_ID = process.env.SHEET_ID;
 const TIMEZONE = process.env.TIMEZONE || 'America/New_York';
 
 // ================================================================================================
-// SERVER-SIDE CACHING (Memory-based, suitable for serverless)
+// SERVER-SIDE CACHING
 // ================================================================================================
 
 const cache = {
@@ -91,6 +93,7 @@ function invalidateCache() {
 // ================================================================================================
 
 const rateLimitMap = new Map();
+const activeBookingsMap = new Map(); // Track concurrent bookings per email
 
 function cleanupRateLimitMap() {
     const now = Date.now();
@@ -119,8 +122,28 @@ function checkRateLimit(identifier) {
     return true;
 }
 
+function checkConcurrentBookings(email) {
+    const count = activeBookingsMap.get(email) || 0;
+    return count < CONFIG.MAX_CONCURRENT_BOOKINGS;
+}
+
+function incrementActiveBookings(email) {
+    const count = activeBookingsMap.get(email) || 0;
+    activeBookingsMap.set(email, count + 1);
+}
+
+function decrementActiveBookings(email) {
+    const count = activeBookingsMap.get(email) || 0;
+    if (count > 0) {
+        activeBookingsMap.set(email, count - 1);
+    }
+}
+
 // Cleanup every 5 minutes
-setInterval(cleanupRateLimitMap, 300000);
+setInterval(() => {
+    cleanupRateLimitMap();
+    activeBookingsMap.clear(); // Reset concurrent bookings
+}, 300000);
 
 // ================================================================================================
 // VALIDATION & SANITIZATION
@@ -203,14 +226,19 @@ function log(level, message, data = {}) {
 // GOOGLE SHEETS HELPER
 // ================================================================================================
 
+let sheetsInstance;
+
 async function getSheets() {
+    if (sheetsInstance) return sheetsInstance;
+    
     try {
         const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
         const auth = new google.auth.GoogleAuth({
             credentials,
             scopes: ["https://www.googleapis.com/auth/spreadsheets"],
         });
-        return google.sheets({ version: "v4", auth });
+        sheetsInstance = google.sheets({ version: "v4", auth });
+        return sheetsInstance;
     } catch (err) {
         log('error', 'Failed to initialize Google Sheets', { error: err.message });
         throw new Error("Service configuration error");
@@ -228,7 +256,17 @@ module.exports = async function handler(req, res) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Cache-Control', 'no-store, max-age=0');
+    
+    // CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
     
     try {
         // Rate limiting
@@ -308,7 +346,6 @@ module.exports = async function handler(req, res) {
 
             // --- Fetch All Available Slots (WITH CACHING) ---
             try {
-                // Check cache first
                 const cachedData = getCachedSlots();
                 if (cachedData) {
                     log('info', 'Cache hit - returning cached slots', { 
@@ -334,18 +371,22 @@ module.exports = async function handler(req, res) {
                     available: Math.max(0, (parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0) - (parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0)),
                 }));
 
-                // Group by date
+                // Group by date and filter out past dates
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                
                 const grouped = {};
                 slots.forEach(slot => {
-                    if (!grouped[slot.date]) {
-                        grouped[slot.date] = [];
+                    const slotDate = new Date(slot.date);
+                    if (slotDate >= today && slot.capacity > 0) {
+                        if (!grouped[slot.date]) {
+                            grouped[slot.date] = [];
+                        }
+                        grouped[slot.date].push(slot);
                     }
-                    grouped[slot.date].push(slot);
                 });
 
                 const result = { ok: true, dates: grouped };
-                
-                // Cache the result
                 setCachedSlots(result);
 
                 log('info', 'Slots fetched and cached', { 
@@ -365,10 +406,9 @@ module.exports = async function handler(req, res) {
         }
 
         // ========================================================================================
-        // POST: Create new booking (WITH TRANSACTION SAFETY)
+        // POST: Create new booking (WITH ATOMIC TRANSACTION SAFETY)
         // ========================================================================================
         if (req.method === "POST") {
-            // Validate request body
             const validationErrors = validateBookingRequest(req.body);
             if (validationErrors.length > 0) {
                 log('warn', 'Validation failed', { errors: validationErrors });
@@ -380,45 +420,56 @@ module.exports = async function handler(req, res) {
 
             const { slotIds } = req.body;
             
-            // Sanitize inputs
             const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
             const email = sanitizeInput(req.body.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
             const phone = sanitizeInput(req.body.phone, CONFIG.MAX_PHONE_LENGTH);
             const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
 
-            log('info', 'Processing booking request', { 
-                email, 
-                name,
-                slotCount: slotIds.length 
-            });
+            // Check concurrent bookings
+            if (!checkConcurrentBookings(email)) {
+                log('warn', 'Too many concurrent bookings', { email });
+                return res.status(429).json({
+                    ok: false,
+                    error: "You have too many booking requests in progress. Please wait a moment."
+                });
+            }
+
+            incrementActiveBookings(email);
 
             try {
-                // 1. Fetch current slot data (fresh read to avoid stale cache)
-                const slotsResponse = await sheets.spreadsheets.values.batchGet({
-                    spreadsheetId: SHEET_ID,
-                    ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
+                log('info', 'Processing booking request', { 
+                    email, 
+                    name,
+                    slotCount: slotIds.length 
                 });
+
+                // ATOMIC READ: Fetch slots and signups together
+                const [slotsResponse, signupsResponse] = await Promise.all([
+                    sheets.spreadsheets.values.batchGet({
+                        spreadsheetId: SHEET_ID,
+                        ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
+                    }),
+                    sheets.spreadsheets.values.get({
+                        spreadsheetId: SHEET_ID,
+                        range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
+                    })
+                ]);
 
                 const slotRanges = slotsResponse.data.valueRanges;
-
-                // 2. Fetch existing signups for duplicate check
-                const signupsResponse = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
-                });
                 const existingSignups = signupsResponse.data.values || [];
 
                 const signupRows = [];
                 const updates = [];
                 const now = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
 
-                // 3. Validate all slots before booking (atomic check)
+                // Validate ALL slots atomically before making ANY changes
                 for (let i = 0; i < slotIds.length; i++) {
                     const slotId = slotIds[i];
                     const slotData = slotRanges[i].values?.[0];
 
                     if (!slotData || slotData.length < 4) {
                         log('warn', 'Slot not found', { slotId, email });
+                        decrementActiveBookings(email);
                         return res.status(400).json({ 
                             ok: false, 
                             error: `Slot not found. Please refresh and try again.` 
@@ -432,7 +483,21 @@ module.exports = async function handler(req, res) {
                         taken: parseInt(slotData[SHEETS.SLOTS.COLS.TAKEN]) || 0
                     };
 
-                    // Check for duplicate booking (only active bookings)
+                    // Check for past date
+                    const slotDate = new Date(slot.date);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    
+                    if (slotDate < today) {
+                        log('warn', 'Attempted booking of past slot', { slotId, date: slot.date, email });
+                        decrementActiveBookings(email);
+                        return res.status(400).json({
+                            ok: false,
+                            error: `Cannot book slot for ${slot.date} - this date has passed.`
+                        });
+                    }
+
+                    // Check for duplicate booking
                     const duplicateBooking = existingSignups.find(row => {
                         const rowEmail = row[SHEETS.SIGNUPS.COLS.EMAIL]?.trim().toLowerCase();
                         const rowSlotId = parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]);
@@ -450,9 +515,10 @@ module.exports = async function handler(req, res) {
                             date: slot.date, 
                             label: slot.label 
                         });
+                        decrementActiveBookings(email);
                         return res.status(409).json({ 
                             ok: false, 
-                            error: `You already have an active booking for ${slot.label} on ${slot.date}. Please check your existing bookings.` 
+                            error: `You already have an active booking for ${slot.label} on ${slot.date}.` 
                         });
                     }
 
@@ -465,26 +531,25 @@ module.exports = async function handler(req, res) {
                             capacity: slot.capacity,
                             taken: slot.taken
                         });
+                        decrementActiveBookings(email);
                         return res.status(409).json({ 
                             ok: false, 
-                            error: `The slot "${slot.label}" on ${slot.date} just became full. Please select another slot.` 
+                            error: `The slot "${slot.label}" on ${slot.date} is now full. Please select another slot.` 
                         });
                     }
 
-                    // Prepare signup row
                     signupRows.push([
-                        now,                    // Timestamp
-                        slot.date,              // Date
-                        slot.label,             // Slot Label
-                        name,                   // Name
-                        req.body.email.trim(),  // Email (original case)
-                        phone,                  // Phone
-                        notes,                  // Notes
-                        slotId,                 // Slot Row ID
-                        'ACTIVE'                // Status
+                        now,
+                        slot.date,
+                        slot.label,
+                        name,
+                        req.body.email.trim(),
+                        phone,
+                        notes,
+                        slotId,
+                        'ACTIVE'
                     ]);
 
-                    // Prepare slot update
                     const newTaken = slot.taken + 1;
                     updates.push({
                         range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
@@ -492,26 +557,45 @@ module.exports = async function handler(req, res) {
                     });
                 }
 
-                // 4. TRANSACTION SAFE: Write signups FIRST, then update counts
-                // If signups fail, slot counts remain unchanged (safe state)
-                await sheets.spreadsheets.values.append({
-                    spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SIGNUPS.NAME}!A1`,
-                    valueInputOption: "RAW",
-                    requestBody: { values: signupRows },
-                });
-
-                // 5. Now update slot counts (if this fails, we have orphaned signups but they're visible)
-                await sheets.spreadsheets.values.batchUpdate({
+                // ATOMIC WRITE: Use batchUpdate for transactional consistency
+                await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
                     requestBody: {
-                        valueInputOption: "RAW",
-                        data: updates
+                        requests: [
+                            // First: append signups
+                            {
+                                appendCells: {
+                                    sheetId: SIGNUPS_GID,
+                                    rows: signupRows.map(row => ({
+                                        values: row.map(cell => ({ userEnteredValue: { stringValue: String(cell) } }))
+                                    })),
+                                    fields: 'userEnteredValue'
+                                }
+                            },
+                            // Then: update slot counts atomically
+                            ...updates.map((update, idx) => ({
+                                updateCells: {
+                                    range: {
+                                        sheetId: SLOTS_GID,
+                                        startRowIndex: slotIds[idx] - 1,
+                                        endRowIndex: slotIds[idx],
+                                        startColumnIndex: 3,
+                                        endColumnIndex: 4
+                                    },
+                                    rows: [{
+                                        values: [{
+                                            userEnteredValue: { numberValue: update.values[0][0] }
+                                        }]
+                                    }],
+                                    fields: 'userEnteredValue'
+                                }
+                            }))
+                        ]
                     }
                 });
 
-                // 6. Invalidate cache after successful booking
                 invalidateCache();
+                decrementActiveBookings(email);
 
                 log('info', 'Booking successful', { 
                     email, 
@@ -520,10 +604,13 @@ module.exports = async function handler(req, res) {
                     duration: Date.now() - startTime 
                 });
 
-                const message = `Successfully booked ${slotIds.length} slot${slotIds.length === 1 ? '' : 's'}!`;
-                return res.status(200).json({ ok: true, message });
+                return res.status(200).json({ 
+                    ok: true, 
+                    message: `Successfully booked ${slotIds.length} slot${slotIds.length === 1 ? '' : 's'}!` 
+                });
 
             } catch (err) {
+                decrementActiveBookings(email);
                 log('error', 'Error creating booking', { 
                     email, 
                     error: err.message,
@@ -545,7 +632,7 @@ module.exports = async function handler(req, res) {
         }
 
         // ========================================================================================
-        // PATCH: Cancel booking (Soft Delete with Cache Invalidation)
+        // PATCH: Cancel booking
         // ========================================================================================
         if (req.method === "PATCH") {
             const { signupRowId, slotRowId } = req.body;
@@ -558,18 +645,9 @@ module.exports = async function handler(req, res) {
                 });
             }
 
-            if (!SIGNUPS_GID) {
-                log('error', 'SIGNUPS_GID not configured');
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Service configuration error" 
-                });
-            }
-
             try {
                 log('info', 'Processing cancellation', { signupRowId, slotRowId });
 
-                // 1. Verify booking exists and is active
                 const signupResponse = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:I${signupRowId}`,
@@ -593,7 +671,6 @@ module.exports = async function handler(req, res) {
                     });
                 }
 
-                // 2. Get current taken count
                 const slotRange = `${SHEETS.SLOTS.NAME}!D${slotRowId}`;
                 const slotResponse = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
@@ -603,29 +680,51 @@ module.exports = async function handler(req, res) {
                 const currentTaken = parseInt(slotResponse.data.values?.[0]?.[0] || 0);
                 const newTaken = Math.max(0, currentTaken - 1);
 
-                // 3. Mark booking as cancelled
                 const cancelledTimestamp = new Date().toISOString();
-                const markCancelled = sheets.spreadsheets.values.update({
+                
+                // Atomic cancellation
+                await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SIGNUPS.NAME}!I${signupRowId}`,
-                    valueInputOption: "RAW",
-                    requestBody: { 
-                        values: [[`CANCELLED:${cancelledTimestamp}`]] 
+                    requestBody: {
+                        requests: [
+                            {
+                                updateCells: {
+                                    range: {
+                                        sheetId: SIGNUPS_GID,
+                                        startRowIndex: signupRowId - 1,
+                                        endRowIndex: signupRowId,
+                                        startColumnIndex: 8,
+                                        endColumnIndex: 9
+                                    },
+                                    rows: [{
+                                        values: [{
+                                            userEnteredValue: { stringValue: `CANCELLED:${cancelledTimestamp}` }
+                                        }]
+                                    }],
+                                    fields: 'userEnteredValue'
+                                }
+                            },
+                            {
+                                updateCells: {
+                                    range: {
+                                        sheetId: SLOTS_GID,
+                                        startRowIndex: slotRowId - 1,
+                                        endRowIndex: slotRowId,
+                                        startColumnIndex: 3,
+                                        endColumnIndex: 4
+                                    },
+                                    rows: [{
+                                        values: [{
+                                            userEnteredValue: { numberValue: newTaken }
+                                        }]
+                                    }],
+                                    fields: 'userEnteredValue'
+                                }
+                            }
+                        ]
                     }
                 });
 
-                // 4. Decrement taken count
-                const updateTaken = sheets.spreadsheets.values.update({
-                    spreadsheetId: SHEET_ID,
-                    range: slotRange,
-                    valueInputOption: "RAW",
-                    requestBody: { values: [[newTaken]] },
-                });
-
-                // Execute both updates
-                await Promise.all([markCancelled, updateTaken]);
-
-                // 5. Invalidate cache after cancellation
                 invalidateCache();
 
                 log('info', 'Cancellation successful', { 
@@ -654,7 +753,6 @@ module.exports = async function handler(req, res) {
             }
         }
 
-        // Method not allowed
         res.setHeader("Allow", ["GET", "POST", "PATCH"]);
         log('warn', 'Method not allowed', { method: req.method, ip: clientIP });
         return res.status(405).json({ 
