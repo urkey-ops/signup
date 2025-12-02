@@ -137,11 +137,9 @@ function generateDateOptions() {
 
     const fragment = document.createDocumentFragment();
 
-    // Only auto-select weekends if there are no previous selections
-    if (selectedDates.size === 0) {
-        autoSelectWeekends(8);
-    }
-    
+    // NOTE: Removed automatic weekend pre-selection logic per request.
+    // The new UI provides a manual "Add next 8 weekends" control.
+
     // Render date chips
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
         const date = new Date(today);
@@ -202,48 +200,205 @@ function generateDateOptions() {
     updateSelectedDatesCount();
 }
 
-// FIX: Simplified weekend auto-selection logic
-function autoSelectWeekends(maxPairs = 8) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+// Removed the previous autoSelectWeekends helper entirely per request to remove the 8-weekend preselected logic.
 
-    let pairsFound = 0;
+// New: UI controls for adding next 8 weekends (stacked layout — checkbox then Add button)
+function createWeekendControls() {
+    const dateSelectorContainer = document.getElementById('multiDateSelectorContainer') || document.getElementById('multiDateSelector')?.parentElement;
+    if (!dateSelectorContainer) return;
 
-    for (let i = 0; i < 180 && pairsFound < maxPairs; i++) { // look ahead up to 6 months
-        const date = new Date(today);
-        date.setDate(today.getDate() + i);
+    // Ensure we don't duplicate the controls if they already exist
+    if (document.getElementById('addWeekendsControls')) return;
 
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        const dateStr = `${month}/${day}/${year}`;
+    const controlsWrapper = document.createElement('div');
+    controlsWrapper.id = 'addWeekendsControls';
+    controlsWrapper.style.marginBottom = '10px';
+    controlsWrapper.style.display = 'flex';
+    controlsWrapper.style.flexDirection = 'column';
+    controlsWrapper.style.gap = '8px';
+    controlsWrapper.style.alignItems = 'flex-start';
 
-        // skip if this date already has slots or is already selected
-        if (existingDateSet.has(dateStr) || selectedDates.has(dateStr)) continue;
+    // Checkbox row
+    const checkboxRow = document.createElement('label');
+    checkboxRow.style.display = 'flex';
+    checkboxRow.style.alignItems = 'center';
+    checkboxRow.style.gap = '8px';
+    checkboxRow.style.cursor = 'pointer';
+    checkboxRow.style.userSelect = 'none';
 
-        const dayOfWeek = date.getDay();
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.id = 'addNext8WeekendsCheckbox';
+    checkbox.setAttribute('aria-label', 'Add next 8 weekends');
 
-        if (dayOfWeek === 6) { // Saturday
-            const sunday = new Date(date);
-            sunday.setDate(date.getDate() + 1);
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = 'Add next 8 weekends';
+    labelSpan.style.fontSize = '0.95rem';
+    labelSpan.style.color = '#0f172a';
 
-            const sundayMonth = String(sunday.getMonth() + 1).padStart(2, '0');
-            const sundayDay = String(sunday.getDate()).padStart(2, '0');
-            const sundayYear = sunday.getFullYear();
-            const sundayStr = `${sundayMonth}/${sundayDay}/${sundayYear}`;
+    checkboxRow.appendChild(checkbox);
+    checkboxRow.appendChild(labelSpan);
 
-            // Only add weekend if neither day already has slots or is already selected
-            if (!existingDateSet.has(sundayStr) && !selectedDates.has(sundayStr)) {
-                selectedDates.add(dateStr);
-                selectedDates.add(sundayStr);
-                pairsFound++;
-                i++; // skip Sunday in next iteration
-            }
+    // Button row (stacked under checkbox)
+    const button = document.createElement('button');
+    button.id = 'addNext8WeekendsBtn';
+    button.type = 'button';
+    button.textContent = 'Add';
+    button.className = 'btn btn-primary';
+    button.style.padding = '6px 12px';
+    button.style.borderRadius = '6px';
+    button.style.cursor = 'pointer';
+    button.setAttribute('aria-label', 'Add next 8 weekends');
+
+    // Handler
+    button.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const cb = document.getElementById('addNext8WeekendsCheckbox');
+        if (!cb || !cb.checked) {
+            showMessage('addMsg', 'Please check "Add next 8 weekends" to use this action.', true);
+            setTimeout(() => showMessage('addMsg', '', false), 2500);
+            return;
         }
+        // Attempt to add next 8 weekends to selection
+        try {
+            const addedCount = addNext8Weekends();
+            if (addedCount > 0) {
+                showMessage('addMsg', `✅ Added ${addedCount} weekend day(s) to selection.`, false);
+                generateDateOptions();
+            } else {
+                showMessage('addMsg', 'No new weekend dates could be added (they may already exist or are in the past).', true);
+            }
+        } catch (err) {
+            console.error('Failed to add weekends:', err);
+            showMessage('addMsg', `Failed to add weekends: ${err.message}`, true);
+        } finally {
+            setTimeout(() => showMessage('addMsg', '', false), 4000);
+        }
+    });
+
+    controlsWrapper.appendChild(checkboxRow);
+    controlsWrapper.appendChild(button);
+
+    // Insert the controls immediately above the date chips container
+    // If there is a parent container specifically for the multi-date selector, use that; otherwise insert before the multiDateSelector element.
+    const multiSelector = document.getElementById('multiDateSelector');
+    if (multiSelector && multiSelector.parentElement) {
+        multiSelector.parentElement.insertBefore(controlsWrapper, multiSelector);
+    } else if (dateSelectorContainer) {
+        dateSelectorContainer.insertBefore(controlsWrapper, dateSelectorContainer.firstChild);
+    } else {
+        // Fallback: append to body
+        document.body.insertBefore(controlsWrapper, document.body.firstChild);
     }
 }
 
+// Add next 8 weekends from the last existing added date
+// Returns the number of dates added (not pairs) — i.e., number of weekend days newly added to selectedDates
+function addNext8Weekends() {
+    // We need to find the last date already added (from existingDateSet).
+    // If none exist, start from today.
+    // Then find the next 8 weekends (Saturday + Sunday pairs) AFTER that date (starting the search from the next day).
+    // Skip any dates that already exist in existingDateSet or are in the past.
+    // Add both weekend days to selectedDates (if they don't already exist) up to MAX_BATCH_SIZE limit.
 
+    // Prepare helper to parse mm/dd/yyyy -> Date
+    function parseMMDDYYYY(str) {
+        const [m, d, y] = str.split('/').map(Number);
+        return new Date(y, m - 1, d);
+    }
+
+    function formatMMDDYYYY(date) {
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${month}/${day}/${year}`;
+    }
+
+    // Determine starting date
+    let startDate = new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    if (existingDateSet.size > 0) {
+        // find max date in existingDateSet
+        let maxDate = null;
+        existingDateSet.forEach(dStr => {
+            if (!isValidDate(dStr)) return;
+            const d = parseMMDDYYYY(dStr);
+            if (!maxDate || d > maxDate) maxDate = d;
+        });
+        if (maxDate) {
+            // Start searching from the day after maxDate
+            startDate = new Date(maxDate);
+            startDate.setDate(maxDate.getDate() + 1);
+            startDate.setHours(0, 0, 0, 0);
+        }
+    }
+
+    const maxPairs = 8;
+    let pairsAdded = 0;
+    let totalDaysAdded = 0;
+
+    // Respect MAX_BATCH_SIZE limit
+    const availableSlots = CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE - selectedDates.size;
+    if (availableSlots <= 0) {
+        alert(`⚠️ Cannot add more dates: maximum ${CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE} dates selected.`);
+        return 0;
+    }
+
+    // We'll attempt to add up to maxPairs pairs, but also not exceed availableSlots
+    const maxPossibleDaysToAdd = Math.min(availableSlots, maxPairs * 2);
+
+    // Search forward for weekends until we get maxPairs or reach a lookahead limit
+    const lookaheadLimitDays = 365 * 2; // search up to 2 years to find weekends (safe upper bound)
+    let cursor = new Date(startDate);
+
+    for (let i = 0; i < lookaheadLimitDays && pairsAdded < maxPairs && totalDaysAdded < maxPossibleDaysToAdd; i++) {
+        const dayOfWeek = cursor.getDay(); // 0=Sun .. 6=Sat
+
+        // If Saturday, try to add Saturday + Sunday
+        if (dayOfWeek === 6) {
+            const sat = new Date(cursor);
+            const sun = new Date(cursor);
+            sun.setDate(cursor.getDate() + 1);
+
+            const satStr = formatMMDDYYYY(sat);
+            const sunStr = formatMMDDYYYY(sun);
+
+            // Check that neither is in existingDateSet and not past
+            const satPast = isPastDate(satStr);
+            const sunPast = isPastDate(sunStr);
+
+            // If either day is past or already has slots, we should skip this pair
+            // but still continue searching for future pairs.
+            const satExists = existingDateSet.has(satStr);
+            const sunExists = existingDateSet.has(sunStr);
+
+            // Decide which of the pair to add. Requirement said add next 8 weekends (Saturday + Sunday pairs).
+            // So we only add the pair when both days are available (not existing and not past).
+            if (!satExists && !sunExists && !satPast && !sunPast) {
+                // Ensure adding the pair won't exceed batch limit
+                if (totalDaysAdded + 2 > maxPossibleDaysToAdd) {
+                    // Not enough room to add both days as a pair; stop attempting further pairs.
+                    break;
+                }
+
+                selectedDates.add(satStr);
+                selectedDates.add(sunStr);
+                totalDaysAdded += 2;
+                pairsAdded++;
+            }
+            // advance cursor by 2 days (skip Sunday in next iteration)
+            cursor.setDate(cursor.getDate() + 2);
+            continue;
+        }
+
+        // Otherwise advance by 1 day
+        cursor.setDate(cursor.getDate() + 1);
+    }
+
+    // Done searching — return the number of added days
+    return totalDaysAdded;
+}
 
 function toggleDateSelection(dateStr) {
     if (!isValidDate(dateStr) || existingDateSet.has(dateStr) || isPastDate(dateStr)) {
@@ -796,6 +951,9 @@ function setupKeyboardShortcuts() {
 document.addEventListener('DOMContentLoaded', () => {
     renderCheckboxes();
     setupKeyboardShortcuts();
+    // Create the new weekend controls (stacked layout above date chips)
+    createWeekendControls();
+    // Generate the date chips (no automatic weekend pre-selection)
     generateDateOptions(); 
     
     const passwordInput = document.getElementById('adminPassword');
