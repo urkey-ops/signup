@@ -4,29 +4,30 @@
 
 // Imports
 const { GoogleSpreadsheet } = require('google-spreadsheet');
-const jwt = require('jsonwebtoken');
+// Removed: const jwt = require('jsonwebtoken');
 
-// Environment Variables (Set these in Vercel/local environment)
-// NOTE: Make sure to set these securely in Vercel's environment variables.
-const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const PRIVATE_KEY_BASE64 = process.env.GOOGLE_PRIVATE_KEY_BASE64; // The private key JSON, base64 encoded
-const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH; // Use a strong, salted hash!
-const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRY_SECONDS = 3600; // 1 hour session
+// Environment Variables (Updated to match your existing names)
+const SPREADSHEET_ID = process.env.SHEET_ID; // Renamed from GOOGLE_SHEET_ID
+const PRIVATE_KEY_BASE64 = process.env.GOOGLE_SERVICE_ACCOUNT; // Renamed from GOOGLE_PRIVATE_KEY_BASE64
+const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL; // This variable is still needed
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Renamed from ADMIN_PASSWORD_HASH
+
+// Simple 1-hour session duration for the basic cookie
+const SESSION_EXPIRY_SECONDS = 3600; 
+const SIMPLE_TOKEN_VALUE = "valid_admin_session"; // A fixed, simple token
 
 // Initialize the Google Spreadsheet
 let doc;
 
 // Helper to initialize and authenticate Google Sheets connection
 async function connectToSheet() {
-    if (doc) return; // Already connected
-    if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE4) {
-        throw new Error("Missing required Google Sheets environment variables.");
+    // UPDATED: Use your variable names for the check
+    if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE64) {
+        throw new Error("Missing required Google Sheets environment variables (SHEET_ID, GOOGLE_CLIENT_EMAIL, GOOGLE_SERVICE_ACCOUNT).");
     }
     
     // Decode the private key
-    const privateKey = Buffer.from(PRIVATE_KEY_BASE4, 'base64').toString('utf8');
+    const privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
     
     doc = new GoogleSpreadsheet(SPREADSHEET_ID);
 
@@ -39,21 +40,19 @@ async function connectToSheet() {
 }
 
 // ================================================================================================
-// SECURITY HANDLERS (JWT & Cookie)
+// SECURITY HANDLERS (SIMPLE COOKIE)
 // ================================================================================================
 
 /**
- * Generates a session JWT and sets it in an HttpOnly Cookie.
+ * Sets a simple, non-HttpOnly token cookie for session management.
  * @param {object} res The Vercel response object
  */
 function setAuthCookie(res) {
-    const payload = { isAdmin: true };
-    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRY_SECONDS });
-    const expiry = new Date(Date.now() + JWT_EXPIRY_SECONDS * 1000);
+    const expiry = new Date(Date.now() + SESSION_EXPIRY_SECONDS * 1000);
 
-    // Set a secure, HttpOnly cookie.
+    // Set a simple cookie (non-HttpOnly, non-Secure for easier testing/internal use)
     res.setHeader('Set-Cookie', 
-        `adminSessionId=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${expiry.toUTCString()}`
+        `admin_token=${SIMPLE_TOKEN_VALUE}; SameSite=Lax; Path=/; Expires=${expiry.toUTCString()}`
     );
 }
 
@@ -63,12 +62,12 @@ function setAuthCookie(res) {
  */
 function clearAuthCookie(res) {
     res.setHeader('Set-Cookie', 
-        `adminSessionId=; HttpOnly; Secure; SameSite=Strict; Path=/; Expires=${new Date(0).toUTCString()}`
+        `admin_token=; SameSite=Lax; Path=/; Expires=${new Date(0).toUTCString()}`
     );
 }
 
 /**
- * Extracts and verifies the JWT from the cookie.
+ * Extracts and verifies the simple token from the cookie.
  * @param {object} req The Vercel request object
  * @returns {boolean} True if authenticated, false otherwise.
  */
@@ -76,31 +75,22 @@ function isAuthenticated(req) {
     const cookieHeader = req.headers.cookie;
     if (!cookieHeader) return false;
 
-    // Simple cookie parser for adminSessionId
+    // Simple cookie parser for admin_token
     const cookies = cookieHeader.split(';').map(c => c.trim());
-    const sessionCookie = cookies.find(c => c.startsWith('adminSessionId='));
+    const sessionCookie = cookies.find(c => c.startsWith('admin_token='));
     
     if (!sessionCookie) return false;
 
-    const token = sessionCookie.substring('adminSessionId='.length);
+    const token = sessionCookie.substring('admin_token='.length);
 
-    try {
-        const decoded = jwt.verify(token, JWT_SECRET);
-        return decoded.isAdmin === true;
-    } catch (err) {
-        // Token expired, invalid signature, or other error
-        return false;
-    }
+    // Check if the token matches the expected simple value
+    return token === SIMPLE_TOKEN_VALUE;
 }
 
-// Dummy function for password checking (replace with proper hashing check!)
+// Simple password check (UPDATED: uses ADMIN_PASSWORD env var)
 function checkPassword(password) {
-    // ⚠️ CRITICAL: In a real app, use a library like bcrypt to securely compare the hash.
-    // Since the frontend provided a fixed hash variable, we'll use a placeholder check:
-    // return bcrypt.compareSync(password, ADMIN_PASSWORD_HASH);
-    
-    // For this demonstration, we'll assume the client-side password matches the hash exactly:
-    return password === ADMIN_PASSWORD_HASH; 
+    // NOTE: This uses the plaintext ADMIN_PASSWORD env variable directly.
+    return password === ADMIN_PASSWORD; 
 }
 
 
@@ -108,11 +98,6 @@ function checkPassword(password) {
 // API HANDLERS
 // ================================================================================================
 
-/**
- * Handles Admin Login
- * @param {object} req - request object
- * @param {object} res - response object
- */
 async function handleLogin(req, res) {
     const { password } = req.body;
     
@@ -121,20 +106,17 @@ async function handleLogin(req, res) {
     }
 
     if (checkPassword(password)) {
-        setAuthCookie(res); // Set the secure HttpOnly cookie
+        setAuthCookie(res); // Set the simple token cookie
         return res.status(200).json({ ok: true, message: 'Login successful' });
     } else {
-        // Clear cookie on failed login attempt
         clearAuthCookie(res); 
         return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
 }
 
-/**
- * Loads all existing slots from the sheet.
- * @param {object} req - request object
- * @param {object} res - response object
- */
+// The following functions (handleLoadSlots, handleAddSlots, handleDeleteSlots) 
+// remain largely the same, relying on the isAuthenticated check above.
+
 async function handleLoadSlots(req, res) {
     await connectToSheet();
     const sheet = doc.sheetsByTitle['Slots']; // Ensure you have a sheet named 'Slots'
@@ -143,31 +125,25 @@ async function handleLoadSlots(req, res) {
         return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
     }
 
+    await sheet.loadCells(); 
     const rows = await sheet.getRows();
 
-    // Map rows to a cleaner object structure
     const slots = rows.map(row => ({
-        id: row.rowNumber, // Use rowNumber as a unique identifier for CRUD ops
+        id: row.rowNumber, // Unique identifier for CRUD ops
         date: row.date,
         slotLabel: row.slotLabel,
-        capacity: parseInt(row.capacity, 10),
-        taken: parseInt(row.taken, 10),
-        available: parseInt(row.available, 10),
-    })).filter(slot => slot.id); // Filter out potential empty rows
+        capacity: parseInt(row.capacity, 10) || 0,
+        taken: parseInt(row.taken, 10) || 0,
+        available: parseInt(row.available, 10) || 0,
+    })).filter(slot => slot.id); 
 
-    // Sort chronologically (best practice for list display)
     slots.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     return res.status(200).json({ ok: true, slots });
 }
 
-/**
- * Handles batch creation of new slots.
- * @param {object} req - request object
- * @param {object} res - response object
- */
 async function handleAddSlots(req, res) {
-    const { newSlotsData } = req.body; // Array of { date, slots: [{ label, capacity }] }
+    const { newSlotsData } = req.body; 
     
     if (!newSlotsData || !Array.isArray(newSlotsData) || newSlotsData.length === 0) {
         return res.status(400).json({ ok: false, error: 'Invalid or empty slot data provided.' });
@@ -180,31 +156,27 @@ async function handleAddSlots(req, res) {
         return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
     }
 
-    // 1. Fetch existing dates to prevent duplicates (client-side prevents past/selected)
     const existingRows = await sheet.getRows();
-    const existingDates = new Set(existingRows.map(row => row.date));
+    const existingKeys = new Set(existingRows.map(row => `${row.date}-${row.slotLabel}`));
     const rowsToAdd = [];
     const datesAdded = new Set();
     const datesSkipped = [];
 
-    // 2. Prepare rows for batch update
     for (const dateData of newSlotsData) {
-        if (!dateData.date || existingDates.has(dateData.date)) {
-            // Re-validate server-side against sheet data
-            datesSkipped.push(dateData.date || 'Unknown Date');
-            continue;
-        }
-
         for (const slot of dateData.slots) {
-            if (slot.capacity > 0) {
+            const rowKey = `${dateData.date}-${slot.label}`;
+            
+            if (slot.capacity > 0 && !existingKeys.has(rowKey)) {
                 rowsToAdd.push({
                     date: dateData.date,
                     slotLabel: slot.label,
                     capacity: slot.capacity,
-                    taken: 0, // Always starts at 0
-                    available: slot.capacity, // Always starts equal to capacity
+                    taken: 0, 
+                    available: slot.capacity, 
                 });
                 datesAdded.add(dateData.date);
+            } else if (existingKeys.has(rowKey)) {
+                datesSkipped.push(rowKey);
             }
         }
     }
@@ -212,26 +184,20 @@ async function handleAddSlots(req, res) {
     if (rowsToAdd.length === 0) {
          return res.status(400).json({ 
             ok: false, 
-            error: 'No slots were added.', 
-            details: datesSkipped.length > 0 ? [`${datesSkipped.length} dates already exist or were invalid.`] : ['No valid rows to insert.']
+            error: 'No new slots were added.', 
+            details: datesSkipped.length > 0 ? [`${datesSkipped.length} slot(s) already exist or were invalid.`] : ['No valid rows to insert.']
         });
     }
 
-    // 3. Perform the batch append
     const addedRows = await sheet.addRows(rowsToAdd);
     
     return res.status(201).json({ 
         ok: true, 
-        message: `Successfully added ${addedRows.length} slots across ${datesAdded.size} dates.`,
-        details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} dates as they already exist.`] : []
+        message: `Successfully added ${addedRows.length} slot(s) across ${datesAdded.size} date(s).`,
+        details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} existing slot(s).`] : []
     });
 }
 
-/**
- * Handles batch deletion of slots by row ID.
- * @param {object} req - request object
- * @param {object} res - response object
- */
 async function handleDeleteSlots(req, res) {
     const { rowIds } = req.body;
 
@@ -246,38 +212,46 @@ async function handleDeleteSlots(req, res) {
         return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
     }
 
-    // Fetch all existing rows to find the ones matching the IDs.
-    // IMPORTANT: Row numbers start at 2 for data (header is 1), but row objects
-    // use a 'rowNumber' property corresponding to the physical sheet row.
     const allRows = await sheet.getRows();
     const rowsToDelete = allRows.filter(row => row.rowNumber && rowIds.includes(row.rowNumber));
 
     if (rowsToDelete.length === 0) {
-        return res.status(404).json({ ok: false, error: 'No matching slots found for deletion.' });
+        return res.status(200).json({ ok: true, message: 'No matching slots found, deletion complete (0 slots removed).' });
     }
 
-    // Batch deletion process (using Promise.all for concurrency)
-    // NOTE: This can be slow for very large numbers of rows. 
-    // Google Sheets API works by deleting row by row.
     const deletePromises = rowsToDelete.map(row => row.delete());
     
     await Promise.all(deletePromises);
 
     return res.status(200).json({ 
         ok: true, 
-        message: `Successfully deleted ${rowsToDelete.length} slot${rowsToDelete.length !== 1 ? 's' : ''}.`
+        message: `Successfully deleted ${rowsToDelete.length} slot(s).`
     });
 }
 
 /**
  * Main handler function for the Vercel Serverless Function.
- * @param {object} req - request object
- * @param {object} res - response object
  */
 module.exports = async (req, res) => {
+    // Set CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie'); // Cookie header is relevant here
+    res.setHeader('Access-Control-Allow-Credentials', 'true'); 
+
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+
     try {
-        await connectToSheet(); // Always ensure connection is ready
-        
+        // We ensure connectToSheet runs for all actions so that variable checks are done
+        // However, we only run it for POST/GET/DELETE methods to reduce overhead on OPTIONS
+        if (req.method !== 'OPTIONS') {
+             // The connectToSheet logic now includes the check for your preferred variable names
+            await connectToSheet();
+        }
+       
         const { method } = req;
         const { action } = req.body || {};
 
@@ -286,9 +260,8 @@ module.exports = async (req, res) => {
             return await handleLogin(req, res);
         }
 
-        // --- AUTHENTICATION GATE ---
+        // --- AUTHENTICATION GATE (Simple Cookie Check) ---
         if (!isAuthenticated(req)) {
-            // If authentication fails, clear any potentially bad cookie and send 401
             clearAuthCookie(res); 
             return res.status(401).json({ 
                 ok: false, 
@@ -301,30 +274,28 @@ module.exports = async (req, res) => {
         
         switch (method) {
             case 'GET':
-                // List/Load Slots (GET /api/admin)
                 return await handleLoadSlots(req, res);
 
             case 'POST':
-                // Add Slots (POST /api/admin with action: "addSlots")
                 if (action === 'addSlots') {
                     return await handleAddSlots(req, res);
                 }
-                // Fallthrough for other POST actions
 
             case 'DELETE':
-                // Delete Slots (DELETE /api/admin with action: "deleteSlots")
                 if (action === 'deleteSlots') {
                     return await handleDeleteSlots(req, res);
                 }
-                // Fallthrough for other DELETE actions
 
             default:
-                // Handle unsupported methods or actions
                 return res.status(405).json({ ok: false, error: `Method ${method} not allowed or action missing.` });
         }
 
     } catch (error) {
         console.error("Backend Error:", error);
-        return res.status(500).json({ ok: false, error: 'Internal Server Error', details: [error.message] });
+        return res.status(500).json({ 
+            ok: false, 
+            error: 'Internal Server Error', 
+            details: [error.message] 
+        });
     }
 };
