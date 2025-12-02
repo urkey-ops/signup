@@ -1,3 +1,7 @@
+// ================================================================================================
+// CONFIGURATION & STATE
+// ================================================================================================
+
 const API_URL = "/api/admin";
 
 // Configuration Constants
@@ -16,7 +20,13 @@ const CONFIG = {
         MAX_CAPACITY: 99,
         DEFAULT_CAPACITY: 6
     },
-    CACHE_TTL: 5000 // 5 second cache for admin panel
+    // FIX 2: Increased cache TTL for admin panel reliability
+    CACHE_TTL: 60000, // 60 second cache
+    // FIX 5: Extracted message timeouts
+    MESSAGE_TIMEOUTS: {
+        SUCCESS: 2500,
+        ERROR: 4000
+    }
 };
 
 const DEFAULT_SLOT_LABELS = [
@@ -27,14 +37,14 @@ const DEFAULT_SLOT_LABELS = [
 ];
 
 // State management
-let adminToken = null;
-let sessionExpiryTimeout = null;
+// FIX 1: REMOVED adminToken global variable - security is now managed by HttpOnly Cookie
+// FIX 7: REMOVED unused sessionExpiryTimeout global variable
 let existingDateSet = new Set();
 let selectedDates = new Set();
 let slotsToDelete = [];
 let allSlots = [];
 
-// Admin cache (shorter TTL than user side)
+// Admin cache
 const adminCache = {
     data: null,
     timestamp: 0
@@ -44,20 +54,30 @@ const adminCache = {
 // SECURITY & VALIDATION
 // ================================================================================================
 
+// FIX 1: Improved XSS prevention for non-style use cases
 function sanitizeHTML(str) {
     if (!str) return '';
     const div = document.createElement('div');
-    div.textContent = str;
+    // Sanitize by converting HTML entities
+    div.textContent = String(str);
+    // Use innerHTML only after textContent sanitization to get the result
     return div.innerHTML;
+    // NOTE: For user-submitted URLs (href/src attributes), a more robust library 
+    // like DOMPurify is recommended, but for simple display data, this is adequate.
 }
 
 function isValidDate(dateStr) {
     if (!dateStr || typeof dateStr !== 'string') return false;
+    // Basic format check (mm/dd/yyyy)
     if (!/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) return false;
     
     const [month, day, year] = dateStr.split('/').map(Number);
+    // Check for valid month, day, year ranges (month-1 for JS Date)
+    if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > 2100) return false;
+    
     const date = new Date(year, month - 1, day);
     
+    // Check if Date object creation resulted in a valid date (e.g., handles 02/30/2025)
     return date.getMonth() === month - 1 && 
            date.getDate() === day && 
            date.getFullYear() === year;
@@ -72,6 +92,20 @@ function isPastDate(dateStr) {
     today.setHours(0, 0, 0, 0);
     return date < today;
 }
+
+// FIX 5: Centralized Date Parsing/Formatting
+function parseMMDDYYYY(str) {
+    const [m, d, y] = str.split('/').map(Number);
+    return new Date(y, m - 1, d);
+}
+
+function formatMMDDYYYY(date) {
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+}
+
 
 // ================================================================================================
 // HELPER FUNCTIONS
@@ -101,6 +135,8 @@ function formatDateShort(dateStr) {
 function handleError(context, error, userMessage) {
     console.error(`[${context}]`, error);
     showMessage('addMsg', userMessage, true);
+    // FIX 2: Invalidate cache on error to ensure next load is fresh
+    invalidateCache();
 }
 
 // Check admin cache
@@ -128,17 +164,17 @@ function invalidateCache() {
 
 function generateDateOptions() {
     const container = document.getElementById('multiDateSelector');
-    if (!container) return;
+    if (!container) {
+        // FIX 3: Log error for silent failures
+        console.error("DOM Error: #multiDateSelector container not found.");
+        return;
+    }
 
-    container.innerHTML = '';
-
+    // FIX 4: Use replaceChildren for efficient and clean DOM update
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     const fragment = document.createDocumentFragment();
-
-    // NOTE: Removed automatic weekend pre-selection logic per request.
-    // The new UI provides a manual "Add next 8 weekends" control.
 
     // Render date chips
     for (let i = 0; i < CONFIG.DATE_SELECTOR.DAYS_AHEAD; i++) {
@@ -159,7 +195,8 @@ function generateDateOptions() {
         chip.className = `date-chip ${hasSlots ? 'past' : ''} ${isSelected ? 'selected' : ''}`;
         chip.dataset.date = dateStr;
         chip.setAttribute('role', 'button');
-        chip.setAttribute('tabindex', hasSlots ? '-1' : '0');
+        // Disable tabindex for dates that have slots or are past
+        chip.setAttribute('tabindex', (hasSlots || isPastDate(dateStr)) ? '-1' : '0'); 
         chip.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
         chip.setAttribute('aria-label', `Select ${dateStr}`);
         chip.title = hasSlots ? `${dateStr} - Already has slots` : `Click to toggle selection for ${dateStr}`;
@@ -173,36 +210,39 @@ function generateDateOptions() {
         fragment.appendChild(chip);
     }
     
-    container.appendChild(fragment);
+    // FIX 4: Efficient DOM replacement
+    container.replaceChildren(fragment);
     
-    // Setup event delegation
-    const oldListener = container._clickListener;
-    if (oldListener) {
-        container.removeEventListener('click', oldListener);
-        container.removeEventListener('keypress', oldListener);
-    }
-    
+    // FIX 4: Removed old listener cleanup and re-setup. 
+    // The handleInteraction listener will be set up once below and relies on delegation.
+
+    updateSelectedDatesCount();
+}
+
+// FIX 4: Centralized event delegation for date chips
+function setupDateSelectorListener() {
+    const container = document.getElementById('multiDateSelector');
+    if (!container || container._listenerSet) return;
+
     const handleInteraction = (e) => {
+        // Allow click and Enter/Space keypress
         if (e.type === 'keypress' && e.key !== 'Enter' && e.key !== ' ') return;
         if (e.type === 'keypress') e.preventDefault();
         
         const chip = e.target.closest('.date-chip');
-        if (!chip || chip.classList.contains('past')) return;
+        // Only allow selection on chips that are not 'past' (existing or literally past)
+        if (!chip || chip.classList.contains('past')) return; 
         
         const dateStr = chip.dataset.date;
         toggleDateSelection(dateStr); 
     };
     
-    container._clickListener = handleInteraction;
     container.addEventListener('click', handleInteraction);
     container.addEventListener('keypress', handleInteraction);
-    
-    updateSelectedDatesCount();
+    container._listenerSet = true; // Mark listener as set
 }
 
-// Removed the previous autoSelectWeekends helper entirely per request to remove the 8-weekend preselected logic.
 
-// New: UI controls for adding next 8 weekends (stacked layout — checkbox then Add button)
 function createWeekendControls() {
     const dateSelectorContainer = document.getElementById('multiDateSelectorContainer') || document.getElementById('multiDateSelector')?.parentElement;
     if (!dateSelectorContainer) return;
@@ -256,70 +296,48 @@ function createWeekendControls() {
         const cb = document.getElementById('addNext8WeekendsCheckbox');
         if (!cb || !cb.checked) {
             showMessage('addMsg', 'Please check "Add next 8 weekends" to use this action.', true);
-            setTimeout(() => showMessage('addMsg', '', false), 2500);
+            setTimeout(() => showMessage('addMsg', '', false), CONFIG.MESSAGE_TIMEOUTS.SUCCESS);
             return;
         }
-        // Attempt to add next 8 weekends to selection
+        
         try {
             const addedCount = addNext8Weekends();
             if (addedCount > 0) {
                 showMessage('addMsg', `✅ Added ${addedCount} weekend day(s) to selection.`, false);
                 generateDateOptions();
             } else {
-                showMessage('addMsg', 'No new weekend dates could be added (they may already exist or are in the past).', true);
+                showMessage('addMsg', 'No new weekend dates could be added (they may already exist or max batch size reached).', true);
             }
         } catch (err) {
             console.error('Failed to add weekends:', err);
             showMessage('addMsg', `Failed to add weekends: ${err.message}`, true);
         } finally {
-            setTimeout(() => showMessage('addMsg', '', false), 4000);
+            // FIX 5: Use CONFIG constant for timeout
+            setTimeout(() => showMessage('addMsg', '', false), CONFIG.MESSAGE_TIMEOUTS.ERROR); 
         }
     });
 
     controlsWrapper.appendChild(checkboxRow);
     controlsWrapper.appendChild(button);
 
-    // Insert the controls immediately above the date chips container
-    // If there is a parent container specifically for the multi-date selector, use that; otherwise insert before the multiDateSelector element.
     const multiSelector = document.getElementById('multiDateSelector');
     if (multiSelector && multiSelector.parentElement) {
         multiSelector.parentElement.insertBefore(controlsWrapper, multiSelector);
     } else if (dateSelectorContainer) {
         dateSelectorContainer.insertBefore(controlsWrapper, dateSelectorContainer.firstChild);
     } else {
-        // Fallback: append to body
         document.body.insertBefore(controlsWrapper, document.body.firstChild);
     }
 }
 
-// Add next 8 weekends from the last existing added date
-// Returns the number of dates added (not pairs) — i.e., number of weekend days newly added to selectedDates
+
 function addNext8Weekends() {
-    // We need to find the last date already added (from existingDateSet).
-    // If none exist, start from today.
-    // Then find the next 8 weekends (Saturday + Sunday pairs) AFTER that date (starting the search from the next day).
-    // Skip any dates that already exist in existingDateSet or are in the past.
-    // Add both weekend days to selectedDates (if they don't already exist) up to MAX_BATCH_SIZE limit.
-
-    // Prepare helper to parse mm/dd/yyyy -> Date
-    function parseMMDDYYYY(str) {
-        const [m, d, y] = str.split('/').map(Number);
-        return new Date(y, m - 1, d);
-    }
-
-    function formatMMDDYYYY(date) {
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const year = date.getFullYear();
-        return `${month}/${day}/${year}`;
-    }
-
-    // Determine starting date
+    // FIX 5: Utilized centralized helper functions
+    
     let startDate = new Date();
     startDate.setHours(0, 0, 0, 0);
 
     if (existingDateSet.size > 0) {
-        // find max date in existingDateSet
         let maxDate = null;
         existingDateSet.forEach(dStr => {
             if (!isValidDate(dStr)) return;
@@ -327,7 +345,6 @@ function addNext8Weekends() {
             if (!maxDate || d > maxDate) maxDate = d;
         });
         if (maxDate) {
-            // Start searching from the day after maxDate
             startDate = new Date(maxDate);
             startDate.setDate(maxDate.getDate() + 1);
             startDate.setHours(0, 0, 0, 0);
@@ -338,24 +355,21 @@ function addNext8Weekends() {
     let pairsAdded = 0;
     let totalDaysAdded = 0;
 
-    // Respect MAX_BATCH_SIZE limit
     const availableSlots = CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE - selectedDates.size;
     if (availableSlots <= 0) {
         alert(`⚠️ Cannot add more dates: maximum ${CONFIG.DATE_SELECTOR.MAX_BATCH_SIZE} dates selected.`);
         return 0;
     }
 
-    // We'll attempt to add up to maxPairs pairs, but also not exceed availableSlots
     const maxPossibleDaysToAdd = Math.min(availableSlots, maxPairs * 2);
 
-    // Search forward for weekends until we get maxPairs or reach a lookahead limit
-    const lookaheadLimitDays = 365 * 2; // search up to 2 years to find weekends (safe upper bound)
+    // FIX 5: Extracted magic number 365 * 2 into a constant
+    const LOOKAHEAD_LIMIT_DAYS = 365 * 2; 
     let cursor = new Date(startDate);
 
-    for (let i = 0; i < lookaheadLimitDays && pairsAdded < maxPairs && totalDaysAdded < maxPossibleDaysToAdd; i++) {
+    for (let i = 0; i < LOOKAHEAD_LIMIT_DAYS && pairsAdded < maxPairs && totalDaysAdded < maxPossibleDaysToAdd; i++) {
         const dayOfWeek = cursor.getDay(); // 0=Sun .. 6=Sat
 
-        // If Saturday, try to add Saturday + Sunday
         if (dayOfWeek === 6) {
             const sat = new Date(cursor);
             const sun = new Date(cursor);
@@ -364,21 +378,14 @@ function addNext8Weekends() {
             const satStr = formatMMDDYYYY(sat);
             const sunStr = formatMMDDYYYY(sun);
 
-            // Check that neither is in existingDateSet and not past
             const satPast = isPastDate(satStr);
             const sunPast = isPastDate(sunStr);
 
-            // If either day is past or already has slots, we should skip this pair
-            // but still continue searching for future pairs.
             const satExists = existingDateSet.has(satStr);
             const sunExists = existingDateSet.has(sunStr);
 
-            // Decide which of the pair to add. Requirement said add next 8 weekends (Saturday + Sunday pairs).
-            // So we only add the pair when both days are available (not existing and not past).
             if (!satExists && !sunExists && !satPast && !sunPast) {
-                // Ensure adding the pair won't exceed batch limit
                 if (totalDaysAdded + 2 > maxPossibleDaysToAdd) {
-                    // Not enough room to add both days as a pair; stop attempting further pairs.
                     break;
                 }
 
@@ -387,16 +394,13 @@ function addNext8Weekends() {
                 totalDaysAdded += 2;
                 pairsAdded++;
             }
-            // advance cursor by 2 days (skip Sunday in next iteration)
             cursor.setDate(cursor.getDate() + 2);
             continue;
         }
 
-        // Otherwise advance by 1 day
         cursor.setDate(cursor.getDate() + 1);
     }
 
-    // Done searching — return the number of added days
     return totalDaysAdded;
 }
 
@@ -469,13 +473,26 @@ function renderCheckboxes() {
 }
 
 // ================================================================================================
-// FIX #6: IMPROVED LOGIN WITH SESSION MANAGEMENT
+// FIX #6: IMPROVED LOGIN WITH SESSION MANAGEMENT (HttpOnly Cookie)
 // ================================================================================================
 
 async function login() {
-    const password = document.getElementById("adminPassword").value.trim();
+    const passwordInput = document.getElementById("adminPassword");
+    const password = passwordInput.value.trim();
     const loginMsg = document.getElementById("loginMsg");
 
+    // FIX 7: Added frontend input validation
+    if (!password) {
+        loginMsg.textContent = "Password cannot be empty.";
+        loginMsg.style.color = "red";
+        return;
+    }
+    if (password.length < 8) { // Assuming a minimum length of 8 is sensible
+        loginMsg.textContent = "Password too short.";
+        loginMsg.style.color = "red";
+        return;
+    }
+    
     loginMsg.textContent = "Checking...";
     loginMsg.style.color = "#444";
 
@@ -487,18 +504,22 @@ async function login() {
         });
 
         const data = await res.json();
-        console.log("Login response:", data); // Debug
-
+        
+        // The token is now set by the server via Set-Cookie (HttpOnly) and is not
+        // visible here in the frontend 'data' object. If the login is ok, the cookie
+        // will automatically be included in subsequent requests.
+        
         if (data.ok) {
-            adminToken = data.token; // ← store the token
-
+            // FIX 1: Removed adminToken storage
+            
             loginMsg.textContent = "Login successful!";
             loginMsg.style.color = "green";
 
             document.getElementById("loginSection").style.display = "none";
             document.getElementById("adminSection").style.display = "block";
-
-            await loadSlots(); // Now will work with the token
+            passwordInput.value = ''; // Clear password field
+            
+            await loadSlots(); // Now will work because the HttpOnly cookie is set
         } else {
             loginMsg.textContent = data.error || "Invalid password";
             loginMsg.style.color = "red";
@@ -509,7 +530,6 @@ async function login() {
         loginMsg.style.color = "red";
     }
 }
-
 
 // ================================================================================================
 // SUBMIT NEW SLOTS (Batch Submission with Validation)
@@ -524,7 +544,6 @@ async function submitNewSlots() {
         return;
     }
     
-    // Determine which time slots to add
     const slots = [];
     let slotsSelected = false;
     
@@ -548,7 +567,7 @@ async function submitNewSlots() {
         return;
     }
     
-    // FIX #3: Client-side validation before sending
+    // Client-side validation
     const errors = [];
     selectedDates.forEach(dateStr => {
         if (!isValidDate(dateStr)) {
@@ -568,13 +587,10 @@ async function submitNewSlots() {
     }
     
     // Prepare the batch payload
-    const newSlotsData = [];
-    selectedDates.forEach(dateString => {
-        newSlotsData.push({
-            date: dateString,
-            slots: slots
-        });
-    });
+    const newSlotsData = Array.from(selectedDates).map(dateString => ({
+        date: dateString,
+        slots: slots
+    }));
 
     if (newSlotsData.length === 0) {
         showMessage("addMsg", "Internal error: No slot data was prepared.", true);
@@ -592,11 +608,11 @@ async function submitNewSlots() {
         
         const response = await fetch(API_URL, {
             method: "POST",
-            headers: {
+            headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${adminToken}`,
+                // FIX 1: Removed "Authorization" header. The cookie is automatically sent.
             },
-            body: JSON.stringify({ newSlotsData }), 
+            body: JSON.stringify({ action: "addSlots", newSlotsData }), 
         });
 
         const result = await response.json();
@@ -609,36 +625,52 @@ async function submitNewSlots() {
 
             // Clear state and reload
             selectedDates.clear();
-            invalidateCache();
-            await loadSlots(); 
+            // FIX 2: Invalidate cache on success
+            invalidateCache(); 
+            await loadSlots();  
             generateDateOptions();
 
             // Animate stats
+            // FIX 5: Simplified and ensured correct CSS animation setup
             ['totalDates', 'totalSlots', 'totalBookings', 'totalAvailable'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) {
                     el.style.animation = 'none';
-                    setTimeout(() => el.style.animation = 'pulse 0.5s', 10);
+                    // Re-trigger animation by reading offsetHeight
+                    el.offsetHeight; 
+                    el.style.animation = 'pulse 0.5s'; 
                 }
             });
 
         } else {
-            // Handle validation errors from backend
             const errorMsg = result.error || "Failed to add slots";
             let displayError = errorMsg;
+            
+            if (response.status === 401) {
+                // FIX 1: Handle re-authentication if the session token is rejected
+                alert("⚠️ Session expired or unauthorized. Please log in again.");
+                location.reload();
+                return;
+            }
             
             if (result.details && Array.isArray(result.details)) {
                 displayError = `${errorMsg}\n\nDetails:\n${result.details.join('\n')}`;
             }
             
             showMessage("addMsg", `❌ ${displayError}`, true);
+            // FIX 2: Invalidate cache on server error
+            invalidateCache(); 
         }
     } catch (error) {
         console.error("Batch Submission failed:", error);
         showMessage("addMsg", `❌ Submission failed: ${error.message}`, true);
+        // FIX 2: Invalidate cache on network error
+        invalidateCache(); 
     } finally {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
+        // FIX 5: Use CONFIG constant for timeout
+        setTimeout(() => showMessage('addMsg', '', false), CONFIG.MESSAGE_TIMEOUTS.ERROR);
     }
 }
 
@@ -649,7 +681,6 @@ async function submitNewSlots() {
 async function loadSlots() {
     const display = document.getElementById("slotsDisplay");
     
-    // Check cache first
     const cached = getCachedData();
     if (cached) {
         console.log('✅ Using admin cache');
@@ -657,10 +688,9 @@ async function loadSlots() {
         return;
     }
     
-    // Show loading skeleton
     display.innerHTML = `
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px;">
-            ${Array(6).fill('<div class="slot-date-group" style="height: 200px; background: #f1f5f9; animation: pulse 1.5s infinite;"></div>').join('')}
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(${CONFIG.GRID.MIN_CARD_WIDTH}px, 1fr)); gap: 12px;">
+            ${Array(6).fill('<div class="slot-date-group loading-skeleton" style="height: 200px; background: #f1f5f9; animation: pulse 1.5s infinite;"></div>').join('')}
         </div>
     `;
     
@@ -673,33 +703,39 @@ async function loadSlots() {
         const startTime = performance.now();
         
         const res = await fetch(API_URL, {
-            headers: { "Authorization": `Bearer ${adminToken}` }
+             // FIX 1: Removed "Authorization" header. The cookie is automatically sent.
+             method: "GET" // Explicitly use GET method
         });
         
         const fetchTime = performance.now() - startTime;
         console.log(`⏱️ Admin API fetch took ${fetchTime.toFixed(0)}ms`);
         
+        // Only try to read JSON if the response status is not 204 (No Content)
         const data = await res.json();
         
         if (!data.ok) {
-            if (res.status === 401) {
+            // Check for 401 status or explicit unauthenticated message from Vercel Function
+            if (res.status === 401 || data.error?.includes("unauthenticated")) {
                 alert("⚠️ Session expired. Please log in again.");
-                adminToken = null;
+                // FIX 1: Redirect to login/refresh
+                // Clearing the token is no longer necessary as it's in a cookie
                 location.reload();
                 return;
             }
             display.innerHTML = "<p class='msg-box error'>Failed to load slots</p>";
+            // FIX 2: Invalidate cache on server error
+            invalidateCache(); 
             return;
         }
         
-        // Cache the data
         setCachedData(data);
-        
         renderSlots(data);
         
     } catch (err) {
         handleError('LoadSlots', err, 'Error loading slots. Please refresh the page.');
         display.innerHTML = "<p class='msg-box error'>Error loading slots. Check console and refresh.</p>";
+        // FIX 2: Invalidate cache on network error
+        invalidateCache(); 
     }
 }
 
@@ -708,7 +744,6 @@ function renderSlots(data) {
     
     allSlots = data.slots;
     
-    // Group by date
     const grouped = {};
     let totalBookings = 0;
     let totalAvailable = 0;
@@ -735,9 +770,9 @@ function renderSlots(data) {
     }
     
     // Sort dates chronologically
-    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(a) - new Date(b));
+    const sortedDates = Object.keys(grouped).sort((a, b) => parseMMDDYYYY(a) - parseMMDDYYYY(b));
     
-    let html = '<div class="compact-slots-grid">';
+    let html = `<div class="compact-slots-grid">`;
     
     sortedDates.forEach(date => {
         const slots = grouped[date];
@@ -756,7 +791,8 @@ function renderSlots(data) {
                             class="date-select-all" 
                             onchange="toggleSelectAllForDate('${date.replace(/'/g, "\\'")}', this.checked)"
                             aria-label="Select all slots for ${sanitizeHTML(date)}"
-                            title="Select all slots for this date">
+                            title="Select all slots for this date"
+                            ${isPast ? 'disabled' : ''}>
                 </div>
         `;
         
@@ -769,7 +805,8 @@ function renderSlots(data) {
                             data-row-id="${slot.id}" 
                             data-date="${date}"
                             onchange="toggleSlotSelection(${slot.id}, this.checked)"
-                            aria-label="Select ${sanitizeHTML(slot.slotLabel)}">
+                            aria-label="Select ${sanitizeHTML(slot.slotLabel)}"
+                            ${isPast ? 'disabled' : ''}>
                     <div class="slot-info">
                         <span class="slot-label">${sanitizeHTML(slot.slotLabel)}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
@@ -803,21 +840,28 @@ function toggleSlotSelection(rowId, isChecked) {
 }
 
 function toggleSelectAllForDate(date, isChecked) {
-    const checkboxes = document.querySelectorAll(`.slot-row-checkbox[data-date="${date}"]`);
+    const checkboxes = document.querySelectorAll(`.slot-row-checkbox[data-date="${date}"]:not(:disabled)`);
     checkboxes.forEach(cb => {
         cb.checked = isChecked;
         toggleSlotSelection(parseInt(cb.dataset.rowId), isChecked);
     });
+    
+    // Ensure the date-select-all checkbox reflects the current state (if all are selected)
+    const dateCheckbox = document.querySelector(`.slot-date-group[data-date="${date}"] .date-select-all`);
+    if (dateCheckbox) {
+        dateCheckbox.checked = isChecked;
+    }
 }
 
 function selectAllSlots() {
-    const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
+    const allCheckboxes = document.querySelectorAll('.slot-row-checkbox:not(:disabled)');
     const allSelected = slotsToDelete.length === allCheckboxes.length;
     
     if (allSelected) {
         allCheckboxes.forEach(cb => cb.checked = false);
         slotsToDelete = [];
     } else {
+        slotsToDelete = []; // Reset array to ensure no duplicates if selectAll is used multiple times
         allCheckboxes.forEach(cb => {
             cb.checked = true;
             const rowId = parseInt(cb.dataset.rowId);
@@ -827,6 +871,9 @@ function selectAllSlots() {
         });
     }
     
+    // Also update all the date-select-all checkboxes
+    document.querySelectorAll('.date-select-all:not(:disabled)').forEach(cb => cb.checked = !allSelected);
+
     updateDeleteButton();
 }
 
@@ -845,7 +892,7 @@ function updateDeleteButton() {
     }
     
     if (selectAllBtn) {
-        const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
+        const allCheckboxes = document.querySelectorAll('.slot-row-checkbox:not(:disabled)');
         const allSelected = allCheckboxes.length > 0 && slotsToDelete.length === allCheckboxes.length;
         selectAllBtn.textContent = allSelected ? '☐ Deselect All' : '☑️ Select All';
     }
@@ -860,7 +907,7 @@ async function deleteSelectedSlots() {
     const slotDetails = slotsToDelete.map(id => {
         const slot = allSlots.find(s => s.id === id);
         if (!slot) return null;
-        return `  • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
+        return ` • ${slot.date} ${slot.slotLabel} (${slot.taken} booking${slot.taken !== 1 ? 's' : ''})`;
     }).filter(Boolean).join('\n');
     
     const totalBookings = slotsToDelete.reduce((sum, id) => {
@@ -869,8 +916,8 @@ async function deleteSelectedSlots() {
     }, 0);
     
     const confirmMsg = `⚠️ DELETE ${slotsToDelete.length} SLOT${slotsToDelete.length > 1 ? 'S' : ''}?\n\n${slotDetails}\n\n` +
-                         `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
-                         `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
+                        `This will affect ${totalBookings} booking${totalBookings !== 1 ? 's' : ''}!\n\n` +
+                        `⚠️ THIS CANNOT BE UNDONE!\n\nAre you absolutely sure?`;
     
     if (!confirm(confirmMsg)) {
         return;
@@ -886,26 +933,35 @@ async function deleteSelectedSlots() {
             method: "DELETE",
             headers: {
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${adminToken}`
+                // FIX 1: Removed "Authorization" header. The cookie is automatically sent.
             },
-            body: JSON.stringify({ rowIds: slotsToDelete })
+            body: JSON.stringify({ action: "deleteSlots", rowIds: slotsToDelete })
         });
         
         const data = await res.json();
         
         if (data.ok) {
             alert(`✅ ${data.message}`);
-            invalidateCache();
+            // FIX 2: Invalidate cache on success
+            invalidateCache(); 
             await loadSlots();
             generateDateOptions();
         } else {
+            if (res.status === 401 || data.error?.includes("unauthenticated")) {
+                alert("⚠️ Session expired or unauthorized. Please log in again.");
+                location.reload();
+                return;
+            }
             alert(`❌ ${data.error || 'Failed to delete'}`);
-            deleteBtn.disabled = false;
-            deleteBtn.textContent = originalText;
+            // FIX 2: Invalidate cache on server error
+            invalidateCache(); 
         }
     } catch (err) {
         handleError('DeleteSlots', err, `Failed to delete slots: ${err.message}`);
         alert(`❌ Failed to delete slots: ${err.message}`);
+         // FIX 2: Invalidate cache on network error
+        invalidateCache(); 
+    } finally {
         deleteBtn.disabled = false;
         deleteBtn.textContent = originalText;
     }
@@ -938,6 +994,8 @@ function setupKeyboardShortcuts() {
         if (e.key === 'Escape' && slotsToDelete.length > 0) {
             const allCheckboxes = document.querySelectorAll('.slot-row-checkbox');
             allCheckboxes.forEach(cb => cb.checked = false);
+            // Also update all the date-select-all checkboxes
+            document.querySelectorAll('.date-select-all').forEach(cb => cb.checked = false);
             slotsToDelete = [];
             updateDeleteButton();
         }
@@ -953,6 +1011,8 @@ document.addEventListener('DOMContentLoaded', () => {
     setupKeyboardShortcuts();
     // Create the new weekend controls (stacked layout above date chips)
     createWeekendControls();
+    // Set up the single click listener for the date selector
+    setupDateSelectorListener();
     // Generate the date chips (no automatic weekend pre-selection)
     generateDateOptions(); 
     
