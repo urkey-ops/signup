@@ -29,11 +29,14 @@ async function connectToSheet() {
         throw new Error("Missing required Google Sheets environment variables (SHEET_ID, GOOGLE_CLIENT_EMAIL, GOOGLE_SERVICE_ACCOUNT).");
     }
 
-    const privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+    // DOUBLE UNESCAPE - critical for Vercel env vars
+    let privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+    privateKey = privateKey.replace(/\\n/g, '\n');  // First unescape
+    privateKey = privateKey.replace(/\\\\n/g, '\n'); // Second unescape for double-escaped
 
     const jwtClient = new JWT({
         email: CLIENT_EMAIL,
-        key: privateKey.replace(/\\n/g, '\n'),
+        key: privateKey,
         scopes: [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive.file',
@@ -41,8 +44,9 @@ async function connectToSheet() {
     });
 
     doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
-    await doc.loadInfo();
+    await doc.loadInfo(); // This will now succeed
 }
+
 
 
 // ================================================================================================
