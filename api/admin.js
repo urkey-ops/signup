@@ -2,32 +2,33 @@
 // CONFIGURATION AND IMPORTS
 // ================================================================================================
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');
-const { JWT } = require('google-auth-library');
+const { google } = require("googleapis");
 
 // Environment Variables
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
-const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
 
 const SESSION_EXPIRY_SECONDS = 3600;
 const SIMPLE_TOKEN_VALUE = "valid_admin_session";
-let doc;
+let sheets;
 
 // Helper to initialize Google Sheets
-async function connectToSheet() {
-    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+async function getSheets() {
+    if (sheets) return sheets;
     
-    if (!SPREADSHEET_ID || !serviceAccount) {
-        throw new Error("Missing Google Sheets env vars");
+    try {
+        const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+        const auth = new google.auth.GoogleAuth({
+            credentials,
+            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
+        sheets = google.sheets({ version: "v4", auth });
+        return sheets;
+    } catch (err) {
+        console.error('Failed to initialize Google Sheets:', err.message);
+        throw new Error("Service configuration error");
     }
-
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    await doc.useServiceAccountAuth(serviceAccount);
-    await doc.loadInfo();
 }
-
 
 // ================================================================================================
 // SECURITY HANDLERS (SIMPLE COOKIE)
@@ -83,27 +84,31 @@ async function handleLogin(req, res) {
 }
 
 async function handleLoadSlots(req, res) {
-    const sheet = doc.sheetsByTitle['Slots'];
-
-    if (!sheet) {
-        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
-    }
-
-    await sheet.loadCells(); 
-    const rows = await sheet.getRows();
-
-    const slots = rows.map(row => ({
-        id: row.rowNumber,
-        date: row.date,
-        slotLabel: row.slotLabel,
-        capacity: parseInt(row.capacity, 10) || 0,
-        taken: parseInt(row.taken, 10) || 0,
-        available: parseInt(row.available, 10) || 0,
-    })).filter(slot => slot.id); 
-
-    slots.sort((a, b) => new Date(a.date) - new Date(b.date));
+    const sheets = await getSheets();
     
-    return res.status(200).json({ ok: true, slots });
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Slots!A2:E',
+        });
+
+        const rows = response.data.values || [];
+        const slots = rows.map((row, idx) => ({
+            id: idx + 2, // Row number in sheet
+            date: row[0] || '',
+            slotLabel: row[1] || '',
+            capacity: parseInt(row[2], 10) || 0,
+            taken: parseInt(row[3], 10) || 0,
+            available: Math.max(0, (parseInt(row[2], 10) || 0) - (parseInt(row[3], 10) || 0)),
+        }));
+
+        slots.sort((a, b) => new Date(a.date) - new Date(b.date));
+        
+        return res.status(200).json({ ok: true, slots });
+    } catch (err) {
+        console.error('Error loading slots:', err.message);
+        return res.status(500).json({ ok: false, error: 'Failed to load slots' });
+    }
 }
 
 async function handleAddSlots(req, res) {
@@ -113,52 +118,68 @@ async function handleAddSlots(req, res) {
         return res.status(400).json({ ok: false, error: 'Invalid or empty slot data provided.' });
     }
 
-    const sheet = doc.sheetsByTitle['Slots'];
+    const sheets = await getSheets();
 
-    if (!sheet) {
-        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
-    }
+    try {
+        // Get existing slots to check for duplicates
+        const existingResponse = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Slots!A2:E',
+        });
 
-    const existingRows = await sheet.getRows();
-    const existingKeys = new Set(existingRows.map(row => `${row.date}-${row.slotLabel}`));
-    const rowsToAdd = [];
-    const datesAdded = new Set();
-    const datesSkipped = [];
+        const existingRows = existingResponse.data.values || [];
+        const existingKeys = new Set(existingRows.map(row => `${row[0]}-${row[1]}`));
+        
+        const rowsToAdd = [];
+        const datesAdded = new Set();
+        const datesSkipped = [];
 
-    for (const dateData of newSlotsData) {
-        for (const slot of dateData.slots) {
-            const rowKey = `${dateData.date}-${slot.label}`;
-            
-            if (slot.capacity > 0 && !existingKeys.has(rowKey)) {
-                rowsToAdd.push({
-                    date: dateData.date,
-                    slotLabel: slot.label,
-                    capacity: slot.capacity,
-                    taken: 0, 
-                    available: slot.capacity, 
-                });
-                datesAdded.add(dateData.date);
-            } else if (existingKeys.has(rowKey)) {
-                datesSkipped.push(rowKey);
+        for (const dateData of newSlotsData) {
+            for (const slot of dateData.slots) {
+                const rowKey = `${dateData.date}-${slot.label}`;
+                
+                if (slot.capacity > 0 && !existingKeys.has(rowKey)) {
+                    rowsToAdd.push([
+                        dateData.date,
+                        slot.label,
+                        slot.capacity,
+                        0, // taken
+                        slot.capacity, // available
+                    ]);
+                    datesAdded.add(dateData.date);
+                } else if (existingKeys.has(rowKey)) {
+                    datesSkipped.push(rowKey);
+                }
             }
         }
-    }
 
-    if (rowsToAdd.length === 0) {
-         return res.status(400).json({ 
-            ok: false, 
-            error: 'No new slots were added.', 
-            details: datesSkipped.length > 0 ? [`${datesSkipped.length} slot(s) already exist or were invalid.`] : ['No valid rows to insert.']
+        if (rowsToAdd.length === 0) {
+            return res.status(400).json({ 
+                ok: false, 
+                error: 'No new slots were added.', 
+                details: datesSkipped.length > 0 ? [`${datesSkipped.length} slot(s) already exist or were invalid.`] : ['No valid rows to insert.']
+            });
+        }
+
+        // Append new rows
+        await sheets.spreadsheets.values.append({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Slots!A2',
+            valueInputOption: 'RAW',
+            requestBody: {
+                values: rowsToAdd
+            }
         });
+        
+        return res.status(201).json({ 
+            ok: true, 
+            message: `Successfully added ${rowsToAdd.length} slot(s) across ${datesAdded.size} date(s).`,
+            details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} existing slot(s).`] : []
+        });
+    } catch (err) {
+        console.error('Error adding slots:', err.message);
+        return res.status(500).json({ ok: false, error: 'Failed to add slots' });
     }
-
-    const addedRows = await sheet.addRows(rowsToAdd);
-    
-    return res.status(201).json({ 
-        ok: true, 
-        message: `Successfully added ${addedRows.length} slot(s) across ${datesAdded.size} date(s).`,
-        details: datesSkipped.length > 0 ? [`Skipped ${datesSkipped.length} existing slot(s).`] : []
-    });
 }
 
 async function handleDeleteSlots(req, res) {
@@ -168,27 +189,60 @@ async function handleDeleteSlots(req, res) {
         return res.status(400).json({ ok: false, error: 'No slot IDs provided for deletion.' });
     }
     
-    const sheet = doc.sheetsByTitle['Slots'];
+    const sheets = await getSheets();
 
-    if (!sheet) {
-        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
+    try {
+        // Get all rows to find which ones to delete
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Slots!A2:E',
+        });
+
+        const allRows = response.data.values || [];
+        const rowsToDelete = [];
+
+        // Find matching rows (rowIds are 2-indexed, array is 0-indexed)
+        rowIds.forEach(rowId => {
+            const arrayIndex = rowId - 2;
+            if (arrayIndex >= 0 && arrayIndex < allRows.length) {
+                rowsToDelete.push(rowId);
+            }
+        });
+
+        if (rowsToDelete.length === 0) {
+            return res.status(200).json({ ok: true, message: 'No matching slots found, deletion complete (0 slots removed).' });
+        }
+
+        // Sort in descending order to delete from bottom up (prevents index shifting issues)
+        rowsToDelete.sort((a, b) => b - a);
+
+        // Delete rows using batchUpdate
+        const requests = rowsToDelete.map(rowId => ({
+            deleteDimension: {
+                range: {
+                    sheetId: 0, // Assuming "Slots" is the first sheet
+                    dimension: 'ROWS',
+                    startIndex: rowId - 1, // 0-indexed
+                    endIndex: rowId
+                }
+            }
+        }));
+
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SPREADSHEET_ID,
+            requestBody: {
+                requests: requests
+            }
+        });
+
+        return res.status(200).json({ 
+            ok: true, 
+            message: `Successfully deleted ${rowsToDelete.length} slot(s).`
+        });
+    } catch (err) {
+        console.error('Error deleting slots:', err.message);
+        return res.status(500).json({ ok: false, error: 'Failed to delete slots' });
     }
-
-    const allRows = await sheet.getRows();
-    const rowsToDelete = allRows.filter(row => row.rowNumber && rowIds.includes(row.rowNumber));
-
-    if (rowsToDelete.length === 0) {
-        return res.status(200).json({ ok: true, message: 'No matching slots found, deletion complete (0 slots removed).' });
-    }
-
-    const deletePromises = rowsToDelete.map(row => row.delete());
-    
-    await Promise.all(deletePromises);
-
-    return res.status(200).json({ 
-        ok: true, 
-        message: `Successfully deleted ${rowsToDelete.length} slot(s).`
-    });
 }
 
 /**
@@ -214,9 +268,6 @@ module.exports = async (req, res) => {
         if (method === 'POST' && action === 'login') {
             return await handleLogin(req, res);
         }
-
-        // --- CONNECT TO SHEET FOR ALL PROTECTED ROUTES ---
-        await connectToSheet();
 
         // --- AUTHENTICATION GATE ---
         if (!isAuthenticated(req)) {
