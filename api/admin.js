@@ -26,21 +26,21 @@ let doc;
 // Helper to initialize and authenticate Google Sheets connection
 async function connectToSheet() {
     if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE64) {
-        throw new Error("Missing required Google Sheets environment variables");
+        throw new Error("Missing Google Sheets env vars");
     }
 
-    const serviceAccountAuth = {
-        client_email: CLIENT_EMAIL,
-        private_key: Buffer.from(PRIVATE_KEY_BASE64, 'base64')
-            .toString('utf8')
-            .replace(/\\n/g, '\n'), // Single unescape is enough
-    };
-
+    // Parse your full service account JSON (use the full JSON you showed)
+    const serviceAccount = JSON.parse(Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString());
+    
     doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    await doc.useServiceAccountAuth(serviceAccountAuth); // ← BUILT-IN METHOD
+    
+    // v4.1.0 CORRECT AUTH METHOD
+    await doc.useServiceAccountAuth({
+        client_email: serviceAccount.client_email,
+        private_key: serviceAccount.private_key.replace(/\\n/g, '\n'),
+    });
+    
     await doc.loadInfo();
-}
-
 }
 
 
