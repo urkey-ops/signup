@@ -25,7 +25,7 @@
     "vercel": "^33.7.1"
   },
   "engines": {
-    "node": "24.x"
+    "node": "20.x"
   },
   "repository": {
     "type": "git",
