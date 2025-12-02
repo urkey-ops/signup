@@ -26,25 +26,21 @@ let doc;
 // Helper to initialize and authenticate Google Sheets connection
 async function connectToSheet() {
     if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE64) {
-        throw new Error("Missing required Google Sheets environment variables (SHEET_ID, GOOGLE_CLIENT_EMAIL, GOOGLE_SERVICE_ACCOUNT).");
+        throw new Error("Missing required Google Sheets environment variables");
     }
 
-    // DOUBLE UNESCAPE - critical for Vercel env vars
-    let privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
-    privateKey = privateKey.replace(/\\n/g, '\n');  // First unescape
-    privateKey = privateKey.replace(/\\\\n/g, '\n'); // Second unescape for double-escaped
+    const serviceAccountAuth = {
+        client_email: CLIENT_EMAIL,
+        private_key: Buffer.from(PRIVATE_KEY_BASE64, 'base64')
+            .toString('utf8')
+            .replace(/\\n/g, '\n'), // Single unescape is enough
+    };
 
-    const jwtClient = new JWT({
-        email: CLIENT_EMAIL,
-        key: privateKey,
-        scopes: [
-            'https://www.googleapis.com/auth/spreadsheets',
-            'https://www.googleapis.com/auth/drive.file',
-        ],
-    });
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
+    await doc.useServiceAccountAuth(serviceAccountAuth); // ← BUILT-IN METHOD
+    await doc.loadInfo();
+}
 
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
-    await doc.loadInfo(); // This will now succeed
 }
 
 
