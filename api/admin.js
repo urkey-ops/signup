@@ -25,22 +25,25 @@ let doc;
 
 // Helper to initialize and authenticate Google Sheets connection
 async function connectToSheet() {
-    if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE64) {
-        throw new Error("Missing Google Sheets env vars");
+    const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
+    const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
+    
+    if (!SPREADSHEET_ID || !ADMIN_CLIENT_EMAIL || !ADMIN_PRIVATE_KEY) {
+        throw new Error("Missing admin Google Sheets env vars");
     }
 
-    // Extract JUST the private_key from your JSON (raw string with \n)
-    const privateKeyRaw = `-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDN/evuEQClism8\n5ZO8Rsi+GdeFiKKXB6HD+2UNl3xjUAgb0mT8Jgg2OB0QeGKRvTjvx4sdcPZWKNzk\naQpuRHGWngCFysmFO/YHv/lsoF9xWxj0wIXPnsHCW1vb0VR+7a0jf4eY0NqneX4R\nHgeJOBhILc4abhm4ty4H1J7VB43daTGxdTrxEtZwzEeWO94SnHQ4dpkbFejR6fLm\noissPHWvV76okDSDtkDIwbPoZA5p+c3hxRd83IAeCagbA97ziDOYW+dR+Fzaxlpj\nCz5ttK6uyUF/S8+VbV9l4BGIVSymr0B3P7J6QhZpbNV83rtKDn1edR0S5xyGf+m5\nPdNZFjFlAgMBAAECggEAMbhA2pkDAXIC6JO3OYISUQQ2x5XnvLGMY5wJ06KFVQlL\ns79wPYZGhCO+LCwKiqfUFtggpW4PH1PEoWMTL/NYQWUItkJwqraC13MIVqZM8zTs\nTKMtiSQGG43mmaOok+x1VnShO4rpw/OosKQBaKcAAWgA79M0ZSfdtekln0CwBsk+\n5A9+IHy8qjGue/KG270JQrdVSIJ4kWCQX/BgXhnXbO9KN915Cys87obYUWJ31FxY\nHQM2kRqnm8c7BmdFwmj4B1Wm/zDlC8O+cICJ/ixsWc02VOBG6VKqfUNoEv6Sd/Nz\nDUzbDq4HeZ8834O0lu9KdzMrtKCwWtMp/k89IAki4QKBgQDpzFi2wDrLK7iGsXFR\nRCcdogNcDaGOch1KbtWQvUtvYc5bwW31tecTMXYRFN+9BiGKJ9rF3SmAFg3ifQXB\nky45WFNVh06yRmsJInE3PkTtyV+LhIquQtqF5KhYi2RGx3b4Fcg4huBSy7zAQxOH\nQBgfVxNIJDHj9fuRP9n78SWScQKBgQDhjZm97RG8bK5Nxx5Rw7TA7Qn0yY1a+8p2\nDEePp8yUKeevg3CXbliK7wGIr6AJdO6MvaPtVDtJZonmO6X1y+VRtZqxnHG3Qbwd\nvn595YLj47ZvYJBGfp/EZPiNeNUBkd0Yprvi/VuQNNS4/c7b7NV3un/1g2Vxu5jt\nDEjdTOzgNQKBgQCqqmCYBvrkFKY+rIjrqbRkDUAmkky8jtCS5RVA8u1+AQeCM1Dx\nbDeh6xkknvg0I6WYFD++8BK7TV4VVu48wBOeCLvMU1k/CehYYqwCh5IJglYcokQZ\nsPOTibbZ6+bnQ/O0ZTIjEVHvHopKTqySrlbticKphsJkhct92/5jy0SCAQKBgQDB\nKgGmtCbiVbkZBxQiNhbQurAyIYKbjtOfMXj/wFbl9NVkbI66QVg28+U+aBoIv0mk\n4qxHDkIP5G7o6+B/lnT3+y1WOoLwzK0MVB4EN9BW1qdgzzQAC2VMTqTGk9roE0Fk\nYTa7ePs3juc23raPhk5y0RfQ7Qyt0FlxeXnVfJHImQKBgAQ3jgiaf+WzLrdJZuKT\nR7IqoAa6c6AY9c3WLHLlRnRsJ73ojg94I/h/2t/y3Kke9nIll1EEer8+I+wLD2Cb\nY6UnzKgYM9bYnaNFNieG0+yJgmUgjghuM3U4tsAN2pmexJ4RuN972s/teIulWwuU\nu2icnMmvcTbjlSAoTexRuG9N\n-----END PRIVATE KEY-----\n`;
+    const privateKey = ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n');
 
-    const serviceAccountAuth = {
-        client_email: CLIENT_EMAIL,
-        private_key: privateKeyRaw.replace(/\\n/g, '\n'),
-    };
+    const jwtClient = new JWT({
+        email: ADMIN_CLIENT_EMAIL,
+        key: privateKey,
+        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+    });
 
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
-    await doc.useServiceAccountAuth(serviceAccountAuth);
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
     await doc.loadInfo();
 }
+
 
 
 
