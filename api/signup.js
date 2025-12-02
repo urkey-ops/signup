@@ -1,4 +1,8 @@
-const { google } = require("googleapis");
+// START OF CODE
+// ------------------------------------------------------------------------------------------------
+// ES MODULE CHANGE: Use 'import' instead of 'require'
+// ------------------------------------------------------------------------------------------------
+import { google } from "googleapis";
 
 // ================================================================================================
 // CONFIGURATION & CONSTANTS
@@ -247,9 +251,10 @@ async function getSheets() {
 
 // ================================================================================================
 // MAIN HANDLER
-// ================================================================================================
-
-module.exports = async function handler(req, res) {
+// ------------------------------------------------------------------------------------------------
+// ES MODULE CHANGE: Use 'export default' instead of 'module.exports'
+// ------------------------------------------------------------------------------------------------
+export default async function handler(req, res) {
     const startTime = Date.now();
     
     // Set security headers
@@ -271,8 +276,8 @@ module.exports = async function handler(req, res) {
     try {
         // Rate limiting
         const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || 
-                         req.headers['x-real-ip'] || 
-                         'unknown';
+                             req.headers['x-real-ip'] || 
+                             'unknown';
         
         if (!checkRateLimit(clientIP)) {
             log('warn', 'Rate limit exceeded', { ip: clientIP, method: req.method });
@@ -493,7 +498,7 @@ module.exports = async function handler(req, res) {
                         decrementActiveBookings(email);
                         return res.status(400).json({
                             ok: false,
-                            error: `Cannot book slot for ${slot.date} - this date has passed.`
+                            error: `Cannot book slot for ${slot.label} on ${slot.date} - this date has passed.`
                         });
                     }
 
@@ -772,3 +777,4 @@ module.exports = async function handler(req, res) {
         });
     }
 };
+// END OF CODE
