@@ -2,7 +2,7 @@
   "name": "booking-system",
   "version": "2.0.0",
   "description": "Optimized multi-slot booking system with caching and performance enhancements",
-  "main": "index.js",
+  "main": "api/admin.js",
   "scripts": {
     "dev": "vercel dev",
     "build": "echo 'Static files + Serverless Functions - No build step required'",
@@ -18,7 +18,8 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "googleapis": "^128.0.0"
+    "google-spreadsheet": "^4.1.0",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "vercel": "^33.7.1"
