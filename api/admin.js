@@ -21,12 +21,15 @@ async function connectToSheet() {
     const serviceAccount = JSON.parse(process.env.GOOGLE_ADMIN_SERVICE_ACCOUNT);
     
     if (!SPREADSHEET_ID || !serviceAccount) {
-        throw new Error("Missing admin Google Sheets env vars");
+        throw new Error("Missing Google Sheets env vars");
     }
 
+    // EXACT SAME as signup.js - 100% PROVEN
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
     await doc.useServiceAccountAuth(serviceAccount);
     await doc.loadInfo();
 }
+
 
 // ================================================================================================
 // SECURITY HANDLERS (SIMPLE COOKIE)
