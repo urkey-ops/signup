@@ -1,8 +1,12 @@
 const API_URL = "/api/signup";
 
-// Configuration
+// Configuration - MUST MATCH BACKEND
 const CONFIG = {
     MAX_SLOTS_PER_BOOKING: 10,
+    MAX_NAME_LENGTH: 100,
+    MAX_EMAIL_LENGTH: 254,
+    MAX_PHONE_LENGTH: 20,
+    MAX_NOTES_LENGTH: 500,
     API_COOLDOWN: 1000,
     RETRY_DELAY: 3000,
     CLIENT_CACHE_TTL: 30000,
@@ -82,6 +86,24 @@ const API_CACHE = {
                 transform: translateY(0);
             }
         }
+        .date-chip.disabled {
+            opacity: 0.5;
+            cursor: not-allowed !important;
+        }
+        .exists-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     `;
     document.head.appendChild(style);
 })();
@@ -102,10 +124,10 @@ function sanitizeInput(str, maxLength = 255) {
         .substring(0, maxLength);
 }
 
-// --- Validation Functions ---
+// --- Validation Functions (ALIGNED WITH BACKEND) ---
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= 254;
+    return emailRegex.test(email) && email.length <= CONFIG.MAX_EMAIL_LENGTH;
 }
 
 function isValidPhone(phone) {
@@ -128,14 +150,14 @@ function formatDateWithDay(dateString) {
     return date.toLocaleDateString('en-US', options); 
 }
 
-// --- Improved Error Messages ---
+// --- Improved Error Messages (MATCHES BACKEND STATUS CODES) ---
 function getErrorMessage(status, defaultMessage) {
     const errorMessages = {
         400: "Invalid request. Please check your information and try again.",
         401: "Authentication required. Please refresh the page.",
         403: "Access denied. Please contact support.",
         404: "Service not found. Please contact support.",
-        409: "This slot was just booked by someone else. Please select another.",
+        409: "This slot was just booked by someone else. Please refresh and select another.",
         429: "Too many requests. Please wait a moment and try again.",
         500: "Server error. Please try again in a few moments.",
         503: "Service temporarily unavailable. Please try again later.",
@@ -272,7 +294,7 @@ async function loadSlots() {
     }
 }
 
-// FIX #5: Event Delegation - No memory leaks
+// Event Delegation - No memory leaks
 function renderSlotsData(data) {
     const datesContainer = document.getElementById("datesContainer");
     const groupedSlotsByDate = data.dates || {};
@@ -295,7 +317,7 @@ function renderSlotsData(data) {
     // Clear skeleton
     datesContainer.innerHTML = '';
     
-    // FIX #5: Remove old event listener
+    // Remove old event listener
     if (datesContainer._slotListener) {
         datesContainer.removeEventListener('click', datesContainer._slotListener);
     }
@@ -318,7 +340,7 @@ function renderSlotsData(data) {
     // Single DOM update
     datesContainer.appendChild(fragment);
     
-    // FIX #5: Single delegated event listener
+    // Single delegated event listener
     const slotListener = (e) => {
         const slot = e.target.closest('.slot');
         if (!slot || slot.classList.contains('disabled')) return;
@@ -359,7 +381,7 @@ function createDateCard(date, slots) {
     return card;
 }
 
-// FIX #5: Use data attributes instead of onclick
+// Use data attributes instead of onclick
 function createSlotElement(slot) {
     const div = document.createElement('div');
     const isSelected = selectedSlots.some(s => s.id === slot.id);
@@ -379,8 +401,6 @@ function createSlotElement(slot) {
     const small = document.createElement('small');
     small.textContent = `(${slot.available} left)`;
     div.appendChild(small);
-    
-    // No onclick - using event delegation
     
     return div;
 }
@@ -522,6 +542,7 @@ function showSignupForm() {
     showMessage("signupMsg", "", false);
 }
 
+// UPDATED: Better validation and error handling
 async function submitSignup() {
     if (isSubmitting) {
         showMessage("signupMsg", "Please wait, your booking is being processed...", true);
@@ -534,11 +555,12 @@ async function submitSignup() {
         return;
     }
 
-    const name = sanitizeInput(document.getElementById("nameInput").value, 100);
-    const email = sanitizeInput(document.getElementById("emailInput").value.toLowerCase(), 254);
-    const phone = sanitizeInput(document.getElementById("phoneInput").value, 20);
-    const notes = sanitizeInput(document.getElementById("notesInput").value, 500);
+    const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
+    const email = sanitizeInput(document.getElementById("emailInput").value.toLowerCase(), CONFIG.MAX_EMAIL_LENGTH);
+    const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
+    const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
 
+    // Validation
     if (!name || !email) { 
         showMessage("signupMsg", "Please fill in all required fields (Name and Email).", true);
         return;
@@ -549,7 +571,7 @@ async function submitSignup() {
         return;
     }
 
-    if (!isValidPhone(phone)) {
+    if (phone && !isValidPhone(phone)) {
         showMessage("signupMsg", "Please enter a valid phone number (numbers, spaces, dashes, and parentheses only).", true);
         return;
     }
@@ -569,7 +591,9 @@ async function submitSignup() {
     
     showMessage("signupMsg", "📤 Submitting your booking...", false);
     const submitBtn = document.getElementById("submitSignupBtn");
+    const backBtn = document.getElementById("backToSlotsBtn");
     submitBtn.disabled = true;
+    backBtn.disabled = true;
     submitBtn.textContent = "Processing...";
 
     const slotIds = selectedSlots.map(slot => slot.id);
@@ -593,7 +617,7 @@ async function submitSignup() {
         
         const data = await res.json();
         
-        if (data.ok) {
+        if (res.ok && data.ok) {
             let confirmationHTML = `Thank you, <strong>${sanitizeHTML(name)}</strong>! Your spot${selectedSlots.length > 1 ? 's have' : ' has'} been reserved for:<br><br>`;
             
             const slotsByDate = {};
@@ -620,6 +644,7 @@ async function submitSignup() {
             document.getElementById("confirmationDetails").innerHTML = confirmationHTML;
             document.getElementById("successMessage").style.display = "block";
             
+            // Clear form
             document.getElementById("nameInput").value = "";
             document.getElementById("emailInput").value = "";
             document.getElementById("phoneInput").value = "";
@@ -630,8 +655,19 @@ async function submitSignup() {
             API_CACHE.data = null;
             
         } else {
-            const errorMessage = data.error || "Booking failed. Please try again.";
+            // Handle specific error codes
+            const errorMessage = getErrorMessage(res.status, data.error || "Booking failed. Please try again.");
             showMessage("signupMsg", sanitizeHTML(errorMessage), true);
+            
+            // If slot was taken (409), suggest refresh
+            if (res.status === 409) {
+                API_CACHE.data = null;
+                setTimeout(() => {
+                    if (confirm("Would you like to refresh and see available slots?")) {
+                        backToSlotSelection();
+                    }
+                }, 2000);
+            }
         }
     } catch (err) {
         console.error("Submit signup error:", err);
@@ -639,13 +675,14 @@ async function submitSignup() {
     } finally {
         isSubmitting = false;
         submitBtn.disabled = false;
+        backBtn.disabled = false;
         submitBtn.textContent = "Submit Signup";
     }
 }
 
-// --- Lookup Bookings Function ---
+// --- UPDATED: Lookup Bookings Function (Now filters by ACTIVE status) ---
 async function lookupBookings() {
-    const email = sanitizeInput(document.getElementById("lookupEmail").value.toLowerCase(), 254);
+    const email = sanitizeInput(document.getElementById("lookupEmail").value.toLowerCase(), CONFIG.MAX_EMAIL_LENGTH);
     const displayEl = document.getElementById("userBookingsDisplay");
     const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
 
@@ -679,10 +716,11 @@ async function lookupBookings() {
             return;
         }
 
+        // BACKEND NOW FILTERS BY STATUS='ACTIVE', so we trust the response
         const bookings = data.bookings || [];
 
         if (bookings.length === 0) {
-            displayEl.innerHTML = '<p class="msg-box">📭 No bookings found for this email address.</p>';
+            displayEl.innerHTML = '<p class="msg-box">📭 No active bookings found for this email address.</p>';
             return;
         }
 
@@ -719,7 +757,7 @@ async function lookupBookings() {
     }
 }
 
-// --- Cancel Booking Function ---
+// --- UPDATED: Cancel Booking Function (Better error handling) ---
 async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
     const safeDate = sanitizeHTML(date);
     const safeLabel = sanitizeHTML(slotLabel);
@@ -740,24 +778,19 @@ async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
             body: JSON.stringify({ signupRowId, slotRowId })
         });
 
-        if (!res.ok) {
-            const errorMsg = getErrorMessage(res.status, "Failed to cancel booking.");
-            alert(`❌ Error: ${errorMsg}`);
-            displayEl.innerHTML = originalHTML;
-            return;
-        }
-
         const data = await res.json();
 
-        if (data.ok) {
+        if (res.ok && data.ok) {
             alert(`✅ ${data.message || "Booking cancelled successfully!"}`);
             
             // Invalidate cache
             API_CACHE.data = null;
             
+            // Refresh bookings list
             lookupBookings();
         } else {
-            alert(`❌ Error: ${sanitizeHTML(data.error)}`);
+            const errorMsg = getErrorMessage(res.status, data.error || "Failed to cancel booking.");
+            alert(`❌ Error: ${errorMsg}`);
             displayEl.innerHTML = originalHTML;
         }
     } catch (err) {
@@ -766,6 +799,8 @@ async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
         displayEl.innerHTML = originalHTML;
     }
 }
+
+
 
 // Start loading slots when the page loads
 document.addEventListener('DOMContentLoaded', () => {
