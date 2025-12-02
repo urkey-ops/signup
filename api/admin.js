@@ -24,6 +24,7 @@ const SIMPLE_TOKEN_VALUE = "valid_admin_session"; // A fixed, simple token
 let doc;
 
 // Helper to initialize and authenticate Google Sheets connection
+
 async function connectToSheet() {
     const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
     const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
@@ -32,27 +33,21 @@ async function connectToSheet() {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-    // Use googleapis like signup.js does (AVOIDS crypto issues)
-    const { google } = require('googleapis');
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: ADMIN_CLIENT_EMAIL,
-            private_key: ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n'),
-        },
+    // SIMPLIFIED - No crypto hacks, just proper key formatting
+    const privateKey = ADMIN_PRIVATE_KEY
+        .trim()
+        .replace(/\\r\\n/g, '\n')
+        .replace(/\\n/g, '\n');
+
+    const jwtClient = new JWT({
+        email: ADMIN_CLIENT_EMAIL,
+        key: privateKey,
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
-    const sheets = google.sheets({ version: 'v4', auth });
-    
-    // Load sheet info using googleapis (same as signup.js)
-    const sheetInfo = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-    
-    // Set global doc for compatibility with existing handlers
-    doc = { sheetsByTitle: { Slots: { getRows: async () => [], addRows: async () => [], loadCells: async () => {} } } };
-    
-    return sheets;
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
+    await doc.loadInfo();
 }
-
 
 
 
