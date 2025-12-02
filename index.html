@@ -10,12 +10,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
     <link rel="preload" href="style.css" as="style">
-    <link rel="preload" href="user-script.js" as="script">
-    
+    <link rel="preload" href="slots.js" as="script">
     <link rel="stylesheet" 
-            href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
-            media="print" 
-            onload="this.media='all'">
+                href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
+                media="print" 
+                onload="this.media='all'">
     <noscript>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     </noscript>
@@ -58,7 +57,7 @@
         
         <main>
             
-                <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
+            <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
     <button id="lookupToggle" class="btn secondary-btn full-width-mobile" aria-expanded="false" onclick="toggleLookup()">
         🔍 Look Up / Cancel Booking
     </button>
@@ -169,6 +168,12 @@
         </main>
     </div>
     
-    <script src="user-script.js"></script>
-</body>
+    <script src="config.js" type="module"></script>
+    <script src="utils.js" type="module"></script>
+    
+    <script src="signup.js" type="module"></script>
+    <script src="lookup.js" type="module"></script>
+    
+    <script src="slots.js" type="module"></script>
+    </body>
 </html>
