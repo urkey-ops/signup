@@ -156,8 +156,6 @@ async function handleLoadSlots(req, res) {
     }
 }
 
-}
-
 async function handleAddSlots(req, res) {
     const { newSlotsData } = req.body; 
     
