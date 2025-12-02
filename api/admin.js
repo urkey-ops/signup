@@ -3,7 +3,11 @@
 // ================================================================================================
 
 // Imports
+
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
+
+
 // Removed: const jwt = require('jsonwebtoken');
 
 // Environment Variables (Updated to match your existing names)
@@ -21,23 +25,25 @@ let doc;
 
 // Helper to initialize and authenticate Google Sheets connection
 async function connectToSheet() {
-    // UPDATED: Use your variable names for the check
     if (!SPREADSHEET_ID || !CLIENT_EMAIL || !PRIVATE_KEY_BASE64) {
         throw new Error("Missing required Google Sheets environment variables (SHEET_ID, GOOGLE_CLIENT_EMAIL, GOOGLE_SERVICE_ACCOUNT).");
     }
-    
-    // Decode the private key
-    const privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
-    
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID);
 
-    await doc.useServiceAccountAuth({
-        client_email: CLIENT_EMAIL,
-        private_key: privateKey.replace(/\\n/g, '\n'), // Important: fix escaped newlines
+    const privateKey = Buffer.from(PRIVATE_KEY_BASE64, 'base64').toString('utf8');
+
+    const jwtClient = new JWT({
+        email: CLIENT_EMAIL,
+        key: privateKey.replace(/\\n/g, '\n'),
+        scopes: [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file',
+        ],
     });
 
-    await doc.loadInfo(); // Load sheet info
+    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
+    await doc.loadInfo();
 }
+
 
 // ================================================================================================
 // SECURITY HANDLERS (SIMPLE COOKIE)
@@ -244,31 +250,33 @@ module.exports = async (req, res) => {
         return res.status(200).end();
     }
 
-    try {
-        // We ensure connectToSheet runs for all actions so that variable checks are done
-        // However, we only run it for POST/GET/DELETE methods to reduce overhead on OPTIONS
-        if (req.method !== 'OPTIONS') {
-             // The connectToSheet logic now includes the check for your preferred variable names
-            await connectToSheet();
-        }
-       
-        const { method } = req;
-        const { action } = req.body || {};
+   try {
+    const { method } = req;
+    const { action } = req.body || {};
 
-        // --- PUBLIC ROUTE: LOGIN ---
-        if (method === 'POST' && action === 'login') {
-            return await handleLogin(req, res);
-        }
+    // --- PUBLIC ROUTE: LOGIN (NO SHEET CONNECTION NEEDED) ---
+    if (method === 'POST' && action === 'login') {
+        return await handleLogin(req, res);  // ← Login works instantly!
+    }
 
-        // --- AUTHENTICATION GATE (Simple Cookie Check) ---
-        if (!isAuthenticated(req)) {
-            clearAuthCookie(res); 
-            return res.status(401).json({ 
-                ok: false, 
-                error: 'Unauthenticated: Invalid or expired session.', 
-                details: ['Please log in again.']
-            });
-        }
+    // --- NOW connectToSheet ONLY for authenticated/protected routes ---
+    if (req.method !== 'OPTIONS') {
+        await connectToSheet();
+    }
+
+    // --- AUTHENTICATION GATE ---
+    if (!isAuthenticated(req)) {
+        clearAuthCookie(res); 
+        return res.status(401).json({ 
+            ok: false, 
+            error: 'Unauthenticated: Invalid or expired session.', 
+            details: ['Please log in again.']
+        });
+    }
+    
+    // --- PROTECTED ROUTES ---
+    // ... rest stays the same
+
         
         // --- PROTECTED ROUTES ---
         
