@@ -2,38 +2,25 @@
 // CONFIGURATION AND IMPORTS
 // ================================================================================================
 
-// Imports
+const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
 
-const { google } = require('googleapis');
+// Environment Variables
+const SPREADSHEET_ID = process.env.SHEET_ID;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
+const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
 
-
-
-// Removed: const jwt = require('jsonwebtoken');
-
-// Environment Variables (Updated to match your existing names)
-const SPREADSHEET_ID = process.env.SHEET_ID; // Renamed from GOOGLE_SHEET_ID
-const PRIVATE_KEY_BASE64 = process.env.GOOGLE_SERVICE_ACCOUNT; // Renamed from GOOGLE_PRIVATE_KEY_BASE64
-const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL; // This variable is still needed
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD; // Renamed from ADMIN_PASSWORD_HASH
-
-// Simple 1-hour session duration for the basic cookie
-const SESSION_EXPIRY_SECONDS = 3600; 
-const SIMPLE_TOKEN_VALUE = "valid_admin_session"; // A fixed, simple token
-
-// Initialize the Google Spreadsheet
+const SESSION_EXPIRY_SECONDS = 3600;
+const SIMPLE_TOKEN_VALUE = "valid_admin_session";
 let doc;
 
-// Helper to initialize and authenticate Google Sheets connection
-
+// Helper to initialize Google Sheets
 async function connectToSheet() {
-    const ADMIN_PRIVATE_KEY = process.env.GOOGLE_ADMIN_PRIVATE_KEY;
-    const ADMIN_CLIENT_EMAIL = process.env.GOOGLE_ADMIN_CLIENT_EMAIL;
-
     if (!SPREADSHEET_ID || !ADMIN_CLIENT_EMAIL || !ADMIN_PRIVATE_KEY) {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-    // SIMPLIFIED - No crypto hacks, just proper key formatting
     const privateKey = ADMIN_PRIVATE_KEY
         .trim()
         .replace(/\\r\\n/g, '\n')
@@ -49,65 +36,38 @@ async function connectToSheet() {
     await doc.loadInfo();
 }
 
-
-
-
-
-
 // ================================================================================================
 // SECURITY HANDLERS (SIMPLE COOKIE)
 // ================================================================================================
 
-/**
- * Sets a simple, non-HttpOnly token cookie for session management.
- * @param {object} res The Vercel response object
- */
 function setAuthCookie(res) {
     const expiry = new Date(Date.now() + SESSION_EXPIRY_SECONDS * 1000);
-
-    // Set a simple cookie (non-HttpOnly, non-Secure for easier testing/internal use)
     res.setHeader('Set-Cookie', 
         `admin_token=${SIMPLE_TOKEN_VALUE}; SameSite=Lax; Path=/; Expires=${expiry.toUTCString()}`
     );
 }
 
-/**
- * Removes the auth cookie by setting expiry to the past.
- * @param {object} res The Vercel response object
- */
 function clearAuthCookie(res) {
     res.setHeader('Set-Cookie', 
         `admin_token=; SameSite=Lax; Path=/; Expires=${new Date(0).toUTCString()}`
     );
 }
 
-/**
- * Extracts and verifies the simple token from the cookie.
- * @param {object} req The Vercel request object
- * @returns {boolean} True if authenticated, false otherwise.
- */
 function isAuthenticated(req) {
     const cookieHeader = req.headers.cookie;
     if (!cookieHeader) return false;
 
-    // Simple cookie parser for admin_token
     const cookies = cookieHeader.split(';').map(c => c.trim());
     const sessionCookie = cookies.find(c => c.startsWith('admin_token='));
     
     if (!sessionCookie) return false;
-
     const token = sessionCookie.substring('admin_token='.length);
-
-    // Check if the token matches the expected simple value
     return token === SIMPLE_TOKEN_VALUE;
 }
 
-// Simple password check (UPDATED: uses ADMIN_PASSWORD env var)
 function checkPassword(password) {
-    // NOTE: This uses the plaintext ADMIN_PASSWORD env variable directly.
-    return password === ADMIN_PASSWORD; 
+    return password === ADMIN_PASSWORD;
 }
-
 
 // ================================================================================================
 // API HANDLERS
@@ -121,39 +81,37 @@ async function handleLogin(req, res) {
     }
 
     if (checkPassword(password)) {
-        setAuthCookie(res); // Set the simple token cookie
+        setAuthCookie(res);
         return res.status(200).json({ ok: true, message: 'Login successful' });
     } else {
-        clearAuthCookie(res); 
+        clearAuthCookie(res);
         return res.status(401).json({ ok: false, error: 'Invalid credentials' });
     }
 }
 
-// The following functions (handleLoadSlots, handleAddSlots, handleDeleteSlots) 
-// remain largely the same, relying on the isAuthenticated check above.
-
 async function handleLoadSlots(req, res) {
-    try {
-        const sheets = await connectToSheet();
-        const response = await sheets.spreadsheets.values.get({
-            spreadsheetId: SPREADSHEET_ID,
-            range: 'Slots!A:E',
-        });
-        
-        const rows = response.data.values || [];
-        const slots = rows.slice(1).map((row, idx) => ({
-            id: idx + 2,
-            date: row[0],
-            slotLabel: row[1],
-            capacity: parseInt(row[2]) || 0,
-            taken: parseInt(row[3]) || 0,
-            available: parseInt(row[4]) || 0,
-        })).filter(slot => slot.id);
+    await connectToSheet();
+    const sheet = doc.sheetsByTitle['Slots'];
 
-        return res.status(200).json({ ok: true, slots });
-    } catch (error) {
-        return res.status(500).json({ ok: false, error: error.message });
+    if (!sheet) {
+        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
     }
+
+    await sheet.loadCells(); 
+    const rows = await sheet.getRows();
+
+    const slots = rows.map(row => ({
+        id: row.rowNumber,
+        date: row.date,
+        slotLabel: row.slotLabel,
+        capacity: parseInt(row.capacity, 10) || 0,
+        taken: parseInt(row.taken, 10) || 0,
+        available: parseInt(row.available, 10) || 0,
+    })).filter(slot => slot.id); 
+
+    slots.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    return res.status(200).json({ ok: true, slots });
 }
 
 async function handleAddSlots(req, res) {
