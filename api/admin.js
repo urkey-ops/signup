@@ -21,10 +21,8 @@ async function connectToSheet() {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-    const privateKey = ADMIN_PRIVATE_KEY
-        .trim()
-        .replace(/\\r\\n/g, '\n')
-        .replace(/\\n/g, '\n');
+   const privateKey = ADMIN_PRIVATE_KEY.replace(/\\n/gm, '\n').trim();
+
 
     const jwtClient = new JWT({
         email: ADMIN_CLIENT_EMAIL,
