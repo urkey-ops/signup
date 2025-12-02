@@ -16,21 +16,15 @@ const SIMPLE_TOKEN_VALUE = "valid_admin_session";
 let doc;
 
 // Helper to initialize Google Sheets
+// REPLACE your connectToSheet() COMPLETELY with this:
 async function connectToSheet() {
-    if (!SPREADSHEET_ID || !ADMIN_CLIENT_EMAIL || !ADMIN_PRIVATE_KEY) {
+    const serviceAccount = JSON.parse(process.env.GOOGLE_ADMIN_SERVICE_ACCOUNT);
+    
+    if (!SPREADSHEET_ID || !serviceAccount) {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-   const privateKey = ADMIN_PRIVATE_KEY.replace(/\\n/gm, '\n').trim();
-
-
-    const jwtClient = new JWT({
-        email: ADMIN_CLIENT_EMAIL,
-        key: privateKey,
-        scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
+    await doc.useServiceAccountAuth(serviceAccount);
     await doc.loadInfo();
 }
 
