@@ -19,7 +19,8 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "google-spreadsheet": "4.1.0"
+    "google-spreadsheet": "4.1.0",
+    "googleapis": "^166.0.0"
   },
   "devDependencies": {
     "vercel": "^33.7.1"
