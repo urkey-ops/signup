@@ -5,8 +5,9 @@
 // API endpoint should match the Vercel function path
 const API_URL = '/api/admin'; 
 
-// IMPORTANT: This value must match the ADMIN_PASSWORD environment variable on Vercel's backend.
-const ADMIN_PASSWORD_MATCH = "your_secret_admin_password_hash"; 
+// NOTE: The secret ADMIN_PASSWORD_MATCH constant has been removed from the client-side 
+// to prevent it from being exposed in the browser's source code. 
+// All authentication now relies only on the secure backend check against the Vercel environment variable.
 
 // Default slot times and capacities
 const DEFAULT_SLOTS = [
@@ -22,7 +23,6 @@ let selectedDates = [];
 
 // ================================================================================================
 // HELPER FUNCTIONS
-// (All helper functions remain unchanged from previous versions)
 // ================================================================================================
 
 /**
@@ -202,14 +202,10 @@ async function login() {
     const password = passwordInput.value;
     displayMessage('loginMsg', 'Logging in...', false);
     
-    // Client-side check for immediate feedback (using simple comparison for matching simplicity)
-    if (password !== ADMIN_PASSWORD_MATCH) {
-        displayMessage('loginMsg', 'Invalid Password.', true);
-        return;
-    }
+    // REMOVED CLIENT-SIDE PASSWORD CHECK. 
+    // All validation is now handled securely on the Vercel backend.
 
     try {
-        // We still send it to the server to get the session cookie set
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -230,6 +226,7 @@ async function login() {
             await loadSlots(); // Load data after successful login
             createWeekendControls(); // Initialize date selector
         } else {
+            // The password failure response comes from the server
             displayMessage('loginMsg', data.error || 'Login failed due to server error.', true);
         }
     } catch (error) {
@@ -248,7 +245,7 @@ async function loadSlots() {
     try {
         const response = await fetch(API_URL, {
             method: 'GET'
-            // NOTE: The browser automatically sends the simple 'admin_token' cookie
+            // The browser automatically sends the simple 'admin_token' cookie
         });
 
         if (response.status === 401) {
