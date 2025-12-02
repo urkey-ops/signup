@@ -3,6 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Admin - Manage Slots</title>
     <link rel="stylesheet" href="style.css" />
     <style>
@@ -30,9 +32,10 @@
             transition: all 0.2s ease;
             font-size: 0.85rem;
             user-select: none;
+            position: relative;
         }
         
-        .date-chip:hover {
+        .date-chip:hover:not(.past):not(.disabled) {
             border-color: #2563eb;
             background: #dbeafe;
             transform: scale(1.02);
@@ -45,16 +48,33 @@
             font-weight: 600;
         }
         
-        .date-chip.past {
+        .date-chip.past,
+        .date-chip.disabled {
             opacity: 0.4;
             cursor: not-allowed;
             background: #f1f5f9;
         }
         
-        .date-chip.past:hover {
+        .date-chip.past:hover,
+        .date-chip.disabled:hover {
             transform: none;
             border-color: #cbd5e1;
             background: #f1f5f9;
+        }
+        
+        .date-chip .exists-badge {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            background: #10b981;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .date-month {
@@ -117,12 +137,6 @@
             font-size: 0.85rem;
             font-weight: 700;
             color: #0f172a;
-        }
-        
-        .date-select-all {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
         }
         
         .slot-row {
@@ -219,7 +233,61 @@
             color: #64748b;
             text-transform: uppercase;
         }
+
+        .form-group-inline {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 8px 0;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+
+        .form-label {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+        }
+
+        .form-input-small {
+            width: 80px;
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 8px 16px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .logout-btn:hover {
+            background: #dc2626;
+        }
         
+        @media (max-width: 768px) {
+            .logout-btn {
+                position: static;
+                width: 100%;
+                margin-bottom: 16px;
+            }
+        }
+
         @media (max-width: 576px) {
             .multi-date-selector {
                 grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
@@ -237,6 +305,30 @@
                 padding: 8px 12px;
                 font-size: 0.8rem;
             }
+
+            .stats-bar {
+                gap: 8px;
+            }
+
+            .stat-value {
+                font-size: 1.2rem;
+            }
+        }
+
+        /* Loading state */
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Message box improvements */
+        .msg-box {
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
     </style>
 </head>
@@ -251,13 +343,17 @@
                    id="adminPassword" 
                    class="form-input" 
                    placeholder="Enter Admin Password"
-                   onkeypress="if(event.key==='Enter') login()">
-            <button onclick="login()" class="btn primary-btn">Login</button>
-            <p id="loginMsg" class="msg-box"></p>
+                   autocomplete="current-password"
+                   aria-label="Admin Password">
+            <button onclick="login()" id="loginBtn" class="btn primary-btn">Login</button>
+            <p id="loginMsg" class="msg-box" role="alert"></p>
         </div>
 
         <!-- Admin Section -->
         <div id="adminSection" style="display:none;">
+            
+            <!-- Logout Button -->
+            <button onclick="logout()" class="logout-btn">🚪 Logout</button>
             
             <!-- Statistics Bar -->
             <div class="stats-bar" id="statsBar" style="display:none;">
@@ -277,7 +373,14 @@
                     <span class="stat-value" id="totalAvailable">0</span>
                     <span class="stat-label">Available</span>
                 </div>
+                <div class="stat-item">
+                    <span class="stat-value" id="utilizationRate">0%</span>
+                    <span class="stat-label">Utilization</span>
+                </div>
             </div>
+            
+            <!-- Quick Add Weekends Section -->
+            <div id="quickWeekendAdd" style="margin-bottom: 20px;"></div>
             
             <!-- Add New Slots Section -->
             <div class="card add-slot-form">
@@ -287,19 +390,19 @@
                     <label style="font-weight: 600; margin-bottom: 8px; display: block;">
                         Select Multiple Dates (Click to select/deselect):
                     </label>
-                    <div id="multiDateSelector" class="multi-date-selector"></div>
+                    <div id="multiDateSelector" class="multi-date-selector" role="group" aria-label="Date selector"></div>
                     <p style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
                         <strong id="selectedDatesCount">0</strong> date(s) selected
                     </p>
                 </div>
                 
                 <h3 style="margin-top: 20px;">⏰ Configure Time Slots & Capacity:</h3>
-                <div id="slotCheckboxes"></div>
+                <div id="slotCheckboxes" role="group" aria-label="Time slot configuration"></div>
                 
                 <button onclick="submitNewSlots()" id="submitSlotsBtn" class="btn primary-btn">
                     💾 Save Selected Dates & Slots
                 </button>
-                <p id="addMsg" class="msg-box"></p>
+                <p id="addMsg" class="msg-box" role="alert"></p>
             </div>
 
             <!-- Current Slots Section -->
@@ -307,7 +410,7 @@
                 <h2>📋 Manage Current Slots</h2>
                 
                 <div class="control-bar">
-                    <button onclick="loadSlots()" class="btn secondary-btn">
+                    <button onclick="loadSlots()" class="btn secondary-btn" aria-label="Refresh slots">
                         🔄 Refresh
                     </button>
                     <button onclick="selectAllSlots()" class="btn secondary-btn" id="selectAllBtn">
@@ -316,12 +419,13 @@
                     <button onclick="deleteSelectedSlots()" 
                             class="btn-delete" 
                             id="deleteSelectedBtn" 
-                            style="display: none;">
+                            style="display: none;"
+                            aria-label="Delete selected slots">
                         🗑️ Delete Selected (0)
                     </button>
                 </div>
                 
-                <div id="slotsDisplay"></div>
+                <div id="slotsDisplay" role="region" aria-label="Current slots list"></div>
             </div>
         </div>
     </div>
