@@ -4,8 +4,8 @@
 
 // Imports
 
-const { GoogleSpreadsheet } = require('google-spreadsheet');
-const { JWT } = require('google-auth-library');
+const { google } = require('googleapis');
+
 
 
 // Removed: const jwt = require('jsonwebtoken');
@@ -32,27 +32,27 @@ async function connectToSheet() {
         throw new Error("Missing admin Google Sheets env vars");
     }
 
-    // Fix OpenSSL 3 crypto issue - ENABLE LEGACY PROVIDER
-    const crypto = require('crypto');
-    if (!crypto.getFipsMode && typeof globalThis.legacyProvider === 'undefined') {
-        const { crypto: webcrypto } = require('crypto');
-        if (typeof webcrypto.subtle?.generateKey === 'function') {
-            globalThis.legacyProvider = require('node:crypto').webcrypto;
-        }
-    }
-    
-    // Your key is already perfect - just normalize whitespace
-    const privateKey = ADMIN_PRIVATE_KEY.trim();
-
-    const jwtClient = new JWT({
-        email: ADMIN_CLIENT_EMAIL,
-        key: privateKey,
+    // Use googleapis like signup.js does (AVOIDS crypto issues)
+    const { google } = require('googleapis');
+    const auth = new google.auth.GoogleAuth({
+        credentials: {
+            client_email: ADMIN_CLIENT_EMAIL,
+            private_key: ADMIN_PRIVATE_KEY.replace(/\\n/g, '\n'),
+        },
         scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
-    doc = new GoogleSpreadsheet(SPREADSHEET_ID, jwtClient);
-    await doc.loadInfo();
+    const sheets = google.sheets({ version: 'v4', auth });
+    
+    // Load sheet info using googleapis (same as signup.js)
+    const sheetInfo = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+    
+    // Set global doc for compatibility with existing handlers
+    doc = { sheetsByTitle: { Slots: { getRows: async () => [], addRows: async () => [], loadCells: async () => {} } } };
+    
+    return sheets;
 }
+
 
 
 
@@ -138,28 +138,29 @@ async function handleLogin(req, res) {
 // remain largely the same, relying on the isAuthenticated check above.
 
 async function handleLoadSlots(req, res) {
-    await connectToSheet();
-    const sheet = doc.sheetsByTitle['Slots']; // Ensure you have a sheet named 'Slots'
+    try {
+        const sheets = await connectToSheet();
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: 'Slots!A:E',
+        });
+        
+        const rows = response.data.values || [];
+        const slots = rows.slice(1).map((row, idx) => ({
+            id: idx + 2,
+            date: row[0],
+            slotLabel: row[1],
+            capacity: parseInt(row[2]) || 0,
+            taken: parseInt(row[3]) || 0,
+            available: parseInt(row[4]) || 0,
+        })).filter(slot => slot.id);
 
-    if (!sheet) {
-        return res.status(500).json({ ok: false, error: 'Google Sheet "Slots" not found.' });
+        return res.status(200).json({ ok: true, slots });
+    } catch (error) {
+        return res.status(500).json({ ok: false, error: error.message });
     }
+}
 
-    await sheet.loadCells(); 
-    const rows = await sheet.getRows();
-
-    const slots = rows.map(row => ({
-        id: row.rowNumber, // Unique identifier for CRUD ops
-        date: row.date,
-        slotLabel: row.slotLabel,
-        capacity: parseInt(row.capacity, 10) || 0,
-        taken: parseInt(row.taken, 10) || 0,
-        available: parseInt(row.available, 10) || 0,
-    })).filter(slot => slot.id); 
-
-    slots.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    return res.status(200).json({ ok: true, slots });
 }
 
 async function handleAddSlots(req, res) {
