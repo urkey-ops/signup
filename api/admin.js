@@ -17,7 +17,7 @@ let doc;
 
 // Helper to initialize Google Sheets
 async function connectToSheet() {
-    const serviceAccount = JSON.parse(process.env.GOOGLE_ADMIN_SERVICE_ACCOUNT);
+    const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
     
     if (!SPREADSHEET_ID || !serviceAccount) {
         throw new Error("Missing Google Sheets env vars");
