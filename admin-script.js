@@ -5,10 +5,6 @@
 // API endpoint should match the Vercel function path
 const API_URL = '/api/admin'; 
 
-// NOTE: The secret ADMIN_PASSWORD_MATCH constant has been removed from the client-side 
-// to prevent it from being exposed in the browser's source code. 
-// All authentication now relies only on the secure backend check against the Vercel environment variable.
-
 // Default slot times and capacities
 const DEFAULT_SLOTS = [
     { label: "10AM - 12PM", capacity: 6 },
@@ -50,10 +46,13 @@ function formatDate(date) {
  */
 function isPastDate(dateStr) {
     const today = new Date();
-    // Set time to start of day for accurate comparison
-    today.setHours(0, 0, 0, 0); 
-    const targetDate = new Date(dateStr);
-    targetDate.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse MM/DD/YYYY explicitly for cross-browser compatibility
+    const [month, day, year] = dateStr.split('/').map(Number);
+    const targetDate = new Date(year, month - 1, day);
+    targetDate.setHours(0, 0, 0, 0);
+    
     return targetDate < today;
 }
 
@@ -144,7 +143,7 @@ function renderSlotCheckboxes() {
     
     DEFAULT_SLOTS.forEach((slot, index) => {
         const div = document.createElement('div');
-        div.className = 'form-group-inline'; // Assuming this style is defined in style.css or your <style> block
+        div.className = 'form-group-inline';
         div.innerHTML = `
             <label class="form-label">
                 <input type="checkbox" id="slot-${index}" checked> 
@@ -167,6 +166,12 @@ function renderSlotCheckboxes() {
  * @param {HTMLElement} chip The date chip element.
  */
 function toggleDateSelection(dateStr, chip) {
+    // Prevent selection if slots haven't loaded yet
+    if (!loadedSlots) {
+        displayMessage('addMsg', 'Please wait for slots to load first.', true);
+        return;
+    }
+    
     const index = selectedDates.indexOf(dateStr);
     const existingDates = loadedSlots.map(s => s.date);
     
@@ -200,11 +205,18 @@ function toggleDateSelection(dateStr, chip) {
  */
 async function login() {
     const passwordInput = document.getElementById('adminPassword');
+    const loginBtn = document.getElementById('loginBtn');
     const password = passwordInput.value;
-    displayMessage('loginMsg', 'Logging in...', false);
     
-    // REMOVED CLIENT-SIDE PASSWORD CHECK. 
-    // All validation is now handled securely on the Vercel backend.
+    if (!password) {
+        displayMessage('loginMsg', 'Please enter a password.', true);
+        return;
+    }
+    
+    // Disable button during login
+    if (loginBtn) loginBtn.disabled = true;
+    
+    displayMessage('loginMsg', 'Logging in...', false);
 
     try {
         const response = await fetch(API_URL, {
@@ -212,6 +224,7 @@ async function login() {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include', // CRITICAL: Send cookies
             body: JSON.stringify({ 
                 action: 'login',
                 password: password 
@@ -222,17 +235,21 @@ async function login() {
 
         if (response.ok && data.ok) {
             displayMessage('loginMsg', 'Login successful! Redirecting...', false);
+            passwordInput.value = ''; // Clear password
             document.getElementById('loginSection').style.display = 'none';
             document.getElementById('adminSection').style.display = 'block';
             await loadSlots(); // Load data after successful login
             createWeekendControls(); // Initialize date selector
         } else {
-            // The password failure response comes from the server
+            passwordInput.value = ''; // Clear password on failure
             displayMessage('loginMsg', data.error || 'Login failed due to server error.', true);
         }
     } catch (error) {
         console.error('Login error:', error);
+        passwordInput.value = ''; // Clear password on error
         displayMessage('loginMsg', 'Network or server error during login.', true);
+    } finally {
+        if (loginBtn) loginBtn.disabled = false;
     }
 }
 
@@ -241,16 +258,15 @@ async function login() {
  */
 async function loadSlots() {
     displayMessage('addMsg', 'Loading slots...', false);
-    document.getElementById('statsBar').style.display = 'none';
     
     try {
         const response = await fetch(API_URL, {
-            method: 'GET'
-            // The browser automatically sends the simple 'admin_token' cookie
+            method: 'GET',
+            credentials: 'include' // CRITICAL: Send cookies
         });
 
         if (response.status === 401) {
-             // Session expired or unauthenticated
+            // Session expired or unauthenticated
             displayMessage('loginMsg', 'Session expired. Please log in again.', true);
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('adminSection').style.display = 'none';
@@ -278,6 +294,8 @@ async function loadSlots() {
  * Submits the newly selected dates and time slots for batch creation.
  */
 async function submitNewSlots() {
+    const submitBtn = document.getElementById('submitBtn');
+    
     if (selectedDates.length === 0) {
         displayMessage('addMsg', 'Please select at least one date.', true);
         return;
@@ -322,6 +340,9 @@ async function submitNewSlots() {
         return;
     }
 
+    // Disable button during submission
+    if (submitBtn) submitBtn.disabled = true;
+    
     displayMessage('addMsg', `Adding ${newSlotsData.length} entries...`, false);
     
     try {
@@ -330,6 +351,7 @@ async function submitNewSlots() {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include', // CRITICAL: Send cookies
             body: JSON.stringify({ 
                 action: 'addSlots',
                 newSlotsData: newSlotsData
@@ -361,6 +383,8 @@ async function submitNewSlots() {
     } catch (error) {
         console.error('Submit slots error:', error);
         displayMessage('addMsg', 'Network error during slot creation.', true);
+    } finally {
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -368,6 +392,7 @@ async function submitNewSlots() {
  * Handles batch deletion of selected slots.
  */
 async function deleteSelectedSlots() {
+    const deleteBtn = document.getElementById('deleteSelectedBtn');
     const selectedCheckboxes = document.querySelectorAll('#slotsDisplay input[type="checkbox"][data-row-id]:checked');
     const rowIds = Array.from(selectedCheckboxes).map(cb => parseInt(cb.dataset.rowId, 10));
 
@@ -380,6 +405,9 @@ async function deleteSelectedSlots() {
         return;
     }
 
+    // Disable button during deletion
+    if (deleteBtn) deleteBtn.disabled = true;
+    
     displayMessage('addMsg', `Deleting ${rowIds.length} slots...`, false);
 
     try {
@@ -388,6 +416,7 @@ async function deleteSelectedSlots() {
             headers: {
                 'Content-Type': 'application/json',
             },
+            credentials: 'include', // CRITICAL: Send cookies
             body: JSON.stringify({ 
                 action: 'deleteSlots',
                 rowIds: rowIds 
@@ -401,11 +430,17 @@ async function deleteSelectedSlots() {
             updateDeleteButtonCount(); // Update the button count immediately
             displayMessage('addMsg', data.message, false);
         } else {
-            displayMessage('addMsg', data.error || 'Failed to delete slots.', true);
+            let errorMsg = data.error || 'Failed to delete slots.';
+            if (data.details && data.details.length > 0) {
+                errorMsg += ` ${data.details.join(', ')}`;
+            }
+            displayMessage('addMsg', errorMsg, true);
         }
     } catch (error) {
         console.error('Delete slots error:', error);
         displayMessage('addMsg', 'Network error during slot deletion.', true);
+    } finally {
+        if (deleteBtn) deleteBtn.disabled = false;
     }
 }
 
@@ -413,7 +448,8 @@ async function deleteSelectedSlots() {
  * Toggles all slot checkboxes.
  */
 function selectAllSlots() {
-    const isChecked = document.getElementById('selectAllBtn').textContent.includes('Deselect');
+    const selectAllBtn = document.getElementById('selectAllBtn');
+    const isChecked = selectAllBtn.textContent.includes('Deselect');
     const checkboxes = document.querySelectorAll('#slotsDisplay input[type="checkbox"][data-row-id]');
     
     checkboxes.forEach(cb => {
@@ -421,7 +457,7 @@ function selectAllSlots() {
     });
 
     updateDeleteButtonCount();
-    document.getElementById('selectAllBtn').textContent = isChecked ? '☑️ Select All' : '☐ Deselect All';
+    selectAllBtn.textContent = isChecked ? '☑️ Select All' : '☐ Deselect All';
 }
 
 
@@ -438,6 +474,11 @@ function renderSlots(slots) {
     if (!displayContainer) return;
     
     displayContainer.innerHTML = '';
+    
+    if (slots.length === 0) {
+        displayContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No slots available. Create some using the form above.</p>';
+        return;
+    }
     
     // Group slots by date
     const groupedSlots = slots.reduce((acc, slot) => {
@@ -460,7 +501,8 @@ function renderSlots(slots) {
                     <input type="checkbox" 
                            class="slot-row-checkbox" 
                            data-row-id="${slot.id}"
-                           onchange="updateDeleteButtonCount()">
+                           onchange="updateDeleteButtonCount()"
+                           aria-label="Select slot ${slot.slotLabel} on ${dateStr}">
                     <div class="slot-info">
                         <span class="slot-label">${slot.slotLabel}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
@@ -503,8 +545,12 @@ function updateDeleteButtonCount() {
  * @param {Array<object>} slots 
  */
 function updateStats(slots) {
+    const statsBar = document.getElementById('statsBar');
+    
+    if (!statsBar) return;
+    
     if (slots.length === 0) {
-        document.getElementById('statsBar').style.display = 'none';
+        statsBar.style.display = 'none';
         return;
     }
     
@@ -519,7 +565,7 @@ function updateStats(slots) {
     document.getElementById('totalSlots').textContent = totalSlots;
     document.getElementById('totalBookings').textContent = totalBookings;
     document.getElementById('totalAvailable').textContent = totalAvailable;
-    document.getElementById('statsBar').style.display = 'flex';
+    statsBar.style.display = 'flex';
 }
 
 // ================================================================================================
@@ -534,11 +580,34 @@ window.deleteSelectedSlots = deleteSelectedSlots;
 window.selectAllSlots = selectAllSlots;
 window.updateDeleteButtonCount = updateDeleteButtonCount;
 
-// Initial check to see if the user is already authenticated (e.g., cookie still valid)
+// Initial check to see if the user is already authenticated
 window.onload = async () => {
-    // Attempt to load slots to test the session cookie status
-    await loadSlots(); 
-    if (document.getElementById('adminSection').style.display === 'block') {
-        createWeekendControls();
+    // Try to load slots silently to check authentication
+    try {
+        const response = await fetch(API_URL, {
+            method: 'GET',
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            if (data.ok) {
+                // User is authenticated
+                document.getElementById('loginSection').style.display = 'none';
+                document.getElementById('adminSection').style.display = 'block';
+                loadedSlots = data.slots;
+                renderSlots(loadedSlots);
+                updateStats(loadedSlots);
+                createWeekendControls();
+                return;
+            }
+        }
+    } catch (error) {
+        // Silently fail - just show login
+        console.log('Not authenticated, showing login screen');
     }
+    
+    // Not authenticated - show login section
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('adminSection').style.display = 'none';
 };
