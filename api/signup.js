@@ -289,7 +289,7 @@ module.exports = async function handler(req, res) {
         // ========================================================================================
         if (req.method === "GET") {
             
-            // --- User Booking Lookup ---
+            // --- User Booking Lookup --- 
             if (req.query.email) {
                 const lookupEmail = sanitizeInput(req.query.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
 
@@ -406,7 +406,7 @@ module.exports = async function handler(req, res) {
         }
 
         // ========================================================================================
-        // POST: Create new booking (WITH ATOMIC TRANSACTION SAFETY)
+        // POST: Create new booking
         // ========================================================================================
         if (req.method === "POST") {
             const validationErrors = validateBookingRequest(req.body);
@@ -437,13 +437,9 @@ module.exports = async function handler(req, res) {
             incrementActiveBookings(email);
 
             try {
-                log('info', 'Processing booking request', { 
-                    email, 
-                    name,
-                    slotCount: slotIds.length 
-                });
+                log('info', 'Processing booking request', { email, name, slotCount: slotIds.length });
 
-                // ATOMIC READ: Fetch slots and signups together
+                // Atomic fetch
                 const [slotsResponse, signupsResponse] = await Promise.all([
                     sheets.spreadsheets.values.batchGet({
                         spreadsheetId: SHEET_ID,
@@ -462,7 +458,6 @@ module.exports = async function handler(req, res) {
                 const updates = [];
                 const now = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
 
-                // Validate ALL slots atomically before making ANY changes
                 for (let i = 0; i < slotIds.length; i++) {
                     const slotId = slotIds[i];
                     const slotData = slotRanges[i].values?.[0];
@@ -470,10 +465,7 @@ module.exports = async function handler(req, res) {
                     if (!slotData || slotData.length < 4) {
                         log('warn', 'Slot not found', { slotId, email });
                         decrementActiveBookings(email);
-                        return res.status(400).json({ 
-                            ok: false, 
-                            error: `Slot not found. Please refresh and try again.` 
-                        });
+                        return res.status(400).json({ ok: false, error: `Slot not found. Please refresh and try again.` });
                     }
 
                     const slot = {
@@ -483,86 +475,45 @@ module.exports = async function handler(req, res) {
                         taken: parseInt(slotData[SHEETS.SLOTS.COLS.TAKEN]) || 0
                     };
 
-                    // Check for past date
                     const slotDate = new Date(slot.date);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-                    
+
                     if (slotDate < today) {
                         log('warn', 'Attempted booking of past slot', { slotId, date: slot.date, email });
                         decrementActiveBookings(email);
-                        return res.status(400).json({
-                            ok: false,
-                            error: `Cannot book slot for ${slot.date} - this date has passed.`
-                        });
+                        return res.status(400).json({ ok: false, error: `Cannot book slot for ${slot.date} - this date has passed.` });
                     }
 
-                    // Check for duplicate booking
                     const duplicateBooking = existingSignups.find(row => {
                         const rowEmail = row[SHEETS.SIGNUPS.COLS.EMAIL]?.trim().toLowerCase();
                         const rowSlotId = parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]);
                         const rowStatus = row[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
-                        
-                        return rowEmail === email && 
-                               rowSlotId === slotId &&
-                               rowStatus === 'ACTIVE';
+                        return rowEmail === email && rowSlotId === slotId && rowStatus === 'ACTIVE';
                     });
 
                     if (duplicateBooking) {
-                        log('warn', 'Duplicate booking attempt', { 
-                            email, 
-                            slotId, 
-                            date: slot.date, 
-                            label: slot.label 
-                        });
+                        log('warn', 'Duplicate booking attempt', { email, slotId, date: slot.date, label: slot.label });
                         decrementActiveBookings(email);
-                        return res.status(409).json({ 
-                            ok: false, 
-                            error: `You already have an active booking for ${slot.label} on ${slot.date}.` 
-                        });
+                        return res.status(409).json({ ok: false, error: `You already have an active booking for ${slot.label} on ${slot.date}.` });
                     }
 
-                    // Check capacity
                     if (slot.taken >= slot.capacity) {
-                        log('warn', 'Slot full', { 
-                            slotId, 
-                            date: slot.date, 
-                            label: slot.label,
-                            capacity: slot.capacity,
-                            taken: slot.taken
-                        });
+                        log('warn', 'Slot full', { slotId, date: slot.date, label: slot.label, capacity: slot.capacity, taken: slot.taken });
                         decrementActiveBookings(email);
-                        return res.status(409).json({ 
-                            ok: false, 
-                            error: `The slot "${slot.label}" on ${slot.date} is now full. Please select another slot.` 
-                        });
+                        return res.status(409).json({ ok: false, error: `The slot "${slot.label}" on ${slot.date} is now full. Please select another slot.` });
                     }
 
-                    signupRows.push([
-                        now,
-                        slot.date,
-                        slot.label,
-                        name,
-                        req.body.email.trim(),
-                        phone,
-                        notes,
-                        slotId,
-                        'ACTIVE'
-                    ]);
-
+                    signupRows.push([now, slot.date, slot.label, name, req.body.email.trim(), phone, notes, slotId, 'ACTIVE']);
                     const newTaken = slot.taken + 1;
-                    updates.push({
-                        range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
-                        values: [[newTaken]]
-                    });
+                    updates.push({ range: `${SHEETS.SLOTS.NAME}!D${slotId}`, values: [[newTaken]] });
                 }
 
-                // ATOMIC WRITE: Use batchUpdate for transactional consistency
+                // Atomic write
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
                     requestBody: {
                         requests: [
-                            // First: append signups
                             {
                                 appendCells: {
                                     sheetId: SIGNUPS_GID,
@@ -572,28 +523,6 @@ module.exports = async function handler(req, res) {
                                     fields: 'userEnteredValue'
                                 }
                             },
-                            // Then: update slot counts atomically
-                            ...updates.map((update, idx) => ({
-                                updateCells: {
-                                    range: {
-                                        sheetId: SLOTS_GID,
-                                        startRowIndex: slotIds[idx] - 1,
-                                        endRowIndex: slotIds[idx],
-                                        startColumnIndex: 3,
-                                        endColumnIndex: 4
-                                    },
-                                    rows: [{
-                                        values: [{
-                                            userEnteredValue: { numberValue: update.values[0][0] }
-                                        }]
-                                    }],
-                                    fields: 'userEnteredValue'
-                                }
-                            }))
-                        ]
-                    }
-                });
-
                 invalidateCache();
                 decrementActiveBookings(email);
 
