@@ -1,10 +1,10 @@
-// FILE: vercel.json
+
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "name": "booking-system",
   
-  // 1. ADDED: Define the custom static build process
+ 
   "builds": [
     {
       "src": "index.html",
@@ -16,20 +16,20 @@
     }
   ],
   
-  // 2. ADDED: Explicitly configure static routes for generated files
+ 
   "routes": [
-    // Route for the compiled CSS file inside the 'dist' folder
+   
     {
       "src": "/dist/(.*)",
       "dest": "/dist/$1",
       "headers": { "cache-control": "public, max-age=31536000, immutable" }
     },
-    // Route for the root file (index.html)
+  
     {
       "src": "/",
       "dest": "/index.html"
     },
-    // Route for the admin file
+  
     {
       "src": "/admin",
       "destination": "/admin.html"
@@ -38,9 +38,9 @@
 
   "outputDirectory": ".",
   
-  // Existing headers configuration (reordered for clarity, logic is the same)
+ 
   "headers": [
-    // Security Headers for all paths
+ 
     {
       "source": "/(.*)",
       "headers": [
@@ -51,14 +51,14 @@
         { "key": "Permissions-Policy", "value": "geolocation=(), microphone=(), camera=()" }
       ]
     },
-    // Cache control for API
+   
     {
       "source": "/api/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     }
-    // NOTE: Removed the redundant /:path* cache header since it's now covered by the custom route above.
+   
   ],
   
   "rewrites": [
