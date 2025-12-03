@@ -523,6 +523,27 @@ module.exports = async function handler(req, res) {
                                     fields: 'userEnteredValue'
                                 }
                             },
+                            ...updates.map(update => ({
+                                updateCells: {
+                                    range: {
+                                        sheetId: SLOTS_GID,
+                                        startRowIndex: parseInt(update.range.match(/\d+/)[0]) - 1,
+                                        endRowIndex: parseInt(update.range.match(/\d+/)[0]),
+                                        startColumnIndex: 3,
+                                        endColumnIndex: 4
+                                    },
+                                    rows: [{
+                                        values: update.values.map(val => ({
+                                            userEnteredValue: { numberValue: parseInt(val[0]) }
+                                        }))
+                                    }],
+                                    fields: 'userEnteredValue'
+                                }
+                            }))
+                        ]
+                    }
+                });
+
                 invalidateCache();
                 decrementActiveBookings(email);
 
