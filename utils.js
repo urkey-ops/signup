@@ -10,15 +10,28 @@ export function sanitizeHTML(str) {
     return temp.innerHTML;
 }
 
+// Sanitize user input
+export function sanitizeInput(str, maxLength = 1000) {
+    if (!str) return '';
+    return str.toString().trim().replace(/[<>]/g, '').substring(0, maxLength);
+}
+
+// Validate email format
+export function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email) && email.length <= 254;
+}
+
 // Show a temporary message in a container
 export function showMessage(container, message, type = 'info', duration = 4000) {
     if (!container) return;
     container.textContent = message;
-    container.className = type; // info, success, error
+    container.className = `msg-box ${type}`; // info, success, error
     if (duration > 0) {
         setTimeout(() => {
             container.textContent = '';
-            container.className = '';
+            container.className = 'msg-box';
         }, duration);
     }
 }
@@ -37,6 +50,8 @@ export function getErrorMessage(status, defaultMsg = 'An error occurred') {
         case 401: return 'Unauthorized access.';
         case 403: return 'Forbidden. You do not have permission.';
         case 404: return 'Resource not found.';
+        case 409: return 'Booking conflict. Please try again.';
+        case 429: return 'Too many requests. Please wait a moment.';
         case 500: return 'Internal server error. Please try later.';
         case 502: return 'Bad gateway. Server unreachable.';
         case 503: return 'Service unavailable. Try again later.';
