@@ -1,4 +1,6 @@
-// START OF CODE: lookup.js (UPDATED - avoids inline onclick handlers)
+// ================================================================================================
+// LOOKUP.JS (FIXED)
+// ================================================================================================
 
 import { 
     API_URL, 
@@ -13,7 +15,9 @@ import {
     showMessage 
 } from './utils.js';
 
-// --- UPDATED: Lookup Bookings Function (Now filters by ACTIVE status) ---
+// ================================================================================================
+// LOOKUP BOOKINGS FUNCTION (FIXED)
+// ================================================================================================
 export async function lookupBookings() {
     const email = sanitizeInput(document.getElementById("lookupEmail").value.toLowerCase(), CONFIG.MAX_EMAIL_LENGTH);
     const displayEl = document.getElementById("userBookingsDisplay");
@@ -49,7 +53,6 @@ export async function lookupBookings() {
             return;
         }
 
-        // BACKEND NOW FILTERS BY STATUS='ACTIVE', so we trust the response
         const bookings = data.bookings || [];
 
         if (bookings.length === 0) {
@@ -57,8 +60,8 @@ export async function lookupBookings() {
             return;
         }
 
-        // Build DOM nodes safely
-        displayEl.innerHTML = ''; // clear
+        // ✅ FIXED: Build DOM nodes instead of innerHTML for data
+        displayEl.innerHTML = '';
         const listDiv = document.createElement('div');
         listDiv.className = 'bookings-list';
 
@@ -66,25 +69,43 @@ export async function lookupBookings() {
             const item = document.createElement('div');
             item.className = 'booking-item';
 
+            // Date and time
             const title = document.createElement('div');
-            title.innerHTML = `<strong>📅 ${sanitizeHTML(booking.date)}</strong> at <strong>🕰️ ${sanitizeHTML(booking.slotLabel)}</strong>`;
+            const dateStrong = document.createElement('strong');
+            dateStrong.textContent = `📅 ${booking.date}`;
+            title.appendChild(dateStrong);
+            title.appendChild(document.createTextNode(' at '));
+            const timeStrong = document.createElement('strong');
+            timeStrong.textContent = `🕰️ ${booking.slotLabel}`;
+            title.appendChild(timeStrong);
             item.appendChild(title);
 
-            const smallName = document.createElement('div');
-            smallName.innerHTML = `<small>Name: ${sanitizeHTML(booking.name)}</small>`;
-            item.appendChild(smallName);
+            // Name
+            const nameDiv = document.createElement('div');
+            const nameSmall = document.createElement('small');
+            nameSmall.textContent = `Name: ${booking.name}`;
+            nameDiv.appendChild(nameSmall);
+            item.appendChild(nameDiv);
 
+            // Phone (optional)
             if (booking.phone) {
                 const phoneDiv = document.createElement('div');
-                phoneDiv.innerHTML = `<small>Phone: ${sanitizeHTML(booking.phone)}</small>`;
+                const phoneSmall = document.createElement('small');
+                phoneSmall.textContent = `Phone: ${booking.phone}`;
+                phoneDiv.appendChild(phoneSmall);
                 item.appendChild(phoneDiv);
             }
+
+            // Notes (optional)
             if (booking.notes) {
                 const notesDiv = document.createElement('div');
-                notesDiv.innerHTML = `<small>Notes: ${sanitizeHTML(booking.notes)}</small>`;
+                const notesSmall = document.createElement('small');
+                notesSmall.textContent = `Notes: ${booking.notes}`;
+                notesDiv.appendChild(notesSmall);
                 item.appendChild(notesDiv);
             }
 
+            // Cancel button
             const btn = document.createElement('button');
             btn.className = 'btn secondary-btn';
             btn.style.marginTop = '8px';
@@ -92,18 +113,18 @@ export async function lookupBookings() {
             btn.style.color = 'white';
             btn.textContent = '❌ Cancel This Booking';
 
-            // attach data attributes
-            btn.dataset.signupRowId = booking.signupRowId;
-            btn.dataset.slotRowId = booking.slotRowId;
+            // ✅ FIXED: Use consistent naming for dataset
+            btn.dataset.signup_row_id = booking.signupRowId;
+            btn.dataset.slot_row_id = booking.slotRowId;
             btn.dataset.date = booking.date;
-            btn.dataset.slotLabel = booking.slotLabel;
+            btn.dataset.slot_label = booking.slotLabel;
 
-            // safe event listener
+            // Safe event listener
             btn.addEventListener('click', (ev) => {
-               const sId = Number(ev.currentTarget.dataset.signup_row_id);
-                const slId = Number(ev.currentTarget.dataset.slotrowid);
+                const sId = Number(ev.currentTarget.dataset.signup_row_id);
+                const slId = Number(ev.currentTarget.dataset.slot_row_id);
                 const date = ev.currentTarget.dataset.date;
-                const label = ev.currentTarget.dataset.slotlabel;
+                const label = ev.currentTarget.dataset.slot_label;
                 cancelBooking(sId, slId, date, label);
             });
 
@@ -122,12 +143,19 @@ export async function lookupBookings() {
     }
 }
 
-// --- UPDATED: Cancel Booking Function (Better error handling) ---
+// ================================================================================================
+// CANCEL BOOKING FUNCTION (FIXED - Add email verification)
+// ================================================================================================
 export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
-    const safeDate = sanitizeHTML(date);
-    const safeLabel = sanitizeHTML(slotLabel);
+    const email = document.getElementById("lookupEmail").value.trim().toLowerCase();
     
-    if (!confirm(`⚠️ Are you sure you want to cancel your booking for:\n\n📅 ${safeDate}\n🕰️ ${safeLabel}\n\nThis action cannot be undone.`)) {
+    // ✅ FIXED: Require email for cancellation (security)
+    if (!email) {
+        alert('❌ Error: Email is required for cancellation. Please ensure your email is in the search field above.');
+        return;
+    }
+    
+    if (!confirm(`⚠️ Are you sure you want to cancel your booking for:\n\n📅 ${date}\n🕰️ ${slotLabel}\n\nThis action cannot be undone.`)) {
         return;
     }
 
@@ -137,10 +165,15 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
     try {
         displayEl.innerHTML = '<p>⏳ Cancelling your booking...</p>';
         
+        // ✅ FIXED: Send email with cancellation request for verification
         const res = await fetch(API_URL, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ signupRowId, slotRowId })
+            body: JSON.stringify({ 
+                signupRowId, 
+                slotRowId,
+                email  // Backend will verify this matches
+            })
         });
 
         const data = await res.json();
@@ -165,6 +198,9 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
     }
 }
 
+// ================================================================================================
+// TOGGLE LOOKUP SECTION
+// ================================================================================================
 export function toggleLookup() {
     const content = document.getElementById('lookupContent');
     const toggleButton = document.getElementById('lookupToggle');
@@ -179,13 +215,10 @@ export function toggleLookup() {
     }
 }
 
-// Function to attach event listeners
+// ================================================================================================
+// INITIALIZATION
+// ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Expose necessary functions to the global scope (still safe to call externally)
-    window.lookupBookings = lookupBookings;
-    window.cancelBooking = cancelBooking;
-    window.toggleLookup = toggleLookup;
-
     const toggleBtn = document.getElementById("lookupToggle");
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleLookup);
@@ -194,5 +227,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
     if (searchBtn) {
         searchBtn.addEventListener('click', lookupBookings);
+    }
+    
+    // Allow Enter key in email field to trigger search
+    const lookupEmail = document.getElementById('lookupEmail');
+    if (lookupEmail) {
+        lookupEmail.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                lookupBookings();
+            }
+        });
     }
 });
