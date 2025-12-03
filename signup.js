@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT
+// SIGNUP FRONT-END SCRIPT (UPDATED - safer confirmation rendering)
 // ================================================================================================
 
 import { 
@@ -120,18 +120,39 @@ export async function submitSignup() {
             // SUCCESS
             API_CACHE.data = null; // Invalidate cache
             
-            // Show success message
+            // Build success DOM safely
             const successSection = document.getElementById("successMessage");
             const confirmationDetails = document.getElementById("confirmationDetails");
-            
-            let slotsListHTML = '<div style="margin: 20px 0;"><strong>Your bookings:</strong><ul style="text-align: left; display: inline-block; margin: 10px auto;">';
+
+            // create container
+            const container = document.createElement('div');
+            container.style.margin = '20px 0';
+
+            const heading = document.createElement('div');
+            const strongHeading = document.createElement('strong');
+            strongHeading.textContent = 'Your bookings:';
+            heading.appendChild(strongHeading);
+            container.appendChild(heading);
+
+            const ul = document.createElement('ul');
+            ul.style.textAlign = 'left';
+            ul.style.display = 'inline-block';
+            ul.style.margin = '10px auto';
+
             selectedSlots.forEach(slot => {
-                slotsListHTML += `<li>📅 ${sanitizeHTML(slot.date)} at 🕰️ ${sanitizeHTML(slot.label)}</li>`;
+                const li = document.createElement('li');
+                // use sanitizeHTML to ensure inserted text is escaped
+                li.innerHTML = `📅 ${sanitizeHTML(slot.date)} at 🕰️ ${sanitizeHTML(slot.label)}`;
+                ul.appendChild(li);
             });
-            slotsListHTML += '</ul></div>';
-            slotsListHTML += `<p>A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong></p>`;
-            
-            confirmationDetails.innerHTML = slotsListHTML;
+            container.appendChild(ul);
+
+            const p = document.createElement('p');
+            p.innerHTML = `A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong>`;
+            container.appendChild(p);
+
+            confirmationDetails.innerHTML = '';
+            confirmationDetails.appendChild(container);
             
             // Hide form, show success
             document.getElementById("signupSection").style.display = "none";
@@ -175,7 +196,7 @@ export async function submitSignup() {
 // INITIALIZE
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Expose functions globally for HTML onclick handlers
+    // Expose functions globally for legacy callers if needed
     window.showSignupForm = showSignupForm;
     window.submitSignup = submitSignup;
     window.backToSlotSelection = backToSlotSelection;
