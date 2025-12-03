@@ -1,124 +1,182 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT - HYBRID VERSION
+// SIGNUP FRONT-END SCRIPT
 // ================================================================================================
 
-import { selectedSlots, updateSelectedSlots } from './config.js';
-import { sanitizeHTML, showMessage, getErrorMessage } from './utils.js';
-import { toggleSlot, updateSummaryDisplay, backToSlotSelection, removeSlotFromSummary } from './slots.js';
+import { 
+    API_URL, 
+    CONFIG, 
+    selectedSlots, 
+    lastApiCall,
+    isSubmitting,
+    API_CACHE,
+    updateSelectedSlots,
+    updateLastApiCall,
+    updateIsSubmitting
+} from './config.js';
+import { 
+    sanitizeInput,
+    sanitizeHTML, 
+    showMessage, 
+    getErrorMessage,
+    isValidEmail 
+} from './utils.js';
+import { updateSummaryDisplay, backToSlotSelection } from './slots.js';
 
-// DOM ELEMENTS
-const form = document.getElementById('signup-form');
-const messageBox = document.getElementById('message-box');
-const emailInput = document.getElementById('email');
-const lookupBtn = document.getElementById('lookup-btn');
-
-// UTILS
-function sanitizeInput(str) {
-    if (!str) return '';
-    return str.toString().trim();
-}
-
-function displayMessage(message, type = 'info') {
-    messageBox.textContent = message;
-    messageBox.className = type; // info, success, error
-}
-
-function clearMessage() {
-    messageBox.textContent = '';
-    messageBox.className = '';
+// ================================================================================================
+// SHOW SIGNUP FORM
+// ================================================================================================
+export function showSignupForm() {
+    if (selectedSlots.length === 0) {
+        alert('Please select at least one slot before continuing.');
+        return;
+    }
+    
+    document.getElementById("slotsDisplay").style.display = "none";
+    document.getElementById("floatingSignupBtnContainer").style.display = "none";
+    document.getElementById("signupSection").style.display = "block";
+    
+    updateSummaryDisplay();
+    
+    // Scroll to form
+    document.getElementById("signupSection").scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Focus first input
+    setTimeout(() => {
+        document.getElementById("nameInput")?.focus();
+    }, 300);
 }
 
 // ================================================================================================
-// HANDLE FORM SUBMISSION
+// SUBMIT SIGNUP
 // ================================================================================================
-form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    clearMessage();
-
-    const formData = new FormData(form);
-    const name = sanitizeInput(formData.get('name'));
-    const email = sanitizeInput(formData.get('email'));
-    const phone = sanitizeInput(formData.get('phone'));
-    const notes = sanitizeInput(formData.get('notes'));
-    const slotIds = selectedSlots.map(s => s.id);
-
-    if (!name || !email || slotIds.length === 0) {
-        displayMessage('Name, email, and at least one slot are required.', 'error');
+export async function submitSignup() {
+    if (isSubmitting) {
+        console.warn('Submission already in progress');
         return;
     }
 
-    try {
-        displayMessage('Submitting booking...', 'info');
+    const msgEl = document.getElementById("signupMsg");
+    const submitBtn = document.getElementById("submitSignupBtn");
+    
+    // Get and sanitize inputs
+    const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
+    const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
+    const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
+    const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
 
-        const res = await fetch('/api/signup', {
+    // Validation
+    if (!name || name.length < 2) {
+        showMessage(msgEl, '⚠️ Please enter your full name (at least 2 characters).', 'error');
+        msgEl.style.display = 'block';
+        return;
+    }
+
+    if (!isValidEmail(email)) {
+        showMessage(msgEl, '⚠️ Please enter a valid email address.', 'error');
+        msgEl.style.display = 'block';
+        return;
+    }
+
+    if (selectedSlots.length === 0) {
+        showMessage(msgEl, '⚠️ Please select at least one slot.', 'error');
+        msgEl.style.display = 'block';
+        return;
+    }
+
+    // Cooldown check
+    const now = Date.now();
+    if (now - lastApiCall < CONFIG.API_COOLDOWN) {
+        showMessage(msgEl, '⚠️ Please wait a moment before submitting again.', 'error');
+        msgEl.style.display = 'block';
+        return;
+    }
+
+    // Disable submit button
+    updateIsSubmitting(true);
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+    showMessage(msgEl, '⏳ Processing your booking...', 'info', 0);
+    msgEl.style.display = 'block';
+
+    try {
+        const slotIds = selectedSlots.map(s => s.id);
+
+        const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, email, phone, notes, slotIds })
+            body: JSON.stringify({ 
+                name, 
+                email, 
+                phone, 
+                notes, 
+                slotIds 
+            })
         });
 
-        const data = await res.json();
-
-        if (data.ok) {
-            displayMessage(data.message, 'success');
-            form.reset();
-            updateSelectedSlots([]); // Clear selected slots
-            updateSummaryDisplay();   // Update the summary display
-            window.loadSlots();       // Refresh slots
-        } else {
-            displayMessage(data.error || 'Booking failed.', 'error');
-        }
-    } catch (err) {
-        displayMessage('Error submitting booking: ' + err.message, 'error');
-        console.error(err);
-    }
-});
-
-// ================================================================================================
-// LOOKUP EXISTING BOOKINGS
-// ================================================================================================
-async function lookupBookingsByEmail(email) {
-    try {
-        clearMessage();
-        const response = await fetch(`/api/signup?email=${encodeURIComponent(email)}`);
+        updateLastApiCall(Date.now());
         const data = await response.json();
 
-        if (!data.ok) {
-            displayMessage(data.error || 'Failed to lookup bookings.', 'error');
-            return;
-        }
-
-        if (data.bookings.length === 0) {
-            displayMessage('No active bookings found for this email.', 'info');
+        if (response.ok && data.ok) {
+            // SUCCESS
+            API_CACHE.data = null; // Invalidate cache
+            
+            // Show success message
+            const successSection = document.getElementById("successMessage");
+            const confirmationDetails = document.getElementById("confirmationDetails");
+            
+            let slotsListHTML = '<div style="margin: 20px 0;"><strong>Your bookings:</strong><ul style="text-align: left; display: inline-block; margin: 10px auto;">';
+            selectedSlots.forEach(slot => {
+                slotsListHTML += `<li>📅 ${sanitizeHTML(slot.date)} at 🕰️ ${sanitizeHTML(slot.label)}</li>`;
+            });
+            slotsListHTML += '</ul></div>';
+            slotsListHTML += `<p>A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong></p>`;
+            
+            confirmationDetails.innerHTML = slotsListHTML;
+            
+            // Hide form, show success
+            document.getElementById("signupSection").style.display = "none";
+            successSection.style.display = "block";
+            successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            
+            // Clear form
+            document.getElementById("nameInput").value = '';
+            document.getElementById("emailInput").value = '';
+            document.getElementById("phoneInput").value = '';
+            document.getElementById("notesInput").value = '';
+            
+            updateSelectedSlots([]);
+            
         } else {
-            const bookingsList = data.bookings.map(b => `${b.date} - ${b.slotLabel}`).join('\n');
-            displayMessage('Your active bookings:\n' + bookingsList, 'success');
+            // ERROR from server
+            const errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
+            showMessage(msgEl, `❌ ${errorMsg}`, 'error');
+            msgEl.style.display = 'block';
+            
+            // If slot conflict, reload slots
+            if (response.status === 409) {
+                setTimeout(() => {
+                    backToSlotSelection();
+                }, 3000);
+            }
         }
 
     } catch (err) {
-        displayMessage('Error looking up bookings: ' + err.message, 'error');
-        console.error(err);
+        console.error('Signup error:', err);
+        showMessage(msgEl, '❌ Unable to connect to the server. Please check your internet connection and try again.', 'error');
+        msgEl.style.display = 'block';
+    } finally {
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
     }
 }
-
-// ================================================================================================
-// EVENT LISTENERS
-// ================================================================================================
-lookupBtn?.addEventListener('click', () => {
-    const email = sanitizeInput(emailInput.value);
-    if (!email) {
-        displayMessage('Please enter your email to lookup bookings.', 'error');
-        return;
-    }
-    lookupBookingsByEmail(email);
-});
-
-// Expose functions globally for slot summary remove buttons
-window.removeSlotFromSummary = removeSlotFromSummary;
 
 // ================================================================================================
 // INITIALIZE
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    window.loadSlots = window.loadSlots || (() => {}); // fallback if slots.js not loaded
-    updateSummaryDisplay(); // Show summary if any pre-selected slots
+    // Expose functions globally for HTML onclick handlers
+    window.showSignupForm = showSignupForm;
+    window.submitSignup = submitSignup;
+    window.backToSlotSelection = backToSlotSelection;
 });
