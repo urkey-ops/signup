@@ -1,12 +1,16 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT
+// SIGNUP FRONT-END SCRIPT - HYBRID VERSION
 // ================================================================================================
+
+import { selectedSlots, updateSelectedSlots } from './config.js';
+import { sanitizeHTML, showMessage, getErrorMessage } from './utils.js';
+import { toggleSlot, updateSummaryDisplay, backToSlotSelection, removeSlotFromSummary } from './slots.js';
 
 // DOM ELEMENTS
 const form = document.getElementById('signup-form');
-const slotsContainer = document.getElementById('slots-container');
 const messageBox = document.getElementById('message-box');
 const emailInput = document.getElementById('email');
+const lookupBtn = document.getElementById('lookup-btn');
 
 // UTILS
 function sanitizeInput(str) {
@@ -24,74 +28,6 @@ function clearMessage() {
     messageBox.className = '';
 }
 
-function createSlotCheckbox(slot) {
-    const div = document.createElement('div');
-    div.className = 'slot-item';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.name = 'slotIds';
-    checkbox.value = slot.id;
-    checkbox.id = `slot-${slot.id}`;
-    checkbox.disabled = slot.available <= 0;
-
-    const label = document.createElement('label');
-    label.htmlFor = `slot-${slot.id}`;
-    label.textContent = `${slot.date} - ${slot.slotLabel} (${slot.available} spots left)`;
-
-    div.appendChild(checkbox);
-    div.appendChild(label);
-
-    return div;
-}
-
-// ================================================================================================
-// FETCH AVAILABLE SLOTS
-// ================================================================================================
-async function fetchSlots() {
-    try {
-        clearMessage();
-        slotsContainer.innerHTML = '<p>Loading slots...</p>';
-
-        const response = await fetch('/api/signup');
-        const data = await response.json();
-
-        if (!data.ok) {
-            displayMessage('Failed to fetch slots: ' + data.error, 'error');
-            slotsContainer.innerHTML = '';
-            return;
-        }
-
-        slotsContainer.innerHTML = '';
-        const dates = Object.keys(data.dates).sort();
-
-        if (dates.length === 0) {
-            slotsContainer.innerHTML = '<p>No available slots at the moment.</p>';
-            return;
-        }
-
-        dates.forEach(date => {
-            const dayDiv = document.createElement('div');
-            dayDiv.className = 'slot-date-group';
-
-            const dateHeader = document.createElement('h3');
-            dateHeader.textContent = date;
-            dayDiv.appendChild(dateHeader);
-
-            data.dates[date].forEach(slot => {
-                dayDiv.appendChild(createSlotCheckbox(slot));
-            });
-
-            slotsContainer.appendChild(dayDiv);
-        });
-
-    } catch (err) {
-        displayMessage('Error fetching slots: ' + err.message, 'error');
-        slotsContainer.innerHTML = '';
-        console.error(err);
-    }
-}
-
 // ================================================================================================
 // HANDLE FORM SUBMISSION
 // ================================================================================================
@@ -100,11 +36,11 @@ form.addEventListener('submit', async (e) => {
     clearMessage();
 
     const formData = new FormData(form);
-    const slotIds = formData.getAll('slotIds').map(id => parseInt(id));
     const name = sanitizeInput(formData.get('name'));
     const email = sanitizeInput(formData.get('email'));
     const phone = sanitizeInput(formData.get('phone'));
     const notes = sanitizeInput(formData.get('notes'));
+    const slotIds = selectedSlots.map(s => s.id);
 
     if (!name || !email || slotIds.length === 0) {
         displayMessage('Name, email, and at least one slot are required.', 'error');
@@ -114,18 +50,20 @@ form.addEventListener('submit', async (e) => {
     try {
         displayMessage('Submitting booking...', 'info');
 
-        const response = await fetch('/api/signup', {
+        const res = await fetch('/api/signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name, email, phone, notes, slotIds })
         });
 
-        const data = await response.json();
+        const data = await res.json();
 
         if (data.ok) {
             displayMessage(data.message, 'success');
             form.reset();
-            fetchSlots(); // Refresh slots
+            updateSelectedSlots([]); // Clear selected slots
+            updateSummaryDisplay();   // Update the summary display
+            window.loadSlots();       // Refresh slots
         } else {
             displayMessage(data.error || 'Booking failed.', 'error');
         }
@@ -165,7 +103,7 @@ async function lookupBookingsByEmail(email) {
 // ================================================================================================
 // EVENT LISTENERS
 // ================================================================================================
-document.getElementById('lookup-btn')?.addEventListener('click', () => {
+lookupBtn?.addEventListener('click', () => {
     const email = sanitizeInput(emailInput.value);
     if (!email) {
         displayMessage('Please enter your email to lookup bookings.', 'error');
@@ -174,5 +112,13 @@ document.getElementById('lookup-btn')?.addEventListener('click', () => {
     lookupBookingsByEmail(email);
 });
 
+// Expose functions globally for slot summary remove buttons
+window.removeSlotFromSummary = removeSlotFromSummary;
+
+// ================================================================================================
 // INITIALIZE
-fetchSlots();
+// ================================================================================================
+document.addEventListener('DOMContentLoaded', () => {
+    window.loadSlots = window.loadSlots || (() => {}); // fallback if slots.js not loaded
+    updateSummaryDisplay(); // Show summary if any pre-selected slots
+});
