@@ -555,3 +555,400 @@ select:focus-visible {
         border: 1px solid #000;
     }
 }
+
+/* ================================================================================================ */
+/* DATE CHIP SELECTOR - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#multiDateSelector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: var(--space-md);
+    background: var(--background);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+}
+
+.date-chip {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-sm) var(--space-md);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 70px;
+    user-select: none;
+}
+
+.date-chip:hover:not(.past) {
+    border-color: var(--primary-color);
+    background: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+}
+
+.date-chip:active:not(.past) {
+    transform: translateY(0);
+}
+
+.date-chip.selected {
+    border-color: var(--primary-color);
+    background: var(--primary-color);
+    color: white;
+}
+
+.date-chip.past {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--background);
+}
+
+.date-month {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.date-chip.selected .date-month {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.date-day {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    margin: 2px 0;
+}
+
+.date-weekday {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.date-chip.selected .date-weekday {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+/* ================================================================================================ */
+/* SLOT CHECKBOXES SECTION - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#slotCheckboxes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin: var(--space-md) 0;
+}
+
+.form-group-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: background 0.2s ease;
+}
+
+.form-group-inline:hover {
+    background: var(--background);
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-weight: 500;
+    cursor: pointer;
+    flex: 1;
+    margin: 0;
+}
+
+.form-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.form-input-small {
+    width: 80px;
+    padding: 0.5rem 0.75rem;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-sm);
+    font-size: 0.9375rem;
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--surface);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.form-input-small:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* ================================================================================================ */
+/* STATISTICS BAR - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#statsBar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: var(--space-lg);
+    background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    margin: var(--space-xl) 0;
+    flex-wrap: wrap;
+    gap: var(--space-md);
+}
+
+.stat-item {
+    text-align: center;
+    flex: 1;
+    min-width: 100px;
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--space-xs);
+    font-weight: 500;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+/* ================================================================================================ */
+/* SLOT DISPLAY (RENDERED SLOTS) - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#slotsDisplay {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+    margin-top: var(--space-lg);
+}
+
+.slot-date-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.slot-date-group:hover {
+    box-shadow: var(--shadow-sm);
+}
+
+.slot-date-group.past {
+    opacity: 0.6;
+    background: var(--background);
+}
+
+.date-header {
+    padding: var(--space-md) var(--space-lg);
+    background: var(--background);
+    border-bottom: 2px solid var(--border);
+}
+
+.date-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.slot-row {
+    display: flex;
+    align-items: center;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s ease;
+}
+
+.slot-row:last-child {
+    border-bottom: none;
+}
+
+.slot-row:hover {
+    background: var(--background);
+}
+
+.slot-row-checkbox {
+    width: 20px;
+    height: 20px;
+    margin-right: var(--space-md);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.slot-row-checkbox:active {
+    transform: scale(0.95);
+}
+
+.slot-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: 1;
+    gap: var(--space-md);
+}
+
+.slot-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+}
+
+.slot-capacity {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.slot-capacity.full {
+    color: var(--danger-color);
+    font-weight: 600;
+}
+
+/* ================================================================================================ */
+/* SELECTED DATES COUNT BADGE - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#selectedDatesCount {
+    display: inline-block;
+    background: var(--primary-color);
+    color: white;
+    padding: 0.25rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    min-width: 24px;
+    text-align: center;
+    margin-left: var(--space-xs);
+}
+
+/* ================================================================================================ */
+/* BUTTON SPECIFIC IDS - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#deleteSelectedBtn {
+    background: var(--danger-color);
+    color: white;
+    display: none; /* Hidden by default, shown via JS */
+    margin-top: var(--space-md);
+}
+
+#deleteSelectedBtn:hover:not(:disabled) {
+    background: var(--danger-hover);
+}
+
+#selectAllBtn {
+    background: var(--text-secondary);
+    color: white;
+    margin-top: var(--space-md);
+}
+
+#selectAllBtn:hover:not(:disabled) {
+    background: var(--text-primary);
+}
+
+#submitBtn {
+    margin-top: var(--space-md);
+}
+
+#loginBtn {
+    width: 100%;
+}
+
+/* ================================================================================================ */
+/* RESPONSIVE ADJUSTMENTS FOR NEW ELEMENTS */
+/* ================================================================================================ */
+
+@media (max-width: 768px) {
+    #multiDateSelector {
+        max-height: 300px;
+        padding: var(--space-sm);
+    }
+    
+    .date-chip {
+        min-width: 60px;
+        padding: var(--space-xs) var(--space-sm);
+    }
+    
+    .date-day {
+        font-size: 1.25rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .slot-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-xs);
+    }
+    
+    .slot-capacity {
+        font-size: 0.8125rem;
+    }
+    
+    #statsBar {
+        gap: var(--space-sm);
+        padding: var(--space-md);
+    }
+    
+    .stat-item {
+        min-width: 80px;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .stat-label {
+        font-size: 0.8125rem;
+    }
+    
+    .form-group-inline {
+        padding: var(--space-sm);
+    }
+    
+    .slot-row {
+        padding: var(--space-sm) var(--space-md);
+    }
+    
+    .date-header {
+        padding: var(--space-sm) var(--space-md);
+    }
+}
+
+/* ================================================================================================ */
+/* EMPTY STATE - ADDITIONAL STYLES */
+/* ================================================================================================ */
+
+#slotsDisplay p {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 2rem;
+    font-style: italic;
+}
