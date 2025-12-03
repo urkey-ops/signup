@@ -100,7 +100,7 @@ export async function lookupBookings() {
 
             // safe event listener
             btn.addEventListener('click', (ev) => {
-                const sId = Number(ev.currentTarget.dataset.signuprowid);
+               const sId = Number(ev.currentTarget.dataset.signup_row_id);
                 const slId = Number(ev.currentTarget.dataset.slotrowid);
                 const date = ev.currentTarget.dataset.date;
                 const label = ev.currentTarget.dataset.slotlabel;
