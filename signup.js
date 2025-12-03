@@ -13,7 +13,7 @@ import {
     getErrorMessage, 
     parseTimeForSorting 
 } from './utils.js';
-import { showSignupForm } from './signup.js'; // To be called by the floating button
+import { showSignupForm } from '././slots.js'; // To be called by the floating button
 
 // --- Add skeleton styles immediately ---
 (function() {
