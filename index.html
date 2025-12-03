@@ -74,7 +74,7 @@
                            placeholder="Enter your email to look up bookings"
                            maxlength="254"
                            autocomplete="email">
-                    <button class="btn secondary-btn" aria-label="Search for bookings">
+                    <button id="lookupSearchBtn" class="btn secondary-btn" aria-label="Search for bookings">
                         Search
                     </button>
                 </div>
@@ -104,7 +104,7 @@
         <section id="signupSection" style="display:none;" class="card" aria-labelledby="signup-heading">
             <h2 id="signup-heading">✍️ Enter Your Details</h2>
             <div id="selectedSlotSummary" class="selected-slots-summary" role="region" aria-label="Selected slots summary"></div>
-            <form onsubmit="event.preventDefault(); submitSignup();" novalidate>
+            <form id="signupForm" novalidate>
                 <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
                 <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name *" required maxlength="100" autocomplete="name" aria-required="true">
                 
@@ -120,7 +120,7 @@
                 <div id="signupMsg" class="msg-box" role="alert" aria-live="assertive"></div>
                 
                 <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
-                <button type="button" onclick="backToSlotSelection()" class="btn secondary-btn">← Back to Slot Selection</button>
+                <button type="button" id="backToSlotsBtn" class="btn secondary-btn">← Back to Slot Selection</button>
             </form>
         </section>
 
@@ -128,16 +128,59 @@
         <section id="successMessage" style="display:none;" class="card" aria-labelledby="success-heading">
             <h2 id="success-heading">🎉 Booking Confirmed!</h2>
             <div id="confirmationDetails" role="status"></div>
-            <button onclick="resetPage()" class="btn primary-btn">Book Another Slot</button>
+            <button id="resetPageBtn" class="btn primary-btn">Book Another Slot</button>
         </section>
     </main>
 </div>
 
 <!-- Scripts -->
-<script src="config.js" type="module"></script>
-<script src="utils.js" type="module"></script>
-<script src="signup.js" type="module"></script>
-<script src="lookup.js" type="module"></script>
-<script src="slots.js" type="module"></script>
+<script type="module" src="config.js"></script>
+<script type="module" src="utils.js"></script>
+<script type="module" src="signup.js"></script>
+<script type="module" src="lookup.js"></script>
+<script type="module" src="slots.js"></script>
+
+<script type="module">
+/*
+  Wiring for non-inline buttons that previously relied on inline onclick attributes.
+  Keeps page behavior the same while avoiding inline JS in HTML.
+*/
+import { showSignupForm, submitSignup } from './signup.js';
+import { lookupBookings, toggleLookup } from './lookup.js';
+import { resetPage, backToSlotSelection, removeSlotFromSummary, loadSlots } from './slots.js';
+
+document.addEventListener('DOMContentLoaded', () => {
+    const lookupToggle = document.getElementById('lookupToggle');
+    if (lookupToggle) lookupToggle.addEventListener('click', toggleLookup);
+
+    const lookupSearchBtn = document.getElementById('lookupSearchBtn');
+    if (lookupSearchBtn) lookupSearchBtn.addEventListener('click', lookupBookings);
+
+    const floatingSignupBtn = document.getElementById('floatingSignupBtn');
+    if (floatingSignupBtn) {
+        // showSignupForm is attached inside slots.js updateFloatingButton as well,
+        // but keep this as a backup
+        floatingSignupBtn.addEventListener('click', showSignupForm);
+    }
+
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitSignup();
+        });
+    }
+
+    const backToSlotsBtn = document.getElementById('backToSlotsBtn');
+    if (backToSlotsBtn) backToSlotsBtn.addEventListener('click', backToSlotSelection);
+
+    const resetPageBtn = document.getElementById('resetPageBtn');
+    if (resetPageBtn) resetPageBtn.addEventListener('click', resetPage);
+
+    // Expose a few functions for debugging / older code paths if necessary
+    window.loadSlots = loadSlots;
+    window.removeSlotFromSummary = removeSlotFromSummary;
+});
+</script>
 </body>
 </html>
