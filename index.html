@@ -5,20 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Book your time slots easily and manage your bookings online">
     <title>Book a Slot - Online Booking System</title>
-    
+
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <link rel="preload" href="user-style.css" as="style">
-    <link rel="preload" href="slots.js" as="script">
     <link rel="stylesheet" 
-                href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
-                media="print" 
-                onload="this.media='all'">
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
+          media="print" 
+          onload="this.media='all'">
     <noscript>
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     </noscript>
-    
+
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="user-style.css">
+
+    <!-- Favicon -->
+    <link rel="icon" href="/favicon.ico" type="image/x-icon">
+
+    <!-- Inline basic styles -->
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
@@ -46,134 +51,93 @@
             color: #64748b;
         }
     </style>
-    
-    <link rel="stylesheet" href="user-style.css">
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Book Your Slot</h1>
-        </header>
-        
-        <main>
-            
-            <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
-    <button id="lookupToggle" class="btn secondary-btn full-width-mobile" aria-expanded="false" onclick="toggleLookup()">
-        🔍 Look Up / Cancel Booking
-    </button>
-    
-    <div id="lookupContent" class="hidden"> 
-        <p class="description" style="margin-top: 15px;">Enter your email to view and manage your bookings.</p>
-        <div class="lookup-controls">
-            <label for="lookupEmail" class="visually-hidden">Email address for booking lookup</label>
-            <input type="email" 
-                    id="lookupEmail" 
-                    class="form-input lookup-input" 
-                    placeholder="Enter your email to look up bookings"
-                    maxlength="254"
-                    autocomplete="email">
-            <button onclick="lookupBookings()" 
-                    class="btn secondary-btn"
-                    aria-label="Search for bookings">
-                Search
+<div class="container">
+    <header>
+        <h1>Book Your Slot</h1>
+    </header>
+
+    <main>
+        <!-- Lookup Section -->
+        <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
+            <button id="lookupToggle" class="btn secondary-btn full-width-mobile" aria-expanded="false">
+                🔍 Look Up / Cancel Booking
+            </button>
+            <div id="lookupContent" class="hidden"> 
+                <p class="description" style="margin-top: 15px;">Enter your email to view and manage your bookings.</p>
+                <div class="lookup-controls">
+                    <label for="lookupEmail" class="visually-hidden">Email address for booking lookup</label>
+                    <input type="email" 
+                           id="lookupEmail" 
+                           class="form-input lookup-input" 
+                           placeholder="Enter your email to look up bookings"
+                           maxlength="254"
+                           autocomplete="email">
+                    <button class="btn secondary-btn" aria-label="Search for bookings">
+                        Search
+                    </button>
+                </div>
+            </div>
+            <div id="userBookingsDisplay" style="margin-top: 15px;" role="region" aria-live="polite" aria-label="Your bookings"></div>
+        </section>
+
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;" role="separator">
+
+        <!-- Slots Section -->
+        <div id="loadingMsg" role="status" aria-live="polite">Loading available slots...</div>
+        <div id="slotsDisplay" style="display:none;">
+            <p class="description">
+                Select one or more time slots. You can choose multiple slots across different dates. 
+                <strong>All times shown are in Eastern Time (ET)</strong>.
+            </p>
+            <div id="datesContainer" role="region" aria-label="Available time slots"></div>
+            <div style="height: 100px;" aria-hidden="true"></div> 
+        </div>
+        <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
+            <button id="floatingSignupBtn" class="btn primary-btn" aria-label="Continue to sign up with selected slots">
+                Continue to Sign Up (0 Slots Selected)
             </button>
         </div>
-    </div>
-    
-    <div id="userBookingsDisplay" style="margin-top: 15px;" role="region" aria-live="polite" aria-label="Your bookings"></div>
-</section>
-            
-            <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;" role="separator">
-            
-            <div id="loadingMsg" role="status" aria-live="polite">Loading available slots...</div>
-            
-            <div id="slotsDisplay" style="display:none;">
-                <p class="description">
-                    Select one or more time slots. You can choose multiple slots across different dates. 
-                    <strong>All times shown are in Eastern Time (ET)</strong>.
-                </p>
-                <div id="datesContainer" role="region" aria-label="Available time slots"></div>
-                <div style="height: 100px;" aria-hidden="true"></div> 
-            </div>
-            
-            <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
-                <button id="floatingSignupBtn" class="btn primary-btn" onclick="showSignupForm()" aria-label="Continue to sign up with selected slots">
-                    Continue to Sign Up (0 Slots Selected)
-                </button>
-            </div>
-            
-            <section id="signupSection" style="display:none;" class="card" aria-labelledby="signup-heading">
-                <h2 id="signup-heading">✍️ Enter Your Details</h2>
+
+        <!-- Signup Form -->
+        <section id="signupSection" style="display:none;" class="card" aria-labelledby="signup-heading">
+            <h2 id="signup-heading">✍️ Enter Your Details</h2>
+            <div id="selectedSlotSummary" class="selected-slots-summary" role="region" aria-label="Selected slots summary"></div>
+            <form onsubmit="event.preventDefault(); submitSignup();" novalidate>
+                <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
+                <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name *" required maxlength="100" autocomplete="name" aria-required="true">
                 
-                <div id="selectedSlotSummary" class="selected-slots-summary" role="region" aria-label="Selected slots summary"></div>
+                <label for="emailInput" class="visually-hidden">Your Email Address (Required)</label>
+                <input type="email" id="emailInput" class="form-input" placeholder="Your Email Address *" required maxlength="254" autocomplete="email" aria-required="true">
                 
-                <form onsubmit="event.preventDefault(); submitSignup();" novalidate>
-                    <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
-                    <input type="text" 
-                            id="nameInput" 
-                            class="form-input" 
-                            placeholder="Your Full Name *" 
-                            required 
-                            maxlength="100"
-                            autocomplete="name"
-                            aria-required="true">
-                    
-                    <label for="emailInput" class="visually-hidden">Your Email Address (Required)</label>
-                    <input type="email" 
-                            id="emailInput" 
-                            class="form-input" 
-                            placeholder="Your Email Address *" 
-                            required 
-                            maxlength="254"
-                            autocomplete="email"
-                            aria-required="true">
-                    
-                    <label for="phoneInput" class="visually-hidden">Phone Number (Optional)</label>
-                    <input type="tel" 
-                            id="phoneInput" 
-                            class="form-input" 
-                            placeholder="Phone Number (Optional)"
-                            maxlength="20"
-                            autocomplete="tel">
-                    
-                    <label for="notesInput" class="visually-hidden">Any special notes or comments (Optional)</label>
-                    <textarea id="notesInput" 
-                                class="form-input" 
-                                placeholder="Any special notes or comments (Optional)" 
-                                rows="3"
-                                maxlength="500"></textarea>
-                    
-                    <div id="signupMsg" class="msg-box" role="alert" aria-live="assertive"></div>
-                    
-                    <button type="submit" id="submitSignupBtn" class="btn primary-btn">
-                        Submit Signup
-                    </button>
-                    <button type="button" 
-                            onclick="backToSlotSelection()" 
-                            class="btn secondary-btn"
-                            aria-label="Go back to slot selection">
-                        ← Back to Slot Selection
-                    </button>
-                </form>
-            </section>
-            
-            <section id="successMessage" style="display:none;" class="card" aria-labelledby="success-heading">
-                <h2 id="success-heading">🎉 Booking Confirmed!</h2>
-                <div id="confirmationDetails" role="status"></div>
-                <button onclick="resetPage()" class="btn primary-btn" aria-label="Book another time slot">
-                    Book Another Slot
-                </button>
-            </section>
-            
-        </main>
-    </div>
-    
-    <script src="config.js" type="module"></script>
-    <script src="utils.js" type="module"></script>
-    
-    <script src="signup.js" type="module"></script>
-    <script src="lookup.js" type="module"></script>
-    
-    <script src="slots.js" type="module"></script>
-    </body>
+                <label for="phoneInput" class="visually-hidden">Phone Number (Optional)</label>
+                <input type="tel" id="phoneInput" class="form-input" placeholder="Phone Number (Optional)" maxlength="20" autocomplete="tel">
+                
+                <label for="notesInput" class="visually-hidden">Any special notes or comments (Optional)</label>
+                <textarea id="notesInput" class="form-input" placeholder="Any special notes or comments (Optional)" rows="3" maxlength="500"></textarea>
+                
+                <div id="signupMsg" class="msg-box" role="alert" aria-live="assertive"></div>
+                
+                <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
+                <button type="button" onclick="backToSlotSelection()" class="btn secondary-btn">← Back to Slot Selection</button>
+            </form>
+        </section>
+
+        <!-- Success Message -->
+        <section id="successMessage" style="display:none;" class="card" aria-labelledby="success-heading">
+            <h2 id="success-heading">🎉 Booking Confirmed!</h2>
+            <div id="confirmationDetails" role="status"></div>
+            <button onclick="resetPage()" class="btn primary-btn">Book Another Slot</button>
+        </section>
+    </main>
+</div>
+
+<!-- Scripts -->
+<script src="config.js" type="module"></script>
+<script src="utils.js" type="module"></script>
+<script src="signup.js" type="module"></script>
+<script src="lookup.js" type="module"></script>
+<script src="slots.js" type="module"></script>
+</body>
 </html>
