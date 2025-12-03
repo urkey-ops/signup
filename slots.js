@@ -18,7 +18,6 @@ import { showSignupForm } from './signup.js'; // To be called by the floating bu
 // --- Add skeleton styles immediately ---
 (function() {
     const style = document.createElement('style');
-    // START OF UPDATED CODE (Style injection moved from original self-invoking function)
     style.textContent = `
         @keyframes shimmer {
             0% { background-position: -468px 0; }
@@ -98,7 +97,6 @@ import { showSignupForm } from './signup.js'; // To be called by the floating bu
         }
     `;
     document.head.appendChild(style);
-    // END OF UPDATED CODE
 })();
 
 // --- Helper function to format date with weekday ---
@@ -117,7 +115,6 @@ function updateFloatingButton() {
     if (count > 0) {
         btnContainer.style.display = "block";
         btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
-        // Attach event listener for the floating button (if not already attached)
         if (!btn._listener) {
             btn._listener = showSignupForm;
             btn.addEventListener('click', btn._listener);
@@ -140,12 +137,7 @@ export function toggleSlot(date, slotLabel, rowId, element) {
             alert(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`);
             return;
         }
-        
-        selectedSlots.push({
-            id: rowId,
-            date: date,
-            label: slotLabel
-        });
+        selectedSlots.push({ id: rowId, date: date, label: slotLabel });
         element.classList.add("selected");
         element.setAttribute('aria-pressed', 'true');
     }
@@ -155,13 +147,13 @@ export function toggleSlot(date, slotLabel, rowId, element) {
 
 // --- Navigation Functions ---
 export function backToSlotSelection() {
-    updateSelectedSlots([]); // Clear state
+    updateSelectedSlots([]); 
     document.getElementById("signupSection").style.display = "none";
     loadSlots();
 }
 
 export function resetPage() {
-    updateSelectedSlots([]); // Clear state
+    updateSelectedSlots([]); 
     document.getElementById("successMessage").style.display = "none";
     document.getElementById("floatingSignupBtnContainer").style.display = "none";
     loadSlots();
@@ -202,7 +194,6 @@ export async function loadSlots() {
     showSkeletonUI();
     signupSection.style.display = "none";
 
-    // Check client-side cache first
     const now = Date.now();
     if (API_CACHE.data && (now - API_CACHE.timestamp) < API_CACHE.TTL) {
         console.log('✅ Using client cache');
@@ -228,7 +219,6 @@ export async function loadSlots() {
             return;
         }
 
-        // Cache the response
         API_CACHE.data = data;
         API_CACHE.timestamp = now;
 
@@ -249,10 +239,7 @@ function renderSlotsData(data) {
     today.setHours(0, 0, 0, 0);
     
     const futureDates = Object.keys(groupedSlotsByDate)
-        .filter(dateStr => {
-            const slotDate = new Date(dateStr);
-            return slotDate >= today;
-        })
+        .filter(dateStr => new Date(dateStr) >= today)
         .sort((a, b) => new Date(a) - new Date(b));
     
     if (futureDates.length === 0) {
@@ -260,15 +247,11 @@ function renderSlotsData(data) {
         return;
     }
     
-    // Clear skeleton
     datesContainer.innerHTML = '';
-    
-    // Remove old event listener
     if (datesContainer._slotListener) {
         datesContainer.removeEventListener('click', datesContainer._slotListener);
     }
     
-    // Use DocumentFragment for better performance
     const fragment = document.createDocumentFragment();
     
     futureDates.forEach(date => {
@@ -283,10 +266,8 @@ function renderSlotsData(data) {
         }
     });
     
-    // Single DOM update
     datesContainer.appendChild(fragment);
     
-    // Single delegated event listener
     const slotListener = (e) => {
         const slot = e.target.closest('.slot');
         if (!slot || slot.classList.contains('disabled')) return;
@@ -327,7 +308,6 @@ function createDateCard(date, slots) {
     return card;
 }
 
-// Use data attributes instead of onclick
 function createSlotElement(slot) {
     const div = document.createElement('div');
     const isSelected = selectedSlots.some(s => s.id === slot.id);
@@ -390,33 +370,28 @@ function handleLoadError(status, message) {
     document.getElementById("slotsDisplay").style.display = "none";
 }
 
-// Function to remove a slot from selection (used in summary)
+// --- Summary and removal ---
 export function removeSlotFromSummary(slotId) {
     const index = selectedSlots.findIndex(slot => slot.id === slotId);
     if (index > -1) {
         selectedSlots.splice(index, 1);
-        
         const slotElement = document.getElementById(`slot-btn-${slotId}`);
         if (slotElement) {
             slotElement.classList.remove("selected");
             slotElement.setAttribute('aria-pressed', 'false');
         }
-        
         if (selectedSlots.length === 0) {
             backToSlotSelection();
             return;
         }
-        
         updateSummaryDisplay();
         updateFloatingButton();
     }
 }
 
-// Function to update the summary display (compact chip design)
 export function updateSummaryDisplay() {
     const summaryEl = document.getElementById('selectedSlotSummary');
     let summaryHTML = `<div style="margin-bottom: 12px;"><strong>📋 Selected ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:</strong></div>`;
-    
     summaryHTML += `<div class="chips-container">`;
     
     const sortedSlots = [...selectedSlots].sort((a, b) => {
@@ -428,17 +403,9 @@ export function updateSummaryDisplay() {
     sortedSlots.forEach(slot => {
         const safeDate = sanitizeHTML(slot.date);
         const safeLabel = sanitizeHTML(slot.label);
-        
         const dateObj = new Date(slot.date);
         const shortDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-        
-        const shortTime = slot.label
-            .replace(/:\d{2}/g, '')
-            .replace(/\s*-\s*/g, '-')
-            .replace(/\s/g, '');
-        
-        // Note: The onclick in the generated HTML must call the global function (window.*) or the exposed module function
-        // For simplicity and to match the original DOM structure interaction:
+        const shortTime = slot.label.replace(/:\d{2}/g, '').replace(/\s*-\s*/g, '-').replace(/\s/g, '');
         summaryHTML += `
             <div class="slot-chip" data-slot-id="${slot.id}">
                 <span class="chip-content">
@@ -461,7 +428,6 @@ export function updateSummaryDisplay() {
 
 // --- Main execution/export setup ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Expose necessary functions to the global scope for inline onclick handlers
     window.loadSlots = loadSlots;
     window.backToSlotSelection = backToSlotSelection;
     window.resetPage = resetPage;
