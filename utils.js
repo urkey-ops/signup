@@ -1,73 +1,97 @@
-// START OF CODE: utils.js
+// ================================================================================================
+// UTILS.JS - HELPER FUNCTIONS
+// ================================================================================================
 
-import { CONFIG } from './config.js';
-
-// --- Security: Input Sanitization ---
+// Sanitize HTML to prevent XSS
 export function sanitizeHTML(str) {
     if (!str) return '';
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+    const temp = document.createElement('div');
+    temp.textContent = str;
+    return temp.innerHTML;
 }
 
-export function sanitizeInput(str, maxLength = 255) {
-    if (!str) return '';
-    return str
-        .trim()
-        .replace(/[<>]/g, '')
-        .substring(0, maxLength);
+// Show a temporary message in a container
+export function showMessage(container, message, type = 'info', duration = 4000) {
+    if (!container) return;
+    container.textContent = message;
+    container.className = type; // info, success, error
+    if (duration > 0) {
+        setTimeout(() => {
+            container.textContent = '';
+            container.className = '';
+        }, duration);
+    }
 }
 
-// --- Validation Functions (ALIGNED WITH BACKEND) ---
-export function isValidEmail(email) {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email) && email.length <= CONFIG.MAX_EMAIL_LENGTH;
+// Convert "HH:MM" to minutes for sorting
+export function parseTimeForSorting(timeStr) {
+    if (!timeStr) return 0;
+    const parts = timeStr.split(':').map(Number);
+    return parts[0] * 60 + (parts[1] || 0);
 }
 
-export function isValidPhone(phone) {
-    if (!phone) return true;
-    return /^[\d\s\-\+\(\)]{7,20}$/.test(phone);
+// Map HTTP status codes to friendly error messages
+export function getErrorMessage(status, defaultMsg = 'An error occurred') {
+    switch (status) {
+        case 400: return 'Bad request. Please try again.';
+        case 401: return 'Unauthorized access.';
+        case 403: return 'Forbidden. You do not have permission.';
+        case 404: return 'Resource not found.';
+        case 500: return 'Internal server error. Please try later.';
+        case 502: return 'Bad gateway. Server unreachable.';
+        case 503: return 'Service unavailable. Try again later.';
+        default: return defaultMsg;
+    }
 }
 
-// --- Helper for message display ---
-export function showMessage(elementId, message, isError) {
-    const el = document.getElementById(elementId);
-    if (!el) return;
-    el.textContent = message;
-    el.className = isError ? "msg-box error" : "msg-box success";
-    el.style.display = message ? "block" : "none";
-}
-
-// --- Improved Error Messages (MATCHES BACKEND STATUS CODES) ---
-export function getErrorMessage(status, defaultMessage) {
-    const errorMessages = {
-        400: "Invalid request. Please check your information and try again.",
-        401: "Authentication required. Please refresh the page.",
-        403: "Access denied. Please contact support.",
-        404: "Service not found. Please contact support.",
-        409: "This slot was just booked by someone else. Please refresh and select another.",
-        429: "Too many requests. Please wait a moment and try again.",
-        500: "Server error. Please try again in a few moments.",
-        503: "Service temporarily unavailable. Please try again later.",
+// Debounce function to limit rapid function calls
+export function debounce(func, wait = 300) {
+    let timeout;
+    return function (...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func.apply(this, args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
     };
-    
-    return errorMessages[status] || defaultMessage || "An unexpected error occurred. Please try again.";
 }
 
-// Helper function to parse time from slot label and convert to comparable number
-export function parseTimeForSorting(slotLabel) {
-    const startTime = slotLabel.split('-')[0].trim();
-    const match = startTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return 0;
-    
-    let hour = parseInt(match[1]);
-    const minute = parseInt(match[2]);
-    const period = match[3].toUpperCase();
-    
-    if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = 0;
-    
-    return hour * 60 + minute;
+// Deep clone an object
+export function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj));
 }
 
-// END OF CODE: utils.js
+// Check if an element is visible in viewport
+export function isElementInViewport(el) {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+}
+
+// Simple delay / sleep
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Format number with commas
+export function formatNumber(num) {
+    if (isNaN(num)) return num;
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+// Check if a date string is valid
+export function isValidDate(dateStr) {
+    const date = new Date(dateStr);
+    return !isNaN(date.getTime());
+}
+
+// Generate a random ID (for slots or temporary elements)
+export function generateRandomId(prefix = 'id') {
+    return `${prefix}-${Math.floor(Math.random() * 1e8)}`;
+}
