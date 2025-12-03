@@ -22,7 +22,10 @@ export const API_CACHE = {
     TTL: CONFIG.CLIENT_CACHE_TTL
 };
 
-export function updateSelectedSlots(newSlots) { selectedSlots = newSlots; }
+export function updateSelectedSlots(newSlots) { 
+    selectedSlots.length = 0;
+    selectedSlots.push(...newSlots);
+}
 export function updateLastApiCall(timestamp) { lastApiCall = timestamp; }
 export function updateIsSubmitting(status) { isSubmitting = status; }
 // END OF CODE
