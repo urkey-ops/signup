@@ -15,7 +15,8 @@ REQUIRED_ENV.forEach(key => {
 
 const SPREADSHEET_ID = process.env.SHEET_ID;
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const SLOTS_GID = parseInt(process.env.SLOTS_GID); // Add this to your Vercel env vars!
+const SLOTS_GID = parseInt(process.env.SLOTS_GID);
+const ALLOWED_ORIGIN = process.env.FRONTEND_URL || 'https://yourdomain.com'; // Set this in Vercel
 
 const SESSION_EXPIRY_SECONDS = 3600;
 const SIMPLE_TOKEN_VALUE = "valid_admin_session";
@@ -91,7 +92,14 @@ function isAuthenticated(req) {
 }
 
 function checkPassword(password) {
-    return password === ADMIN_PASSWORD;
+    if (!password || password.length !== ADMIN_PASSWORD.length) return false;
+    
+    // Constant-time comparison to prevent timing attacks
+    let match = true;
+    for (let i = 0; i < ADMIN_PASSWORD.length; i++) {
+        if (password[i] !== ADMIN_PASSWORD[i]) match = false;
+    }
+    return match;
 }
 
 // ================================================================================================
@@ -108,6 +116,25 @@ function isFutureDate(dateString) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return date >= today;
+}
+
+// ================================================================================================
+// BODY PARSER HELPER
+// ================================================================================================
+
+async function parseBody(req) {
+    if (req.body) return req.body;
+    
+    const buffers = [];
+    for await (const chunk of req) {
+        buffers.push(chunk);
+    }
+    const data = Buffer.concat(buffers).toString();
+    try {
+        return JSON.parse(data);
+    } catch (err) {
+        throw new Error('Invalid JSON body');
+    }
 }
 
 // ================================================================================================
@@ -148,7 +175,7 @@ async function handleLoadSlots(req, res) {
             slotLabel: row[1] || '',
             capacity: parseInt(row[2], 10) || 0,
             taken: parseInt(row[3], 10) || 0,
-            available: Math.max(0, (parseInt(row[2], 10) || 0) - (parseInt(row[3], 10) || 0)),
+            available: row[4] ? parseInt(row[4], 10) : Math.max(0, (parseInt(row[2], 10) || 0) - (parseInt(row[3], 10) || 0)),
         }));
 
         slots.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -334,7 +361,7 @@ async function handleDeleteSlots(req, res) {
         const requests = rowsToDelete.map(rowId => ({
             deleteDimension: {
                 range: {
-                    sheetId: SLOTS_GID, // Use actual GID from env
+                    sheetId: SLOTS_GID,
                     dimension: 'ROWS',
                     startIndex: rowId - 1,
                     endIndex: rowId
@@ -371,11 +398,11 @@ module.exports = async (req, res) => {
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     
-    // CORS headers
-    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    // CORS headers - FIXED: Use specific origin with credentials
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Cookie');
-    res.setHeader('Access-Control-Allow-Credentials', 'true'); 
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
 
     if (req.method === 'OPTIONS') {
         return res.status(200).end();
@@ -383,7 +410,31 @@ module.exports = async (req, res) => {
 
     try {
         const { method } = req;
-        const { action } = req.body || {};
+        
+        // Parse body for POST and DELETE requests
+        let body = {};
+        if (method === 'POST' || method === 'DELETE') {
+            // Validate Content-Type
+            const contentType = req.headers['content-type'];
+            if (!contentType || !contentType.includes('application/json')) {
+                return res.status(400).json({ 
+                    ok: false, 
+                    error: 'Content-Type must be application/json' 
+                });
+            }
+            
+            try {
+                body = await parseBody(req);
+                req.body = body;
+            } catch (err) {
+                return res.status(400).json({ 
+                    ok: false, 
+                    error: 'Invalid JSON in request body' 
+                });
+            }
+        }
+        
+        const { action } = body;
 
         // PUBLIC ROUTE: LOGIN
         if (method === 'POST' && action === 'login') {
