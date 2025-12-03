@@ -254,6 +254,27 @@ async function login() {
 }
 
 /**
+ * Handles logout by clearing the session
+ */
+async function logout() {
+    if (!confirm('Are you sure you want to logout?')) {
+        return;
+    }
+    
+    // Since we're using HttpOnly cookies, we can't delete them client-side
+    // Show login section and hide admin section
+    document.getElementById('loginSection').style.display = 'block';
+    document.getElementById('adminSection').style.display = 'none';
+    
+    // Clear local state
+    loadedSlots = [];
+    selectedDates = [];
+    
+    // Display message
+    displayMessage('loginMsg', 'Logged out successfully. Please close your browser to fully clear the session.', false);
+}
+
+/**
  * Loads all existing slots from the backend.
  */
 async function loadSlots() {
@@ -480,6 +501,10 @@ function renderSlots(slots) {
         return;
     }
     
+    // Create grid wrapper for compact layout
+    const gridWrapper = document.createElement('div');
+    gridWrapper.className = 'compact-slots-grid';
+    
     // Group slots by date
     const groupedSlots = slots.reduce((acc, slot) => {
         (acc[slot.date] = acc[slot.date] || []).push(slot);
@@ -488,7 +513,7 @@ function renderSlots(slots) {
 
     for (const date in groupedSlots) {
         const dateObj = new Date(date);
-        const dateStr = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'long', year: 'numeric' });
+        const dateStr = dateObj.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
         const isPast = isPastDate(date);
         
         const dateGroup = document.createElement('div');
@@ -506,8 +531,7 @@ function renderSlots(slots) {
                     <div class="slot-info">
                         <span class="slot-label">${slot.slotLabel}</span>
                         <span class="slot-capacity ${isFull ? 'full' : ''}">
-                            Booked: ${slot.taken} / Capacity: ${slot.capacity} 
-                            (${slot.available} available)
+                            ${slot.taken}/${slot.capacity}
                         </span>
                     </div>
                 </div>
@@ -521,9 +545,10 @@ function renderSlots(slots) {
             ${slotsHtml}
         `;
         
-        displayContainer.appendChild(dateGroup);
+        gridWrapper.appendChild(dateGroup);
     }
     
+    displayContainer.appendChild(gridWrapper);
     updateDeleteButtonCount(); // Initial update after render
 }
 
@@ -559,12 +584,20 @@ function updateStats(slots) {
     const totalDates = new Set(futureSlots.map(s => s.date)).size;
     const totalSlots = futureSlots.length;
     const totalBookings = futureSlots.reduce((sum, slot) => sum + slot.taken, 0);
+    const totalCapacity = futureSlots.reduce((sum, slot) => sum + slot.capacity, 0);
     const totalAvailable = futureSlots.reduce((sum, slot) => sum + slot.available, 0);
+    
+    // Calculate utilization rate
+    const utilizationRate = totalCapacity > 0 
+        ? Math.round((totalBookings / totalCapacity) * 100) 
+        : 0;
 
     document.getElementById('totalDates').textContent = totalDates;
     document.getElementById('totalSlots').textContent = totalSlots;
     document.getElementById('totalBookings').textContent = totalBookings;
     document.getElementById('totalAvailable').textContent = totalAvailable;
+    document.getElementById('utilizationRate').textContent = `${utilizationRate}%`;
+    
     statsBar.style.display = 'flex';
 }
 
@@ -574,6 +607,7 @@ function updateStats(slots) {
 
 // Expose functions globally so they can be called by inline HTML attributes (onclick)
 window.login = login;
+window.logout = logout;
 window.loadSlots = loadSlots;
 window.submitNewSlots = submitNewSlots;
 window.deleteSelectedSlots = deleteSelectedSlots;
