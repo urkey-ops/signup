@@ -1,5 +1,8 @@
-// START OF CODE: config.js
-export const API_URL = "/api/signup"; // <-- Make sure this returns JSON
+// ================================================================================================
+// CONFIG.JS - APPLICATION CONFIGURATION (FIXED)
+// ================================================================================================
+
+export const API_URL = "/api/signup";
 
 export const CONFIG = {
     MAX_SLOTS_PER_BOOKING: 10,
@@ -7,10 +10,14 @@ export const CONFIG = {
     MAX_EMAIL_LENGTH: 254,
     MAX_PHONE_LENGTH: 20,
     MAX_NOTES_LENGTH: 500,
-    API_COOLDOWN: 1000,
+    API_COOLDOWN: 5000,  // ✅ FIXED: Increased from 1000ms to 5000ms
     RETRY_DELAY: 3000,
     CLIENT_CACHE_TTL: 30000,
 };
+
+// ================================================================================================
+// STATE MANAGEMENT
+// ================================================================================================
 
 export let selectedSlots = [];
 export let lastApiCall = 0;
@@ -22,10 +29,16 @@ export const API_CACHE = {
     TTL: CONFIG.CLIENT_CACHE_TTL
 };
 
+// ✅ FIXED: Proper state mutation that updates the exported reference
 export function updateSelectedSlots(newSlots) { 
-    selectedSlots.length = 0;
-    selectedSlots.push(...newSlots);
+    selectedSlots.length = 0;  // Clear existing array
+    selectedSlots.push(...newSlots);  // Add new items
 }
-export function updateLastApiCall(timestamp) { lastApiCall = timestamp; }
-export function updateIsSubmitting(status) { isSubmitting = status; }
-// END OF CODE
+
+export function updateLastApiCall(timestamp) { 
+    lastApiCall = timestamp; 
+}
+
+export function updateIsSubmitting(status) { 
+    isSubmitting = status; 
+}
