@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT
+// SIGNUP FRONT-END SCRIPT (FIXED)
 // ================================================================================================
 
 import { 
@@ -47,16 +47,24 @@ export function showSignupForm() {
 }
 
 // ================================================================================================
-// VALIDATE AND SUBMIT SIGNUP
+// VALIDATE AND SUBMIT SIGNUP (FIXED)
 // ================================================================================================
 export async function submitSignup() {
+    // ✅ FIXED: Check and set flag BEFORE any async operations
     if (isSubmitting) {
         console.warn('Submission already in progress');
         return;
     }
 
+    // ✅ FIXED: Set flag immediately to prevent race condition
+    updateIsSubmitting(true);
+
     const msgEl = document.getElementById("signupMsg");
     const submitBtn = document.getElementById("submitSignupBtn");
+    
+    // Disable button immediately
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
     
     // Get and sanitize inputs
     const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
@@ -68,18 +76,28 @@ export async function submitSignup() {
     if (!name || name.length < 2) {
         showMessage(msgEl, '⚠️ Please enter your full name (at least 2 characters).', 'error');
         msgEl.style.display = 'block';
+        // ✅ FIXED: Reset state on validation failure
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
         return;
     }
 
     if (!isValidEmail(email)) {
         showMessage(msgEl, '⚠️ Please enter a valid email address.', 'error');
         msgEl.style.display = 'block';
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
         return;
     }
 
     if (selectedSlots.length === 0) {
         showMessage(msgEl, '⚠️ Please select at least one slot.', 'error');
         msgEl.style.display = 'block';
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
         return;
     }
 
@@ -88,13 +106,12 @@ export async function submitSignup() {
     if (now - lastApiCall < CONFIG.API_COOLDOWN) {
         showMessage(msgEl, '⚠️ Please wait a moment before submitting again.', 'error');
         msgEl.style.display = 'block';
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
         return;
     }
 
-    // --- Disable submit button ---
-    updateIsSubmitting(true);
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Submitting...';
     showMessage(msgEl, '⏳ Processing your booking...', 'info', 0);
     msgEl.style.display = 'block';
 
@@ -123,14 +140,33 @@ export async function submitSignup() {
             const successSection = document.getElementById("successMessage");
             const confirmationDetails = document.getElementById("confirmationDetails");
             
-            let slotsListHTML = '<div style="margin: 20px 0;"><strong>Your bookings:</strong><ul style="text-align: left; display: inline-block; margin: 10px auto;">';
-            selectedSlots.forEach(slot => {
-                slotsListHTML += `<li>📅 ${sanitizeHTML(slot.date)} at 🕰️ ${sanitizeHTML(slot.label)}</li>`;
-            });
-            slotsListHTML += '</ul></div>';
-            slotsListHTML += `<p>A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong></p>`;
+            // ✅ FIXED: Build DOM elements instead of innerHTML
+            confirmationDetails.innerHTML = ''; // Clear first
             
-            confirmationDetails.innerHTML = slotsListHTML;
+            const container = document.createElement('div');
+            container.style.margin = '20px 0';
+            
+            const heading = document.createElement('strong');
+            heading.textContent = 'Your bookings:';
+            container.appendChild(heading);
+            
+            const list = document.createElement('ul');
+            list.style.textAlign = 'left';
+            list.style.display = 'inline-block';
+            list.style.margin = '10px auto';
+            
+            selectedSlots.forEach(slot => {
+                const li = document.createElement('li');
+                li.textContent = `📅 ${slot.date} at 🕰️ ${slot.label}`;
+                list.appendChild(li);
+            });
+            
+            container.appendChild(list);
+            confirmationDetails.appendChild(container);
+            
+            const emailConfirmation = document.createElement('p');
+            emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong>`;
+            confirmationDetails.appendChild(emailConfirmation);
             
             // Hide form, show success
             document.getElementById("signupSection").style.display = "none";
@@ -174,8 +210,17 @@ export async function submitSignup() {
 // INITIALIZATION
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Expose functions globally for non-inline HTML onclick handlers
-    window.showSignupForm = showSignupForm;
-    window.submitSignup = submitSignup;
-    window.backToSlotSelection = backToSlotSelection;
+    // Attach event listeners properly
+    const signupForm = document.getElementById('signupForm');
+    if (signupForm) {
+        signupForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            submitSignup();
+        });
+    }
+    
+    const backBtn = document.getElementById('backToSlotsBtn');
+    if (backBtn) {
+        backBtn.addEventListener('click', backToSlotSelection);
+    }
 });
