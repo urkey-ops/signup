@@ -1,4 +1,4 @@
-// START OF CODE: lookup.js
+// START OF CODE: lookup.js (UPDATED - avoids inline onclick handlers)
 
 import { 
     API_URL, 
@@ -57,30 +57,61 @@ export async function lookupBookings() {
             return;
         }
 
-        let html = '<div class="bookings-list">';
+        // Build DOM nodes safely
+        displayEl.innerHTML = ''; // clear
+        const listDiv = document.createElement('div');
+        listDiv.className = 'bookings-list';
+
         bookings.forEach(booking => {
-            const safeDate = sanitizeHTML(booking.date);
-            const safeLabel = sanitizeHTML(booking.slotLabel);
-            const safeName = sanitizeHTML(booking.name);
-            const safePhone = sanitizeHTML(booking.phone || '');
-            const safeNotes = sanitizeHTML(booking.notes || '');
-            
-            // Note: The onclick in the generated HTML must call the global function (window.*)
-            html += `
-                <div class="booking-item">
-                    <strong>📅 ${safeDate}</strong> at <strong>🕰️ ${safeLabel}</strong><br>
-                    <small>Name: ${safeName}</small><br>
-                    ${safePhone ? `<small>Phone: ${safePhone}</small><br>` : ''}
-                    ${safeNotes ? `<small>Notes: ${safeNotes}</small><br>` : ''}
-                    <button onclick="window.cancelBooking(${booking.signupRowId}, ${booking.slotRowId}, '${safeDate.replace(/'/g, "\\'")}', '${safeLabel.replace(/'/g, "\\'")}')" 
-                            class="btn secondary-btn" style="margin-top: 8px; background: #ef4444; color: white;">
-                        ❌ Cancel This Booking
-                    </button>
-                </div>
-            `;
+            const item = document.createElement('div');
+            item.className = 'booking-item';
+
+            const title = document.createElement('div');
+            title.innerHTML = `<strong>📅 ${sanitizeHTML(booking.date)}</strong> at <strong>🕰️ ${sanitizeHTML(booking.slotLabel)}</strong>`;
+            item.appendChild(title);
+
+            const smallName = document.createElement('div');
+            smallName.innerHTML = `<small>Name: ${sanitizeHTML(booking.name)}</small>`;
+            item.appendChild(smallName);
+
+            if (booking.phone) {
+                const phoneDiv = document.createElement('div');
+                phoneDiv.innerHTML = `<small>Phone: ${sanitizeHTML(booking.phone)}</small>`;
+                item.appendChild(phoneDiv);
+            }
+            if (booking.notes) {
+                const notesDiv = document.createElement('div');
+                notesDiv.innerHTML = `<small>Notes: ${sanitizeHTML(booking.notes)}</small>`;
+                item.appendChild(notesDiv);
+            }
+
+            const btn = document.createElement('button');
+            btn.className = 'btn secondary-btn';
+            btn.style.marginTop = '8px';
+            btn.style.background = '#ef4444';
+            btn.style.color = 'white';
+            btn.textContent = '❌ Cancel This Booking';
+
+            // attach data attributes
+            btn.dataset.signupRowId = booking.signupRowId;
+            btn.dataset.slotRowId = booking.slotRowId;
+            btn.dataset.date = booking.date;
+            btn.dataset.slotLabel = booking.slotLabel;
+
+            // safe event listener
+            btn.addEventListener('click', (ev) => {
+                const sId = Number(ev.currentTarget.dataset.signuprowid);
+                const slId = Number(ev.currentTarget.dataset.slotrowid);
+                const date = ev.currentTarget.dataset.date;
+                const label = ev.currentTarget.dataset.slotlabel;
+                cancelBooking(sId, slId, date, label);
+            });
+
+            item.appendChild(btn);
+            listDiv.appendChild(item);
         });
-        html += '</div>';
-        displayEl.innerHTML = html;
+
+        displayEl.appendChild(listDiv);
 
     } catch (err) {
         displayEl.innerHTML = '<p class="msg-box error">⚠️ Unable to connect to the server. Please check your internet connection and try again.</p>';
@@ -150,7 +181,7 @@ export function toggleLookup() {
 
 // Function to attach event listeners
 document.addEventListener('DOMContentLoaded', () => {
-    // Expose necessary functions to the global scope for inline onclick handlers
+    // Expose necessary functions to the global scope (still safe to call externally)
     window.lookupBookings = lookupBookings;
     window.cancelBooking = cancelBooking;
     window.toggleLookup = toggleLookup;
@@ -165,5 +196,3 @@ document.addEventListener('DOMContentLoaded', () => {
         searchBtn.addEventListener('click', lookupBookings);
     }
 });
-
-// END OF CODE: lookup.js
