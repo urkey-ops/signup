@@ -5,104 +5,160 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Admin - Manage Slots</title>
-    <link rel="stylesheet" href="admin-style.css" />
+    <meta name="description" content="Admin dashboard for managing booking slots and capacity">
+    <title>Admin Dashboard - Slot Management</title>
+    <link rel="stylesheet" href="admin-style.css">
 </head>
 <body>
+    <!-- Skip to main content for accessibility -->
+    <a href="#main-content" class="skip-to-main">Skip to main content</a>
+
     <div class="container">
-        <h1>🔧 Admin Panel</h1>
+        <!-- Header -->
+        <header role="banner">
+            <h1>🔧 Admin Dashboard</h1>
+            <p class="subtitle">Manage booking slots, monitor capacity, and track utilization</p>
+        </header>
         
         <!-- Login Section -->
-        <div id="loginSection" class="card">
-            <h2>🔐 Login</h2>
-            <input type="password" 
-                   id="adminPassword" 
-                   class="form-input" 
-                   placeholder="Enter Admin Password"
-                   autocomplete="current-password"
-                   aria-label="Admin Password">
-            <button onclick="login()" id="loginBtn" class="btn primary-btn">Login</button>
-            <p id="loginMsg" class="msg-box" role="alert"></p>
-        </div>
+        <section id="loginSection" class="card card-highlighted" aria-labelledby="login-heading">
+            <h2 id="login-heading">🔐 Secure Login</h2>
+            <div class="form-group">
+                <label for="adminPassword" class="form-label">Admin Password</label>
+                <input type="password" 
+                       id="adminPassword" 
+                       class="form-input" 
+                       placeholder="Enter your admin password"
+                       autocomplete="current-password"
+                       aria-required="true"
+                       aria-describedby="login-hint">
+                <span id="login-hint" class="form-hint">Enter your credentials to access the admin panel</span>
+            </div>
+            <button onclick="login()" id="loginBtn" class="btn primary-btn btn-block">
+                Login to Dashboard
+            </button>
+            <div id="loginMsg" class="msg-box" role="alert" aria-live="polite"></div>
+        </section>
 
-        <!-- Admin Section -->
-        <div id="adminSection" style="display:none;">
+        <!-- Admin Section (Hidden by default) -->
+        <main id="adminSection" style="display:none;" role="main">
             
             <!-- Logout Button -->
-            <button onclick="logout()" class="logout-btn">🚪 Logout</button>
-            
-            <!-- Statistics Bar -->
-            <div class="stats-bar" id="statsBar" style="display:none;">
-                <div class="stat-item">
-                    <span class="stat-value" id="totalDates">0</span>
-                    <span class="stat-label">Dates</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="totalSlots">0</span>
-                    <span class="stat-label">Total Slots</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="totalBookings">0</span>
-                    <span class="stat-label">Bookings</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="totalAvailable">0</span>
-                    <span class="stat-label">Available</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-value" id="utilizationRate">0%</span>
-                    <span class="stat-label">Utilization</span>
-                </div>
+            <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-lg);">
+                <button onclick="logout()" class="btn btn-outline btn-sm" aria-label="Logout from admin dashboard">
+                    🚪 Logout
+                </button>
             </div>
+            
+            <!-- Statistics Overview -->
+            <section class="stats-container" id="statsBar" style="display:none;" aria-labelledby="stats-heading">
+                <h2 id="stats-heading" class="visually-hidden">Statistics Overview</h2>
+                
+                <div class="stat-card stat-info">
+                    <span class="stat-label">Total Dates</span>
+                    <span class="stat-value" id="totalDates">0</span>
+                </div>
+                
+                <div class="stat-card stat-success">
+                    <span class="stat-label">Total Slots</span>
+                    <span class="stat-value" id="totalSlots">0</span>
+                </div>
+                
+                <div class="stat-card stat-warning">
+                    <span class="stat-label">Bookings</span>
+                    <span class="stat-value" id="totalBookings">0</span>
+                </div>
+                
+                <div class="stat-card">
+                    <span class="stat-label">Available</span>
+                    <span class="stat-value" id="totalAvailable">0</span>
+                </div>
+                
+                <div class="stat-card stat-danger">
+                    <span class="stat-label">Utilization</span>
+                    <span class="stat-value" id="utilizationRate">0%</span>
+                </div>
+            </section>
             
             <!-- Add New Slots Section -->
-            <div class="card add-slot-form">
-                <h2>📅 Add New Dates & Time Slots</h2>
-                
-                <div style="margin-bottom: 16px;">
-                    <label style="font-weight: 600; margin-bottom: 8px; display: block;">
-                        Select Multiple Dates (Click to select/deselect):
+            <section class="card add-slot-form" aria-labelledby="add-slots-heading">
+                <div class="card-header">
+                    <h2 id="add-slots-heading" class="card-title">📅 Add New Dates & Time Slots</h2>
+                    <div class="card-actions">
+                        <button type="button" 
+                                class="btn btn-ghost btn-sm" 
+                                id="clearDatesBtn" 
+                                onclick="clearAllDates()"
+                                aria-label="Clear all selected dates">
+                            Clear All
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Date Selection -->
+                <div class="form-group">
+                    <label class="form-label">
+                        Select Multiple Dates
+                        <span id="selectedDatesCount" aria-live="polite">0</span>
                     </label>
-                    <div id="multiDateSelector" class="multi-date-selector" role="group" aria-label="Date selector"></div>
-                    <p style="font-size: 0.85rem; color: #64748b; margin-top: 8px;">
-                        <strong><span id="selectedDatesCount">0</span></strong> date(s) selected
-                    </p>
+                    <p class="form-hint">Click on dates to select or deselect them. You can select multiple dates at once.</p>
+                    <div id="multiDateSelector" role="group" aria-label="Date selector">
+                        <!-- Date chips will be dynamically generated here -->
+                    </div>
                 </div>
                 
-                <h3 style="margin-top: 20px;">⏰ Configure Time Slots & Capacity:</h3>
-                <div id="slotCheckboxes" role="group" aria-label="Time slot configuration"></div>
+                <!-- Time Slots Configuration -->
+                <div class="form-group">
+                    <h3 style="margin-bottom: var(--space-md);">⏰ Configure Time Slots & Capacity</h3>
+                    <p class="form-hint">Check the time slots you want to create and set their capacity (1-99 people per slot)</p>
+                    <div id="slotCheckboxes" role="group" aria-label="Time slot configuration">
+                        <!-- Time slot checkboxes will be dynamically generated here -->
+                    </div>
+                </div>
                 
-                <button onclick="submitNewSlots()" id="submitBtn" class="btn primary-btn">
+                <button onclick="submitNewSlots()" id="submitBtn" class="btn primary-btn btn-block">
                     💾 Save Selected Dates & Slots
                 </button>
-                <p id="addMsg" class="msg-box" role="alert"></p>
-            </div>
+                <div id="addMsg" class="msg-box" role="alert" aria-live="polite"></div>
+            </section>
 
-            <!-- Current Slots Section -->
-            <div class="card">
-                <h2>📋 Manage Current Slots</h2>
+            <!-- Current Slots Management Section -->
+            <section class="card" aria-labelledby="manage-slots-heading">
+                <div class="card-header">
+                    <h2 id="manage-slots-heading" class="card-title">📋 Manage Current Slots</h2>
+                    <div class="card-actions btn-group">
+                        <button onclick="loadSlots()" 
+                                class="btn secondary-btn btn-sm" 
+                                aria-label="Refresh slots list">
+                            🔄 Refresh
+                        </button>
+                        <button onclick="selectAllSlots()" 
+                                class="btn btn-ghost btn-sm" 
+                                id="selectAllBtn"
+                                aria-label="Select all slots">
+                            ☑️ Select All
+                        </button>
+                    </div>
+                </div>
                 
-                <div class="control-bar">
-                    <button onclick="loadSlots()" class="btn secondary-btn" aria-label="Refresh slots">
-                        🔄 Refresh
-                    </button>
-                    <button onclick="selectAllSlots()" class="btn secondary-btn" id="selectAllBtn">
-                        ☑️ Select All
-                    </button>
+                <div class="actions-container" style="margin-bottom: var(--space-lg);">
                     <button onclick="deleteSelectedSlots()" 
-                            class="btn-delete" 
+                            class="btn btn-danger" 
                             id="deleteSelectedBtn" 
                             style="display: none;"
                             aria-label="Delete selected slots">
-                        🗑️ Delete Selected (0)
+                        🗑️ Delete Selected (<span id="deleteCount">0</span>)
                     </button>
                 </div>
                 
-                <div id="slotsDisplay" role="region" aria-label="Current slots list"></div>
-            </div>
-        </div>
+                <div id="slotsDisplay" role="region" aria-label="Current slots list" aria-live="polite">
+                    <!-- Slots will be dynamically loaded here -->
+                </div>
+            </section>
+        </main>
     </div>
 
+    <!-- Admin Script -->
     <script src="admin-script.js"></script>
 </body>
 </html>
