@@ -82,19 +82,17 @@
             <div id="userBookingsDisplay" style="margin-top: 15px;" role="region" aria-live="polite" aria-label="Your bookings"></div>
         </section>
 
-       <div class="divider" role="separator"></div>
+        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;" role="separator">
 
         <!-- Slots Section -->
         <div id="loadingMsg" role="status" aria-live="polite">Loading available slots...</div>
-        
-            <div id="slotsDisplay" class="hidden">
+        <div id="slotsDisplay" style="display:none;">
             <p class="description">
                 Select one or more time slots. You can choose multiple slots across different dates. 
                 <strong>All times shown are in Eastern Time (ET)</strong>.
             </p>
             <div id="datesContainer" role="region" aria-label="Available time slots"></div>
-            
-                <div class="mobile-spacer" aria-hidden="true"></div>
+            <div style="height: 100px;" aria-hidden="true"></div> 
         </div>
         <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
             <button id="floatingSignupBtn" class="btn primary-btn" aria-label="Continue to sign up with selected slots">
@@ -121,10 +119,8 @@
                 
                 <div id="signupMsg" class="msg-box" role="alert" aria-live="assertive"></div>
                 
-                <div class="form-actions">
-    <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
-    <button type="button" id="backToSlotsBtn" class="btn secondary-btn">← Back to Slot Selection</button>
-</div>
+                <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
+                <button type="button" id="backToSlotsBtn" class="btn secondary-btn">← Back to Slot Selection</button>
             </form>
         </section>
 
