@@ -190,22 +190,30 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 }
 
 // ================================================================================================
-// TOGGLE LOOKUP SECTION (One-click open/close)
+// TOGGLE LOOKUP SECTION (Fixed: Clears results on close)
 // ================================================================================================
 export function toggleLookup() {
     const content = document.getElementById('lookupContent');
+    const displayEl = document.getElementById('userBookingsDisplay');
+    const phoneInput = document.getElementById('lookupPhone');
     const toggleButton = document.getElementById('lookupToggle');
 
+    const wasHidden = content.classList.contains('hidden');
     content.classList.toggle('hidden');
-    const isExpanded = content.classList.contains('hidden') ? 'false' : 'true';
+    
+    const isExpanded = !content.classList.contains('hidden');
     toggleButton.setAttribute('aria-expanded', isExpanded);
 
-    // Focus on the input when opened
-    if (isExpanded === 'true') {
-        const phoneInput = document.getElementById('lookupPhone');
-        if (phoneInput) phoneInput.focus();
+    if (isExpanded) {
+        // Opening: focus input
+        phoneInput?.focus();
+    } else {
+        // Closing: clear input AND search results completely
+        phoneInput.value = '';
+        displayEl.innerHTML = '';
     }
 }
+
 
 // ================================================================================================
 // INITIALIZATION
