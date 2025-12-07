@@ -12,7 +12,7 @@ const CONFIG = {
     MAX_NOTES_LENGTH: 500,
     MAX_CATEGORY_LENGTH: 20,
     RATE_LIMIT_WINDOW: 60000,   // 1 minute
-    RATE_LIMIT_MAX_REQUESTS: 20,
+    RATE_LIMIT_MAX_REQUESTS: 50,
     CACHE_TTL: 30000,           // 30 seconds
     MAX_CONCURRENT_BOOKINGS: 3, // Prevent booking spam
 };
