@@ -59,30 +59,32 @@
     </header>
 
     <main>
-        <!-- Lookup Section -->
-        <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
-            <button id="lookupToggle" class="btn secondary-btn full-width-mobile" aria-expanded="false">
-                🔍 Look Up / Cancel Booking
+       <!-- Lookup Section (Updated for Phone Lookup) -->
+<section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
+    <button id="lookupToggle" class="btn secondary-btn full-width-mobile" aria-expanded="false">
+        🔍 Look Up / Cancel Booking
+    </button>
+    <div id="lookupContent" class="hidden"> 
+        <p class="description" style="margin-top: 15px;">
+            Enter your phone number to view and manage your bookings.
+        </p>
+        <div class="lookup-controls">
+            <label for="lookupPhone" class="visually-hidden">Phone number for booking lookup</label>
+            <input type="tel" 
+                   id="lookupPhone" 
+                   class="form-input lookup-input" 
+                   placeholder="Enter your phone number to look up bookings"
+                   maxlength="20"
+                   autocomplete="tel"
+                   inputmode="tel">
+            <button id="lookupSearchBtn" class="btn secondary-btn" aria-label="Search for bookings">
+                Search
             </button>
-            <div id="lookupContent" class="hidden"> 
-                <p class="description" style="margin-top: 15px;">Enter your email to view and manage your bookings.</p>
-                <div class="lookup-controls">
-                    <label for="lookupEmail" class="visually-hidden">Email address for booking lookup</label>
-                    <input type="email" 
-                           id="lookupEmail" 
-                           class="form-input lookup-input" 
-                           placeholder="Enter your email to look up bookings"
-                           maxlength="254"
-                           autocomplete="email">
-                    <button id="lookupSearchBtn" class="btn secondary-btn" aria-label="Search for bookings">
-                        Search
-                    </button>
-                </div>
-            </div>
-            <div id="userBookingsDisplay" style="margin-top: 15px;" role="region" aria-live="polite" aria-label="Your bookings"></div>
-        </section>
+        </div>
+    </div>
+    <div id="userBookingsDisplay" style="margin-top: 15px;" role="region" aria-live="polite" aria-label="Your bookings"></div>
+</section>
 
-        <hr style="margin: 40px 0; border: none; border-top: 1px solid #ddd;" role="separator">
 
         <!-- Slots Section -->
         <div id="loadingMsg" role="status" aria-live="polite">Loading available slots...</div>
