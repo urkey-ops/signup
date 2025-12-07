@@ -63,7 +63,8 @@ export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
     const phone = sanitizeInput(phoneInput.value, CONFIG.MAX_PHONE_LENGTH);
     const displayEl = document.getElementById("userBookingsDisplay");
-    const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
+    // ✅ FIX: Use specific ID instead of generic class selector
+    const searchBtn = document.getElementById("lookupSearchBtn");
 
     if (!phone) {
         showError(displayEl, 'Please enter your phone number.');
@@ -79,9 +80,11 @@ export async function lookupBookings() {
     }
 
     isSearching = true;
-    searchBtn.disabled = true;
-    const originalBtnText = searchBtn.textContent;
-    searchBtn.textContent = '🔍 Searching...';
+    if (searchBtn) {
+        searchBtn.disabled = true;
+        const originalBtnText = searchBtn.textContent;
+        searchBtn.textContent = '🔍 Searching...';
+    }
     
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
 
@@ -226,8 +229,10 @@ export async function lookupBookings() {
         showError(displayEl, errorMsg);
     } finally {
         isSearching = false;
-        searchBtn.disabled = false;
-        searchBtn.textContent = originalBtnText;
+        if (searchBtn) {
+            searchBtn.disabled = false;
+            searchBtn.textContent = 'Search';
+        }
     }
 }
 
@@ -366,6 +371,9 @@ export function toggleLookup() {
     const wasHidden = content.classList.contains('hidden');
     content.classList.toggle('hidden');
     
+    // ✅ FIX: Keep aria-hidden in sync with visibility
+    content.setAttribute('aria-hidden', content.classList.contains('hidden').toString());
+    
     const isExpanded = !content.classList.contains('hidden');
     toggleButton?.setAttribute('aria-expanded', isExpanded.toString());
 
@@ -396,7 +404,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.setAttribute('aria-expanded', 'false');
     }
 
-    const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
+    // ✅ FIX: Use specific ID selector
+    const searchBtn = document.getElementById('lookupSearchBtn');
     if (searchBtn) {
         searchBtn.addEventListener('click', (e) => {
             e.preventDefault();
