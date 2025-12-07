@@ -376,25 +376,6 @@ function handleLoadError(status, message) {
 // ================================================================================================
 // SUMMARY FUNCTIONS
 // ================================================================================================
-export function removeSlotFromSummary(slotId) {
-    const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
-    updateSelectedSlots(newSlots);
-    
-    const slotElement = document.getElementById(`slot-btn-${slotId}`);
-    if (slotElement) {
-        slotElement.classList.remove("selected");
-        slotElement.setAttribute('aria-pressed', 'false');
-    }
-    
-    if (selectedSlots.length === 0) {
-        backToSlotSelection();
-        return;
-    }
-    
-    updateSummaryDisplay();
-    updateFloatingButton();
-}
-
 export function updateSummaryDisplay() {
     const summaryEl = document.getElementById('selectedSlotSummary');
     summaryEl.innerHTML = '';
@@ -409,6 +390,7 @@ export function updateSummaryDisplay() {
     const chipsContainer = document.createElement('div');
     chipsContainer.className = 'chips-container';
     
+    // ✅ FIXED: Sort chronologically (date first, then time) - STABLE ORDER
     const sortedSlots = [...selectedSlots].sort((a, b) => {
         const dateCompare = new Date(a.date) - new Date(b.date);
         if (dateCompare !== 0) return dateCompare;
@@ -456,6 +438,7 @@ export function updateSummaryDisplay() {
     
     summaryEl.appendChild(chipsContainer);
 }
+
 
 // ================================================================================================
 // INITIALIZATION
