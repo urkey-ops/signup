@@ -376,69 +376,45 @@ function handleLoadError(status, message) {
 // ================================================================================================
 // SUMMARY FUNCTIONS
 // ================================================================================================
-export function updateSummaryDisplay() {
-    const summaryEl = document.getElementById('selectedSlotSummary');
-    summaryEl.innerHTML = '';
+
+// ✅ FIX: Add missing removeSlotFromSummary function with smooth animation
+function removeSlotFromSummary(slotId) {
+    // Find the chip element for animation
+    const chipElement = document.querySelector(`.slot-chip[data-slot-id="${slotId}"]`);
     
-    const heading = document.createElement('div');
-    heading.style.marginBottom = '12px';
-    const headingStrong = document.createElement('strong');
-    headingStrong.textContent = `📋 Selected ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:`;
-    heading.appendChild(headingStrong);
-    summaryEl.appendChild(heading);
-    
-    const chipsContainer = document.createElement('div');
-    chipsContainer.className = 'chips-container';
-    
-    // ✅ FIXED: Sort chronologically (date first, then time) - STABLE ORDER
-    const sortedSlots = [...selectedSlots].sort((a, b) => {
-        const dateCompare = new Date(a.date) - new Date(b.date);
-        if (dateCompare !== 0) return dateCompare;
-        return parseTimeForSorting(a.label) - parseTimeForSorting(b.label);
-    });
-    
-    sortedSlots.forEach(slot => {
-        const dateObj = new Date(slot.date);
-        const shortDate = dateObj.toLocaleDateString('en-US', { 
-            weekday: 'short', 
-            month: 'short', 
-            day: 'numeric' 
-        });
-        const shortTime = slot.label.replace(/:\d{2}/g, '').replace(/\s*-\s*/g, '-').replace(/\s/g, '');
+    if (chipElement) {
+        // Add removing animation
+        chipElement.classList.add('removing');
         
-        const chip = document.createElement('div');
-        chip.className = 'slot-chip';
-        chip.dataset.slotId = slot.id;
-        
-        const chipContent = document.createElement('span');
-        chipContent.className = 'chip-content';
-        
-        const chipDate = document.createElement('span');
-        chipDate.className = 'chip-date';
-        chipDate.textContent = shortDate;
-        chipContent.appendChild(chipDate);
-        
-        const chipTime = document.createElement('span');
-        chipTime.className = 'chip-time';
-        chipTime.textContent = shortTime;
-        chipContent.appendChild(chipTime);
-        
-        chip.appendChild(chipContent);
-        
-        const removeBtn = document.createElement('button');
-        removeBtn.className = 'chip-remove-btn';
-        removeBtn.textContent = '✕';
-        removeBtn.setAttribute('aria-label', `Remove ${slot.date} ${slot.label}`);
-        removeBtn.setAttribute('title', 'Remove this booking');
-        removeBtn.addEventListener('click', () => removeSlotFromSummary(slot.id));
-        chip.appendChild(removeBtn);
-        
-        chipsContainer.appendChild(chip);
-    });
-    
-    summaryEl.appendChild(chipsContainer);
+        // Wait for animation to complete before updating state
+        setTimeout(() => {
+            const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
+            updateSelectedSlots(newSlots);
+            
+            // Update the visual state of the slot button in the main view
+            const slotElement = document.getElementById(`slot-btn-${slotId}`);
+            if (slotElement) {
+                slotElement.classList.remove("selected");
+                slotElement.setAttribute('aria-pressed', 'false');
+            }
+            
+            // Refresh the summary display
+            updateSummaryDisplay();
+            updateFloatingButton();
+            
+            // Show feedback message
+            showMessage('Slot removed from selection', 'info');
+        }, 300); // Match animation duration
+    } else {
+        // Fallback if chip not found (shouldn't happen)
+        const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
+        updateSelectedSlots(newSlots);
+        updateSummaryDisplay();
+        updateFloatingButton();
+    }
 }
 
+export function updateSummaryDisplay() {
 
 // ================================================================================================
 // INITIALIZATION
