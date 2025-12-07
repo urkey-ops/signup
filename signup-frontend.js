@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT (UPDATED & FIXED - NO CIRCULAR IMPORT)
+// SIGNUP FRONT-END SCRIPT (FIXED - Book Another Slot button working)
 // ================================================================================================
 
 import { 
@@ -20,12 +20,11 @@ import {
     getErrorMessage,
     isValidEmail 
 } from './utils.js';
-import { updateSummaryDisplay } from './slots.js';  // ✅ FIXED: Removed backToSlotSelection to break circular dependency
+import { updateSummaryDisplay } from './slots.js';
 
 // ================================================================================================
 // SHOW SIGNUP FORM
 // ================================================================================================
-// Rename the function to match the import
 export function goToSignupForm() { 
     if (selectedSlots.length === 0) {
         alert('Please select at least one slot before continuing.');
@@ -40,21 +39,39 @@ export function goToSignupForm() {
     setTimeout(() => document.getElementById("nameInput")?.focus(), 300);
 }
 
-
 // ================================================================================================
-// NAVIGATION HELPER (to avoid circular import)
+// NAVIGATION HELPER - RESET TO SLOT SELECTION
 // ================================================================================================
 function backToSlotSelection() {
-    updateSelectedSlots([]); 
-    document.getElementById("signupSection").style.display = "none";
-    document.getElementById("slotsDisplay").style.display = "block";
+    console.log('📍 Returning to slot selection...');
     
+    // Hide all sections
+    const successSection = document.getElementById("successMessage");
+    const signupSection = document.getElementById("signupSection");
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
+    
+    if (successSection) successSection.style.display = "none";
+    if (signupSection) signupSection.style.display = "none";
+    if (slotsDisplay) slotsDisplay.style.display = "block";
+    if (floatingBtn) floatingBtn.style.display = "none";
+    
+    // Clear selections and messages
+    updateSelectedSlots([]);
     const msgEl = document.getElementById("signupMsg");
     if (msgEl) msgEl.textContent = '';
     
-    // Trigger slots reload by dispatching event
+    // Scroll to top
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Trigger slots reload
     window.dispatchEvent(new CustomEvent('reloadSlots'));
+    
+    console.log('✅ Returned to slot selection');
 }
+
+// ✅ CRITICAL: Expose globally so HTML onclick can call it
+window.backToSlotSelection = backToSlotSelection;
 
 // ================================================================================================
 // REAL-TIME VALIDATION HELPERS
@@ -80,7 +97,7 @@ function validatePhone(phone) {
 }
 
 function validateEmailField(email) {
-    if (!email) return { valid: true }; // Email is optional
+    if (!email) return { valid: true };
     if (!isValidEmail(email)) {
         return { valid: false, message: 'Please enter a valid email address' };
     }
@@ -88,7 +105,7 @@ function validateEmailField(email) {
 }
 
 // ================================================================================================
-// VALIDATE AND SUBMIT SIGNUP (UPDATED & FIXED)
+// VALIDATE AND SUBMIT SIGNUP
 // ================================================================================================
 export async function submitSignup() {
     if (isSubmitting) {
@@ -101,12 +118,10 @@ export async function submitSignup() {
     const msgEl = document.getElementById("signupMsg");
     const submitBtn = document.getElementById("submitSignupBtn");
     
-    // ✅ FIX: Add visual loading state
     submitBtn.disabled = true;
     const originalBtnText = submitBtn.textContent;
     submitBtn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite;">⏳</span> Submitting...`;
     
-    // Add spinner animation
     if (!document.getElementById('spinner-style')) {
         const style = document.createElement('style');
         style.id = 'spinner-style';
@@ -119,21 +134,19 @@ export async function submitSignup() {
         document.head.appendChild(style);
     }
 
-    // Get and sanitize inputs
     const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
     const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
     const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
     const category = sanitizeInput(document.getElementById("categorySelect").value, 50);
     const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
 
-    // Helper: reset submission state on validation failure
     function resetSubmitState() {
         updateIsSubmitting(false);
         submitBtn.disabled = false;
         submitBtn.textContent = originalBtnText;
     }
 
-    // --- Validation ---
+    // Validation
     const nameValidation = validateName(name);
     if (!nameValidation.valid) {
         showMessage(msgEl, `⚠️ ${nameValidation.message}`, 'error');
@@ -167,7 +180,6 @@ export async function submitSignup() {
         return;
     }
 
-    // --- API Cooldown ---
     const now = Date.now();
     if (now - lastApiCall < CONFIG.API_COOLDOWN) {
         const waitTime = Math.ceil((CONFIG.API_COOLDOWN - (now - lastApiCall)) / 1000);
@@ -176,7 +188,6 @@ export async function submitSignup() {
         return;
     }
 
-    // ✅ FIX: Show processing message without manual display manipulation
     showMessage(msgEl, '⏳ Processing your booking...', 'info', 0);
 
     try {
@@ -185,28 +196,19 @@ export async function submitSignup() {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                name, 
-                phone, 
-                email, 
-                notes, 
-                category, 
-                slotIds 
-            })
+            body: JSON.stringify({ name, phone, email, notes, category, slotIds })
         });
 
         updateLastApiCall(Date.now());
         const data = await response.json();
 
         if (response.ok && data.ok) {
-            // --- SUCCESS ---
-            API_CACHE.data = null; // Invalidate cache
+            API_CACHE.data = null;
             
             const successSection = document.getElementById("successMessage");
             const confirmationDetails = document.getElementById("confirmationDetails");
             
-            // ✅ FIX: Build confirmation using safe DOM methods instead of innerHTML
-            confirmationDetails.innerHTML = ''; // Clear first
+            confirmationDetails.innerHTML = '';
             
             const container = document.createElement('div');
             container.style.margin = '20px 0';
@@ -221,7 +223,6 @@ export async function submitSignup() {
             list.style.margin = '10px auto';
             list.style.paddingLeft = '20px';
             
-            // ✅ FIX: Sort slots chronologically for display
             const sortedSlots = [...selectedSlots].sort((a, b) => {
                 const dateCompare = new Date(a.date) - new Date(b.date);
                 if (dateCompare !== 0) return dateCompare;
@@ -238,7 +239,6 @@ export async function submitSignup() {
             container.appendChild(list);
             confirmationDetails.appendChild(container);
 
-            // ✅ FIX: Use textContent instead of innerHTML for user data
             const categoryInfo = document.createElement('p');
             categoryInfo.style.marginTop = '15px';
             const categoryLabel = document.createElement('span');
@@ -261,28 +261,23 @@ export async function submitSignup() {
                 confirmationDetails.appendChild(emailConfirmation);
             }
 
-            // Hide form and show success section
             document.getElementById("signupSection").style.display = "none";
             successSection.style.display = "block";
             successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // Clear form fields
+            // Clear form
             document.getElementById("nameInput").value = '';
             document.getElementById("phoneInput").value = '';
             document.getElementById("emailInput").value = '';
             document.getElementById("categorySelect").value = '';
             document.getElementById("notesInput").value = '';
-            
-            // ✅ FIX: Clear message before clearing slots
             msgEl.textContent = '';
             
             updateSelectedSlots([]);
             
         } else {
-            // ✅ FIX: Better error handling with specific messages
             let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
             
-            // Add helpful context for common errors
             if (response.status === 409) {
                 errorMsg += ' Some slots may have been booked by others. Please select different slots.';
             } else if (response.status === 429) {
@@ -291,7 +286,6 @@ export async function submitSignup() {
             
             showMessage(msgEl, `❌ ${errorMsg}`, 'error');
             
-            // Auto-redirect back to slot selection on conflict
             if (response.status === 409) {
                 setTimeout(() => {
                     backToSlotSelection();
@@ -382,6 +376,8 @@ function setupRealtimeValidation() {
 // INITIALIZATION
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('📝 Signup module initializing...');
+    
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', (e) => {
@@ -390,12 +386,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ✅ FIXED: Use local backToSlotSelection function instead of importing
     const backBtn = document.getElementById('backToSlotsBtn');
     if (backBtn) {
         backBtn.addEventListener('click', backToSlotSelection);
     }
     
-    // ✅ NEW: Setup real-time validation
+    // ✅ NEW: Add event listener for "Book Another Slot" button
+    const resetPageBtn = document.getElementById('resetPageBtn');
+    if (resetPageBtn) {
+        resetPageBtn.addEventListener('click', backToSlotSelection);
+        console.log('✅ Book Another Slot button initialized');
+    }
+    
     setupRealtimeValidation();
+    
+    console.log('✅ Signup module initialized');
 });
