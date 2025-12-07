@@ -6,13 +6,13 @@
     <meta name="description" content="Book your time slots easily and manage your bookings online">
     <meta name="theme-color" content="#3b82f6">
     
-    <!-- ✅ FIX: Fixed Content Security Policy - valid CSP syntax -->
+    <!-- ✅ UPDATED: CSP Policy - Allows API calls to any domain -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
                    font-src 'self' https://fonts.gstatic.com; 
                    script-src 'self' 'unsafe-inline'; 
-                   connect-src 'self';">
+                   connect-src *;">
     
     <title>Book a Slot - Online Booking System</title>
 
@@ -317,4 +317,4 @@ if (typeof window !== 'undefined') {
 </noscript>
 
 </body>
-</html>
+</html
