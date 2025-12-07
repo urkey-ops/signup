@@ -41,7 +41,7 @@
         </section>
 
         <!-- Admin Section (Hidden by default) -->
-        <main id="adminSection" style="display:none;" role="main">
+        <main id="adminSection" style="display:none;">
             
             <!-- Logout Button -->
             <div style="display: flex; justify-content: flex-end; margin-bottom: var(--space-lg);">
@@ -103,7 +103,7 @@
                     </label>
                     <p class="form-hint">Click on dates to select or deselect them. You can select multiple dates at once.</p>
                     <div id="multiDateSelector" role="group" aria-label="Date selector">
-                        <!-- Date chips will be dynamically generated here -->
+                        <!-- Date chips will be dynamically generated here by JavaScript -->
                     </div>
                 </div>
                 
@@ -112,7 +112,7 @@
                     <h3 style="margin-bottom: var(--space-md);">⏰ Configure Time Slots & Capacity</h3>
                     <p class="form-hint">Check the time slots you want to create and set their capacity (1-99 people per slot)</p>
                     <div id="slotCheckboxes" role="group" aria-label="Time slot configuration">
-                        <!-- Time slot checkboxes will be dynamically generated here -->
+                        <!-- Time slot checkboxes will be dynamically generated here by JavaScript -->
                     </div>
                 </div>
                 
@@ -152,7 +152,8 @@
                 </div>
                 
                 <div id="slotsDisplay" role="region" aria-label="Current slots list" aria-live="polite">
-                    <!-- Slots will be dynamically loaded here -->
+                    <!-- Slots will be dynamically loaded here by JavaScript -->
+                    <p class="empty-state-description">No slots available. Add new slots above to get started.</p>
                 </div>
             </section>
         </main>
