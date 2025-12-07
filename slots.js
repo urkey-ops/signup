@@ -41,6 +41,11 @@ let isLoadingSlots = false;
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .date-chip.disabled { opacity: 0.5; cursor: not-allowed !important; }
         .exists-badge { position: absolute; top: 2px; right: 2px; background: #10b981; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
+        .slot-chip.removing { animation: slideOut 0.3s ease-out forwards; }
+        @keyframes slideOut { 
+            0% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(0.8) translateX(20px); }
+        }
     `;
     document.head.appendChild(style);
 })();
@@ -64,12 +69,26 @@ function updateFloatingButton() {
         btnContainer.style.display = "block";
         btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
         
-        if (btn._listener) btn.removeEventListener('click', btn._listener);
+        // ✅ FIX: More robust listener cleanup
+        if (btn._listener) {
+            btn.removeEventListener('click', btn._listener);
+        }
         
-        btn._listener = showSignupForm;
-        btn.addEventListener('click', btn._listener);
+        // Create new listener function
+        const newListener = (e) => {
+            e.preventDefault();
+            showSignupForm();
+        };
+        
+        btn._listener = newListener;
+        btn.addEventListener('click', newListener);
     } else {
         btnContainer.style.display = "none";
+        // Clean up listener when hiding
+        if (btn && btn._listener) {
+            btn.removeEventListener('click', btn._listener);
+            btn._listener = null;
+        }
     }
 }
 
@@ -415,6 +434,69 @@ function removeSlotFromSummary(slotId) {
 }
 
 export function updateSummaryDisplay() {
+    const summaryEl = document.getElementById('selectedSlotSummary');
+    if (!summaryEl) return; // Guard clause
+    
+    summaryEl.innerHTML = '';
+    
+    const heading = document.createElement('div');
+    heading.style.marginBottom = '12px';
+    const headingStrong = document.createElement('strong');
+    headingStrong.textContent = `📋 Selected ${selectedSlots.length} Slot${selectedSlots.length > 1 ? 's' : ''}:`;
+    heading.appendChild(headingStrong);
+    summaryEl.appendChild(heading);
+    
+    const chipsContainer = document.createElement('div');
+    chipsContainer.className = 'chips-container';
+    
+    // ✅ FIXED: Sort chronologically (date first, then time) - STABLE ORDER
+    const sortedSlots = [...selectedSlots].sort((a, b) => {
+        const dateCompare = new Date(a.date) - new Date(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return parseTimeForSorting(a.label) - parseTimeForSorting(b.label);
+    });
+    
+    sortedSlots.forEach(slot => {
+        const dateObj = new Date(slot.date);
+        const shortDate = dateObj.toLocaleDateString('en-US', { 
+            weekday: 'short', 
+            month: 'short', 
+            day: 'numeric' 
+        });
+        const shortTime = slot.label.replace(/:\d{2}/g, '').replace(/\s*-\s*/g, '-').replace(/\s/g, '');
+        
+        const chip = document.createElement('div');
+        chip.className = 'slot-chip';
+        chip.dataset.slotId = slot.id;
+        
+        const chipContent = document.createElement('span');
+        chipContent.className = 'chip-content';
+        
+        const chipDate = document.createElement('span');
+        chipDate.className = 'chip-date';
+        chipDate.textContent = shortDate;
+        chipContent.appendChild(chipDate);
+        
+        const chipTime = document.createElement('span');
+        chipTime.className = 'chip-time';
+        chipTime.textContent = shortTime;
+        chipContent.appendChild(chipTime);
+        
+        chip.appendChild(chipContent);
+        
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'chip-remove-btn';
+        removeBtn.textContent = '✕';
+        removeBtn.setAttribute('aria-label', `Remove ${slot.date} ${slot.label}`);
+        removeBtn.setAttribute('title', 'Remove this booking');
+        removeBtn.addEventListener('click', () => removeSlotFromSummary(slot.id));
+        chip.appendChild(removeBtn);
+        
+        chipsContainer.appendChild(chip);
+    });
+    
+    summaryEl.appendChild(chipsContainer);
+}
 
 // ================================================================================================
 // INITIALIZATION
@@ -432,14 +514,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (resetBtn) resetBtn.addEventListener('click', resetPage);
 });
 
-// Warn before unload if user selected slots but didn’t finish booking
+// Warn before unload if user selected slots but didn't finish booking
 window.addEventListener('beforeunload', (e) => {
     const isOnSuccessPage = document.getElementById("successMessage").style.display === "block";
     const isOnSignupForm = document.getElementById("signupSection").style.display === "block";
     
     if (selectedSlots.length > 0 && !isOnSuccessPage && !isOnSignupForm) {
         e.preventDefault();
-        e.returnValue = 'You have selected slots but haven’t completed your booking. Are you sure you want to leave?';
+        e.returnValue = 'You have selected slots but haven't completed your booking. Are you sure you want to leave?';
         return e.returnValue;
     }
 });
