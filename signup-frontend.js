@@ -25,26 +25,21 @@ import { updateSummaryDisplay } from './slots.js';  // ✅ FIXED: Removed backTo
 // ================================================================================================
 // SHOW SIGNUP FORM
 // ================================================================================================
-export function showSignupForm() {
+// Rename the function to match the import
+export function goToSignupForm() { 
     if (selectedSlots.length === 0) {
         alert('Please select at least one slot before continuing.');
         return;
     }
-    
     document.getElementById("slotsDisplay").style.display = "none";
     document.getElementById("floatingSignupBtnContainer").style.display = "none";
     document.getElementById("signupSection").style.display = "block";
-    
+
     updateSummaryDisplay();
-    
-    // Scroll to form
     document.getElementById("signupSection").scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
-    // Focus first input
-    setTimeout(() => {
-        document.getElementById("nameInput")?.focus();
-    }, 300);
+    setTimeout(() => document.getElementById("nameInput")?.focus(), 300);
 }
+
 
 // ================================================================================================
 // NAVIGATION HELPER (to avoid circular import)
