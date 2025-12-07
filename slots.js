@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS.JS (FIXED)
+// SLOTS.JS (UPDATED TO MATCH NEW SIGNUP FLOW)
 // ================================================================================================
 
 import { 
@@ -18,7 +18,7 @@ import {
 import { showSignupForm } from './signup.js';
 
 // ================================================================================================
-// LOADING STATE MANAGEMENT (FIXED - Prevents race conditions)
+// LOADING STATE MANAGEMENT
 // ================================================================================================
 let isLoadingSlots = false;
 
@@ -54,7 +54,7 @@ function formatDateWithDay(dateString) {
     return date.toLocaleDateString('en-US', options); 
 }
 
-// ✅ FIXED: Proper event listener management - remove old before adding new
+// Proper event listener management to prevent duplication
 function updateFloatingButton() {
     const btnContainer = document.getElementById("floatingSignupBtnContainer");
     const btn = document.getElementById("floatingSignupBtn");
@@ -64,10 +64,7 @@ function updateFloatingButton() {
         btnContainer.style.display = "block";
         btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
         
-        // ✅ FIXED: Remove old listener before adding new one
-        if (btn._listener) {
-            btn.removeEventListener('click', btn._listener);
-        }
+        if (btn._listener) btn.removeEventListener('click', btn._listener);
         
         btn._listener = showSignupForm;
         btn.addEventListener('click', btn._listener);
@@ -77,25 +74,23 @@ function updateFloatingButton() {
 }
 
 // ================================================================================================
-// SLOT SELECTION (FIXED - Use updateSelectedSlots consistently)
+// SLOT SELECTION
 // ================================================================================================
 export function toggleSlot(date, slotLabel, rowId, element) {
     const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
     
     if (existingIndex > -1) {
-        // Remove slot
         const newSlots = selectedSlots.filter(slot => slot.id !== rowId);
-        updateSelectedSlots(newSlots); // ✅ FIXED: Use proper state update
+        updateSelectedSlots(newSlots);
         element.classList.remove("selected");
         element.setAttribute('aria-pressed', 'false');
     } else {
-        // Add slot
         if (selectedSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
             alert(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`);
             return;
         }
         const newSlots = [...selectedSlots, { id: rowId, date: date, label: slotLabel }];
-        updateSelectedSlots(newSlots); // ✅ FIXED: Use proper state update
+        updateSelectedSlots(newSlots);
         element.classList.add("selected");
         element.setAttribute('aria-pressed', 'true');
     }
@@ -109,6 +104,10 @@ export function toggleSlot(date, slotLabel, rowId, element) {
 export function backToSlotSelection() {
     updateSelectedSlots([]); 
     document.getElementById("signupSection").style.display = "none";
+    
+    const msgEl = document.getElementById("signupMsg");
+    if (msgEl) msgEl.textContent = '';
+    
     loadSlots();
 }
 
@@ -148,10 +147,9 @@ function showSkeletonUI() {
 }
 
 // ================================================================================================
-// LOAD SLOTS (FIXED - Race condition prevention)
+// LOAD SLOTS
 // ================================================================================================
 export async function loadSlots() {
-    // ✅ FIXED: Prevent concurrent fetches
     if (isLoadingSlots) {
         console.log('⚠️ Already loading slots, skipping duplicate request');
         return;
@@ -164,7 +162,6 @@ export async function loadSlots() {
     showSkeletonUI();
     signupSection.style.display = "none";
 
-    // Check cache
     const now = Date.now();
     if (API_CACHE.data && (now - API_CACHE.timestamp) < API_CACHE.TTL) {
         console.log('✅ Using client cache');
@@ -172,7 +169,6 @@ export async function loadSlots() {
         return;
     }
 
-    // ✅ FIXED: Set loading flag before fetch
     isLoadingSlots = true;
 
     try {
@@ -202,7 +198,6 @@ export async function loadSlots() {
         handleLoadError(null, err.message);
         console.error("Load Slots Error:", err);
     } finally {
-        // ✅ FIXED: Always clear loading flag
         isLoadingSlots = false;
     }
 }
@@ -247,7 +242,6 @@ function renderSlotsData(data) {
     
     datesContainer.appendChild(fragment);
     
-    // Event delegation for slot clicks
     const slotListener = (e) => {
         const slot = e.target.closest('.slot');
         if (!slot || slot.classList.contains('disabled')) return;
@@ -318,8 +312,6 @@ function createSlotElement(slot) {
 // ================================================================================================
 function showNoSlotsMessage() {
     const datesContainer = document.getElementById("datesContainer");
-    
-    // ✅ FIXED: Build DOM instead of innerHTML
     datesContainer.innerHTML = '';
     
     const container = document.createElement('div');
@@ -357,7 +349,7 @@ function handleLoadError(status, message) {
     const datesContainer = document.getElementById("datesContainer");
     
     datesContainer.innerHTML = '';
-    loadingMsg.innerHTML = ''; // Clear first
+    loadingMsg.innerHTML = ''; 
     
     const errorMessage = status ? 
         getErrorMessage(status, "Failed to load slots") :
@@ -382,11 +374,11 @@ function handleLoadError(status, message) {
 }
 
 // ================================================================================================
-// SUMMARY FUNCTIONS (FIXED - Use updateSelectedSlots consistently)
+// SUMMARY FUNCTIONS
 // ================================================================================================
 export function removeSlotFromSummary(slotId) {
     const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
-    updateSelectedSlots(newSlots); // ✅ FIXED: Use proper state update
+    updateSelectedSlots(newSlots);
     
     const slotElement = document.getElementById(`slot-btn-${slotId}`);
     if (slotElement) {
@@ -405,9 +397,7 @@ export function removeSlotFromSummary(slotId) {
 
 export function updateSummaryDisplay() {
     const summaryEl = document.getElementById('selectedSlotSummary');
-    
-    // ✅ FIXED: Build DOM elements instead of innerHTML
-    summaryEl.innerHTML = ''; // Clear first
+    summaryEl.innerHTML = '';
     
     const heading = document.createElement('div');
     heading.style.marginBottom = '12px';
@@ -473,28 +463,24 @@ export function updateSummaryDisplay() {
 document.addEventListener('DOMContentLoaded', () => {
     loadSlots();
     
-    // Escape key to go back
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && document.getElementById("signupSection").style.display === "block") {
             backToSlotSelection();
         }
     });
     
-    // Reset page button
     const resetBtn = document.getElementById('resetPageBtn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', resetPage);
-    }
+    if (resetBtn) resetBtn.addEventListener('click', resetPage);
 });
 
-// ✅ FIXED: Better beforeunload warning - check if on success page
+// Warn before unload if user selected slots but didn’t finish booking
 window.addEventListener('beforeunload', (e) => {
     const isOnSuccessPage = document.getElementById("successMessage").style.display === "block";
     const isOnSignupForm = document.getElementById("signupSection").style.display === "block";
     
     if (selectedSlots.length > 0 && !isOnSuccessPage && !isOnSignupForm) {
         e.preventDefault();
-        e.returnValue = 'You have selected slots but haven\'t completed your booking. Are you sure you want to leave?';
+        e.returnValue = 'You have selected slots but haven’t completed your booking. Are you sure you want to leave?';
         return e.returnValue;
     }
 });
