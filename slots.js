@@ -485,7 +485,7 @@ window.addEventListener('beforeunload', (e) => {
     
     if (selectedSlots.length > 0 && !isOnSuccessPage && !isOnSignupForm) {
         e.preventDefault();
-        e.returnValue = 'You have selected slots but haven't completed your booking. Are you sure you want to leave?';
+        e.returnValue = 'You have selected slots but have not completed your booking. Are you sure you want to leave?';
         return e.returnValue;
     }
 });
