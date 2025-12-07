@@ -135,25 +135,47 @@ function createWeekendControls() {
 
     selector.innerHTML = '';
     const days = getNextSixtyDays();
+    const existingDates = loadedSlots.map(s => s.date);
     
     days.forEach(dateObj => {
         const dateStr = formatDate(dateObj);
         const isPast = isPastDate(dateStr);
+        const hasSlots = existingDates.includes(dateStr);
         const weekend = isWeekend(dateObj);
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         const monthName = dateObj.toLocaleDateString('en-US', { month: 'short' });
         const dayOfMonth = dateObj.getDate();
         
         const chip = document.createElement('div');
-        chip.className = `date-chip ${isPast ? 'past' : ''} ${weekend && !isPast ? 'weekend-chip' : ''}`;
+        
+        // Build class list with clear visual states
+        let chipClasses = 'date-chip';
+        if (isPast) {
+            chipClasses += ' past';
+        } else if (hasSlots) {
+            chipClasses += ' has-slots';
+        } else if (weekend) {
+            chipClasses += ' weekend-chip';
+        }
+        
+        chip.className = chipClasses;
         chip.dataset.date = dateStr;
+        
+        // Add tooltip for unavailable dates
+        if (hasSlots) {
+            chip.title = `${dateStr} - Slots already exist`;
+        } else if (isPast) {
+            chip.title = `${dateStr} - Past date`;
+        }
+        
         chip.innerHTML = `
             <span class="date-month">${monthName}</span>
             <span class="date-day">${dayOfMonth}</span>
             <span class="date-weekday ${weekend ? 'weekend' : ''}">${dayName}</span>
         `;
         
-        if (!isPast) {
+        // Only allow selection for future dates without existing slots
+        if (!isPast && !hasSlots) {
             chip.onclick = () => toggleDateSelection(dateStr, chip);
         }
         
@@ -209,9 +231,9 @@ function toggleDateSelection(dateStr, chip) {
     
     const existingDates = loadedSlots.map(s => s.date);
     
-    // Check if slots already exist for this date
+    // Double-check: prevent selection if slots exist (shouldn't happen due to onclick removal, but safety check)
     if (existingDates.includes(dateStr)) {
-        displayMessage('addMsg', `Cannot select ${dateStr}. Slots already exist for this date.`, 'error');
+        displayMessage('addMsg', `⚠️ Cannot select ${dateStr}. Slots already exist for this date.`, 'error');
         chip.classList.remove('selected');
         return;
     }
@@ -232,7 +254,9 @@ function toggleDateSelection(dateStr, chip) {
     
     // Clear message when selection changes
     const msgBox = document.getElementById('addMsg');
-    if (msgBox) msgBox.style.display = 'none';
+    if (msgBox && msgBox.classList.contains('error')) {
+        msgBox.style.display = 'none';
+    }
 }
 
 // ================================================================================================
