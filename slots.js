@@ -69,7 +69,7 @@ function updateFloatingButton() {
         btnContainer.style.display = "block";
         btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
         
-        // More robust listener cleanup
+        // ✅ FIX: More robust listener cleanup
         if (btn._listener) {
             btn.removeEventListener('click', btn._listener);
         }
@@ -396,7 +396,7 @@ function handleLoadError(status, message) {
 // SUMMARY FUNCTIONS
 // ================================================================================================
 
-// Add missing removeSlotFromSummary function with smooth animation
+// ✅ FIX: Add missing removeSlotFromSummary function with smooth animation
 function removeSlotFromSummary(slotId) {
     // Find the chip element for animation
     const chipElement = document.querySelector(`.slot-chip[data-slot-id="${slotId}"]`);
@@ -449,7 +449,7 @@ export function updateSummaryDisplay() {
     const chipsContainer = document.createElement('div');
     chipsContainer.className = 'chips-container';
     
-    // Sort chronologically (date first, then time) - STABLE ORDER
+    // ✅ FIXED: Sort chronologically (date first, then time) - STABLE ORDER
     const sortedSlots = [...selectedSlots].sort((a, b) => {
         const dateCompare = new Date(a.date) - new Date(b.date);
         if (dateCompare !== 0) return dateCompare;
