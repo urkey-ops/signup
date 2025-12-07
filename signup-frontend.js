@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT (UPDATED & FIXED)
+// SIGNUP FRONT-END SCRIPT (UPDATED & FIXED - NO CIRCULAR IMPORT)
 // ================================================================================================
 
 import { 
@@ -20,7 +20,7 @@ import {
     getErrorMessage,
     isValidEmail 
 } from './utils.js';
-import { updateSummaryDisplay, backToSlotSelection } from './slots.js';
+import { updateSummaryDisplay } from './slots.js';  // ✅ FIXED: Removed backToSlotSelection to break circular dependency
 
 // ================================================================================================
 // SHOW SIGNUP FORM
@@ -44,6 +44,21 @@ export function showSignupForm() {
     setTimeout(() => {
         document.getElementById("nameInput")?.focus();
     }, 300);
+}
+
+// ================================================================================================
+// NAVIGATION HELPER (to avoid circular import)
+// ================================================================================================
+function backToSlotSelection() {
+    updateSelectedSlots([]); 
+    document.getElementById("signupSection").style.display = "none";
+    document.getElementById("slotsDisplay").style.display = "block";
+    
+    const msgEl = document.getElementById("signupMsg");
+    if (msgEl) msgEl.textContent = '';
+    
+    // Trigger slots reload by dispatching event
+    window.dispatchEvent(new CustomEvent('reloadSlots'));
 }
 
 // ================================================================================================
@@ -113,7 +128,7 @@ export async function submitSignup() {
     const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
     const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
     const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
-    const category = sanitizeInput(document.getElementById("categorySelect").value, 50); // ✅ FIX: Increased from 20 to 50
+    const category = sanitizeInput(document.getElementById("categorySelect").value, 50);
     const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
 
     // Helper: reset submission state on validation failure
@@ -215,7 +230,6 @@ export async function submitSignup() {
             const sortedSlots = [...selectedSlots].sort((a, b) => {
                 const dateCompare = new Date(a.date) - new Date(b.date);
                 if (dateCompare !== 0) return dateCompare;
-                // If same date, sort by time (you could import parseTimeForSorting if needed)
                 return a.label.localeCompare(b.label);
             });
             
@@ -381,6 +395,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ✅ FIXED: Use local backToSlotSelection function instead of importing
     const backBtn = document.getElementById('backToSlotsBtn');
     if (backBtn) {
         backBtn.addEventListener('click', backToSlotSelection);
