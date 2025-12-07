@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (FIXED)
+// LOOKUP.JS (UPDATED FOR PHONE NUMBER LOOKUP + TOGGLE BEHAVIOR)
 // ================================================================================================
 
 import { 
@@ -10,26 +10,24 @@ import {
 import { 
     sanitizeInput, 
     sanitizeHTML, 
-    isValidEmail, 
-    getErrorMessage,
-    showMessage 
+    getErrorMessage
 } from './utils.js';
 
 // ================================================================================================
-// LOOKUP BOOKINGS FUNCTION (FIXED)
+// LOOKUP BOOKINGS BY PHONE NUMBER
 // ================================================================================================
 export async function lookupBookings() {
-    const email = sanitizeInput(document.getElementById("lookupEmail").value.toLowerCase(), CONFIG.MAX_EMAIL_LENGTH);
+    const phone = sanitizeInput(document.getElementById("lookupPhone").value, CONFIG.MAX_PHONE_LENGTH);
     const displayEl = document.getElementById("userBookingsDisplay");
     const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
 
-    if (!email) {
-        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter an email address.</p>';
+    if (!phone) {
+        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter your phone number.</p>';
         return;
     }
 
-    if (!isValidEmail(email)) {
-        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter a valid email address.</p>';
+    if (phone.length < 8) {
+        displayEl.innerHTML = '<p class="msg-box error">⚠️ Please enter a valid phone number.</p>';
         return;
     }
 
@@ -38,10 +36,10 @@ export async function lookupBookings() {
     displayEl.innerHTML = '<p>🔍 Searching for your bookings...</p>';
 
     try {
-        const res = await fetch(`${API_URL}?email=${encodeURIComponent(email)}`);
+        const res = await fetch(`${API_URL}?phone=${encodeURIComponent(phone)}`);
         
         if (!res.ok) {
-            const errorMsg = getErrorMessage(res.status, "Failed to lookup bookings.");
+            const errorMsg = getErrorMessage(res.status, "Failed to look up bookings.");
             displayEl.innerHTML = `<p class="msg-box error">⚠️ ${errorMsg}</p>`;
             return;
         }
@@ -56,11 +54,11 @@ export async function lookupBookings() {
         const bookings = data.bookings || [];
 
         if (bookings.length === 0) {
-            displayEl.innerHTML = '<p class="msg-box">📭 No active bookings found for this email address.</p>';
+            displayEl.innerHTML = '<p class="msg-box">📭 No active bookings found for this phone number.</p>';
             return;
         }
 
-        // ✅ FIXED: Build DOM nodes instead of innerHTML for data
+        // ✅ Build DOM nodes instead of innerHTML
         displayEl.innerHTML = '';
         const listDiv = document.createElement('div');
         listDiv.className = 'bookings-list';
@@ -87,13 +85,13 @@ export async function lookupBookings() {
             nameDiv.appendChild(nameSmall);
             item.appendChild(nameDiv);
 
-            // Phone (optional)
-            if (booking.phone) {
-                const phoneDiv = document.createElement('div');
-                const phoneSmall = document.createElement('small');
-                phoneSmall.textContent = `Phone: ${booking.phone}`;
-                phoneDiv.appendChild(phoneSmall);
-                item.appendChild(phoneDiv);
+            // Category (if available)
+            if (booking.category) {
+                const catDiv = document.createElement('div');
+                const catSmall = document.createElement('small');
+                catSmall.textContent = `Category: ${booking.category}`;
+                catDiv.appendChild(catSmall);
+                item.appendChild(catDiv);
             }
 
             // Notes (optional)
@@ -105,7 +103,7 @@ export async function lookupBookings() {
                 item.appendChild(notesDiv);
             }
 
-            // Cancel button
+            // Cancel booking button
             const btn = document.createElement('button');
             btn.className = 'btn secondary-btn';
             btn.style.marginTop = '8px';
@@ -113,13 +111,11 @@ export async function lookupBookings() {
             btn.style.color = 'white';
             btn.textContent = '❌ Cancel This Booking';
 
-            // ✅ FIXED: Use consistent naming for dataset
             btn.dataset.signup_row_id = booking.signupRowId;
             btn.dataset.slot_row_id = booking.slotRowId;
             btn.dataset.date = booking.date;
             btn.dataset.slot_label = booking.slotLabel;
 
-            // Safe event listener
             btn.addEventListener('click', (ev) => {
                 const sId = Number(ev.currentTarget.dataset.signup_row_id);
                 const slId = Number(ev.currentTarget.dataset.slot_row_id);
@@ -144,17 +140,16 @@ export async function lookupBookings() {
 }
 
 // ================================================================================================
-// CANCEL BOOKING FUNCTION (FIXED - Add email verification)
+// CANCEL BOOKING BY PHONE
 // ================================================================================================
 export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
-    const email = document.getElementById("lookupEmail").value.trim().toLowerCase();
-    
-    // ✅ FIXED: Require email for cancellation (security)
-    if (!email) {
-        alert('❌ Error: Email is required for cancellation. Please ensure your email is in the search field above.');
+    const phone = document.getElementById("lookupPhone").value.trim();
+
+    if (!phone) {
+        alert('❌ Error: Phone number is required for cancellation. Please ensure it is entered above.');
         return;
     }
-    
+
     if (!confirm(`⚠️ Are you sure you want to cancel your booking for:\n\n📅 ${date}\n🕰️ ${slotLabel}\n\nThis action cannot be undone.`)) {
         return;
     }
@@ -165,14 +160,13 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
     try {
         displayEl.innerHTML = '<p>⏳ Cancelling your booking...</p>';
         
-        // ✅ FIXED: Send email with cancellation request for verification
         const res = await fetch(API_URL, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
                 signupRowId, 
                 slotRowId,
-                email  // Backend will verify this matches
+                phone
             })
         });
 
@@ -180,17 +174,14 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 
         if (res.ok && data.ok) {
             alert(`✅ ${data.message || "Booking cancelled successfully!"}`);
-            
-            // Invalidate cache
             API_CACHE.data = null;
-            
-            // Refresh bookings list
-            lookupBookings();
+            lookupBookings(); // Refresh list after cancel
         } else {
             const errorMsg = getErrorMessage(res.status, data.error || "Failed to cancel booking.");
             alert(`❌ Error: ${errorMsg}`);
             displayEl.innerHTML = originalHTML;
         }
+
     } catch (err) {
         alert("❌ Unable to connect to the server. Please check your internet connection and try again.");
         console.error("Cancel error:", err);
@@ -199,19 +190,20 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel) {
 }
 
 // ================================================================================================
-// TOGGLE LOOKUP SECTION
+// TOGGLE LOOKUP SECTION (One-click open/close)
 // ================================================================================================
 export function toggleLookup() {
     const content = document.getElementById('lookupContent');
     const toggleButton = document.getElementById('lookupToggle');
-    
+
     content.classList.toggle('hidden');
-    
     const isExpanded = content.classList.contains('hidden') ? 'false' : 'true';
     toggleButton.setAttribute('aria-expanded', isExpanded);
-    
+
+    // Focus on the input when opened
     if (isExpanded === 'true') {
-        document.getElementById('lookupEmail').focus();
+        const phoneInput = document.getElementById('lookupPhone');
+        if (phoneInput) phoneInput.focus();
     }
 }
 
@@ -220,19 +212,14 @@ export function toggleLookup() {
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
     const toggleBtn = document.getElementById("lookupToggle");
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', toggleLookup);
-    }
+    if (toggleBtn) toggleBtn.addEventListener('click', toggleLookup);
 
     const searchBtn = document.querySelector('.lookup-controls .secondary-btn');
-    if (searchBtn) {
-        searchBtn.addEventListener('click', lookupBookings);
-    }
-    
-    // Allow Enter key in email field to trigger search
-    const lookupEmail = document.getElementById('lookupEmail');
-    if (lookupEmail) {
-        lookupEmail.addEventListener('keypress', (e) => {
+    if (searchBtn) searchBtn.addEventListener('click', lookupBookings);
+
+    const lookupPhone = document.getElementById('lookupPhone');
+    if (lookupPhone) {
+        lookupPhone.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
                 lookupBookings();
