@@ -212,6 +212,17 @@ textarea.form-input {
     resize: vertical;
     min-height: 80px;
 }
+select.form-input {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%2364748b' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1rem auto;
+    padding-right: 2.25rem;
+}
+
 
 /* ---------------------------------- */
 /* Floating Button (The Continue Button) */
