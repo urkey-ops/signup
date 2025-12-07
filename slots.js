@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS.JS (UPDATED TO MATCH NEW SIGNUP FLOW)
+// SLOTS.JS (UPDATED TO USE NAVIGATION MODULE)
 // ================================================================================================
 
 import { 
@@ -15,7 +15,7 @@ import {
     getErrorMessage, 
     parseTimeForSorting 
 } from './utils.js';
-import { showSignupForm } from './signup-frontend.js';
+import { goToSignupForm } from './navigation.js';  // ✅ FIXED: Import from navigation module
 
 // ================================================================================================
 // LOADING STATE MANAGEMENT
@@ -74,10 +74,12 @@ function updateFloatingButton() {
             btn.removeEventListener('click', btn._listener);
         }
         
-        // Create new listener function
+        // Create new listener function that uses navigation module
         const newListener = (e) => {
             e.preventDefault();
-            showSignupForm();
+            goToSignupForm();
+            // Trigger summary update from signup module
+            window.dispatchEvent(new CustomEvent('showSignupForm'));
         };
         
         btn._listener = newListener;
@@ -115,26 +117,6 @@ export function toggleSlot(date, slotLabel, rowId, element) {
     }
     
     updateFloatingButton();
-}
-
-// ================================================================================================
-// NAVIGATION FUNCTIONS
-// ================================================================================================
-export function backToSlotSelection() {
-    updateSelectedSlots([]); 
-    document.getElementById("signupSection").style.display = "none";
-    
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) msgEl.textContent = '';
-    
-    loadSlots();
-}
-
-export function resetPage() {
-    updateSelectedSlots([]); 
-    document.getElementById("successMessage").style.display = "none";
-    document.getElementById("floatingSignupBtnContainer").style.display = "none";
-    loadSlots();
 }
 
 // ================================================================================================
@@ -396,36 +378,28 @@ function handleLoadError(status, message) {
 // SUMMARY FUNCTIONS
 // ================================================================================================
 
-// ✅ FIX: Add missing removeSlotFromSummary function with smooth animation
 function removeSlotFromSummary(slotId) {
-    // Find the chip element for animation
     const chipElement = document.querySelector(`.slot-chip[data-slot-id="${slotId}"]`);
     
     if (chipElement) {
-        // Add removing animation
         chipElement.classList.add('removing');
         
-        // Wait for animation to complete before updating state
         setTimeout(() => {
             const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
             updateSelectedSlots(newSlots);
             
-            // Update the visual state of the slot button in the main view
             const slotElement = document.getElementById(`slot-btn-${slotId}`);
             if (slotElement) {
                 slotElement.classList.remove("selected");
                 slotElement.setAttribute('aria-pressed', 'false');
             }
             
-            // Refresh the summary display
             updateSummaryDisplay();
             updateFloatingButton();
             
-            // Show feedback message
             showMessage('Slot removed from selection', 'info');
-        }, 300); // Match animation duration
+        }, 300);
     } else {
-        // Fallback if chip not found (shouldn't happen)
         const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
         updateSelectedSlots(newSlots);
         updateSummaryDisplay();
@@ -435,7 +409,7 @@ function removeSlotFromSummary(slotId) {
 
 export function updateSummaryDisplay() {
     const summaryEl = document.getElementById('selectedSlotSummary');
-    if (!summaryEl) return; // Guard clause
+    if (!summaryEl) return;
     
     summaryEl.innerHTML = '';
     
@@ -449,7 +423,6 @@ export function updateSummaryDisplay() {
     const chipsContainer = document.createElement('div');
     chipsContainer.className = 'chips-container';
     
-    // ✅ FIXED: Sort chronologically (date first, then time) - STABLE ORDER
     const sortedSlots = [...selectedSlots].sort((a, b) => {
         const dateCompare = new Date(a.date) - new Date(b.date);
         if (dateCompare !== 0) return dateCompare;
@@ -503,15 +476,6 @@ export function updateSummaryDisplay() {
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
     loadSlots();
-    
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && document.getElementById("signupSection").style.display === "block") {
-            backToSlotSelection();
-        }
-    });
-    
-    const resetBtn = document.getElementById('resetPageBtn');
-    if (resetBtn) resetBtn.addEventListener('click', resetPage);
 });
 
 // Warn before unload if user selected slots but didn't finish booking
