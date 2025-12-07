@@ -15,7 +15,7 @@ import {
     getErrorMessage, 
     parseTimeForSorting 
 } from './utils.js';
-import { showSignupForm } from './signup.js';
+import { showSignupForm } from './signup-frontend.js';
 
 // ================================================================================================
 // LOADING STATE MANAGEMENT
