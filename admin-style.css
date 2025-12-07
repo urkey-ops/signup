@@ -1,29 +1,29 @@
 /* ----admin-style.css------------------------------ */
 /* Modern Minimalistic Admin Dashboard Design       */
-/* Enhanced version with premium features            */
+/* Enhanced Light Mode - Production Ready            */
 /* ------------------------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
     /* Modern Color Palette - Expanded */
-    --primary-color: #2563eb;       /* Modern Blue */
+    --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
     --primary-light: #dbeafe;
     --primary-dark: #1e40af;
     
-    --success-color: #10b981;       /* Modern Green */
+    --success-color: #10b981;
     --success-hover: #059669;
     --success-light: #d1fae5;
     
-    --danger-color: #ef4444;        /* Modern Red */
+    --danger-color: #ef4444;
     --danger-hover: #dc2626;
     --danger-light: #fee2e2;
     
-    --warning-color: #f59e0b;       /* Modern Orange */
+    --warning-color: #f59e0b;
     --warning-hover: #d97706;
     --warning-light: #fef3c7;
     
-    --info-color: #06b6d4;          /* Modern Cyan */
+    --info-color: #06b6d4;
     --info-hover: #0891b2;
     --info-light: #cffafe;
     
@@ -71,26 +71,6 @@
     --weekend-primary: #8b5cf6;
     --weekend-light: #f3e8ff;
     --weekend-border: #c084fc;
-    
-    /* Admin-specific gradients */
-    --gradient-primary: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-    --gradient-danger: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
-    --gradient-info: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-/* Dark mode support (optional enhancement) */
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0f172a;
-        --surface: #1e293b;
-        --surface-hover: #334155;
-        --border: #334155;
-        --border-hover: #475569;
-        --text-primary: #f1f5f9;
-        --text-secondary: #cbd5e1;
-        --text-muted: #94a3b8;
-    }
 }
 
 /* ---------------------------------- */
@@ -112,20 +92,18 @@ body {
     min-height: 100vh;
 }
 
-/* Enhanced container with max-width breakpoints */
 .container {
     max-width: 1200px;
     margin: 0 auto;
     padding: var(--space-xl) var(--space-lg);
 }
 
-/* Admin-specific wider container */
 .container-wide {
     max-width: 1400px;
 }
 
 /* ---------------------------------- */
-/* Typography - Enhanced Hierarchy  */
+/* Typography                       */
 /* ---------------------------------- */
 h1 {
     font-size: 2.25rem;
@@ -167,7 +145,6 @@ h4 {
     line-height: 1.6;
 }
 
-/* Subtitle variant */
 .subtitle {
     font-size: 1.125rem;
     color: var(--text-secondary);
@@ -175,7 +152,7 @@ h4 {
 }
 
 /* ---------------------------------- */
-/* Card Component - Enhanced        */
+/* Card Component                   */
 /* ---------------------------------- */
 .card {
     background: var(--surface);
@@ -192,7 +169,6 @@ h4 {
     border-color: var(--border-hover);
 }
 
-/* Card variants */
 .card-compact {
     padding: var(--space-lg);
     margin-bottom: var(--space-lg);
@@ -223,7 +199,6 @@ h4 {
     border-color: var(--danger-color);
 }
 
-/* Card header with actions */
 .card-header {
     display: flex;
     justify-content: space-between;
@@ -246,7 +221,7 @@ h4 {
 }
 
 /* ---------------------------------- */
-/* Buttons - Enhanced System        */
+/* Buttons                          */
 /* ---------------------------------- */
 .btn {
     display: inline-flex;
@@ -274,7 +249,6 @@ h4 {
     transform: none !important;
 }
 
-/* Button sizes */
 .btn-sm {
     padding: 0.5rem 1rem;
     font-size: 0.875rem;
@@ -301,7 +275,6 @@ h4 {
     min-width: 40px;
 }
 
-/* Primary Button */
 .primary-btn {
     background: var(--success-color);
     color: white;
@@ -319,7 +292,6 @@ h4 {
     box-shadow: var(--shadow-xs);
 }
 
-/* Secondary Button */
 .secondary-btn {
     background: var(--primary-color);
     color: white;
@@ -337,7 +309,6 @@ h4 {
     box-shadow: var(--shadow-xs);
 }
 
-/* Danger Button */
 .btn-danger,
 .btn-delete,
 .btn-cancel {
@@ -360,7 +331,6 @@ h4 {
     transform: translateY(0);
 }
 
-/* Warning Button */
 .btn-warning {
     background: var(--warning-color);
     color: white;
@@ -373,7 +343,6 @@ h4 {
     transform: translateY(-1px);
 }
 
-/* Info Button */
 .btn-info {
     background: var(--info-color);
     color: white;
@@ -386,7 +355,6 @@ h4 {
     transform: translateY(-1px);
 }
 
-/* Outline Button */
 .btn-outline {
     background: transparent;
     border: 2px solid var(--primary-color);
@@ -398,7 +366,6 @@ h4 {
     transform: translateY(-1px);
 }
 
-/* Ghost Button */
 .btn-ghost {
     background: transparent;
     color: var(--text-secondary);
@@ -409,12 +376,10 @@ h4 {
     color: var(--text-primary);
 }
 
-/* Full width button */
 .btn-block {
     width: 100%;
 }
 
-/* Button group */
 .btn-group {
     display: inline-flex;
     gap: var(--space-sm);
@@ -422,7 +387,7 @@ h4 {
 }
 
 /* ---------------------------------- */
-/* Form Inputs - Enhanced           */
+/* Form Inputs                      */
 /* ---------------------------------- */
 .form-input,
 input[type="text"],
@@ -483,7 +448,6 @@ textarea.form-input {
     line-height: 1.6;
 }
 
-/* Small input variant */
 .form-input-small {
     width: 80px;
     padding: 0.5rem 0.75rem;
@@ -492,7 +456,6 @@ textarea.form-input {
     text-align: center;
 }
 
-/* Form group */
 .form-group {
     margin-bottom: var(--space-lg);
 }
@@ -520,7 +483,6 @@ textarea.form-input {
     font-weight: 500;
 }
 
-/* Inline form group */
 .form-group-inline {
     display: flex;
     align-items: center;
@@ -538,7 +500,6 @@ textarea.form-input {
     border-color: var(--border-hover);
 }
 
-/* Checkbox and Radio Styling */
 input[type="checkbox"],
 input[type="radio"] {
     width: 20px;
@@ -645,21 +606,6 @@ input[type="radio"] {
     background: var(--danger-light);
 }
 
-/* Alternative stats bar layout */
-#statsBar {
-    display: flex;
-    justify-content: space-around;
-    align-items: center;
-    padding: var(--space-xl);
-    background: linear-gradient(135deg, var(--primary-light) 0%, var(--surface) 100%);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-xl);
-    margin: var(--space-xl) 0;
-    flex-wrap: wrap;
-    gap: var(--space-lg);
-    box-shadow: var(--shadow-sm);
-}
-
 .stat-item {
     text-align: center;
     flex: 1;
@@ -667,7 +613,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Tables - Enhanced                */
+/* Tables                           */
 /* ---------------------------------- */
 .table-container {
     background: var(--surface);
@@ -743,7 +689,6 @@ input[type="radio"] {
     border-bottom: none;
 }
 
-/* Table badges */
 .table-badge {
     display: inline-flex;
     align-items: center;
@@ -781,7 +726,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Date Chip Selector - Enhanced    */
+/* Date Chip Selector               */
 /* ---------------------------------- */
 #multiDateSelector {
     display: grid;
@@ -798,7 +743,6 @@ input[type="radio"] {
     box-shadow: var(--shadow-inner);
 }
 
-/* Custom scrollbar */
 #multiDateSelector::-webkit-scrollbar {
     width: 8px;
 }
@@ -888,7 +832,6 @@ input[type="radio"] {
     color: rgba(255, 255, 255, 0.8);
 }
 
-/* Weekend highlighting */
 .date-chip.weekend-chip,
 .date-chip.weekend-highlight {
     background: linear-gradient(135deg, var(--weekend-primary), #a78bfa);
@@ -911,7 +854,6 @@ input[type="radio"] {
     color: rgba(255, 255, 255, 0.95);
 }
 
-/* Selected count badge */
 #selectedDatesCount {
     display: inline-flex;
     align-items: center;
@@ -929,7 +871,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Slot Display - Enhanced          */
+/* Slot Display                     */
 /* ---------------------------------- */
 #slotsDisplay {
     display: flex;
@@ -1032,9 +974,6 @@ input[type="radio"] {
     font-weight: 600;
 }
 
-/* ---------------------------------- */
-/* Slot Checkboxes Section          */
-/* ---------------------------------- */
 #slotCheckboxes {
     display: flex;
     flex-direction: column;
@@ -1043,7 +982,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Message Box - Enhanced           */
+/* Message Box                      */
 /* ---------------------------------- */
 .msg-box {
     padding: var(--space-lg);
@@ -1067,12 +1006,6 @@ input[type="radio"] {
     }
 }
 
-.msg-box.error {
-    color: #991b1b;
-    background: var(--danger-light);
-    border-color: var(--danger-color);
-}
-
 .msg-box.success {
     color: #065f46;
     background: var(--success-light);
@@ -1092,7 +1025,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Admin Forms - Enhanced           */
+/* Admin Forms                      */
 /* ---------------------------------- */
 .add-slot-form {
     background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
@@ -1109,7 +1042,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Action Buttons Container         */
+/* Action Buttons                   */
 /* ---------------------------------- */
 .actions-container {
     display: flex;
@@ -1118,7 +1051,6 @@ input[type="radio"] {
     margin-top: var(--space-lg);
 }
 
-/* Specific button IDs */
 #deleteSelectedBtn {
     background: var(--danger-color);
     color: white;
@@ -1221,7 +1153,27 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Responsive Adjustments           */
+/* Animations                       */
+/* ---------------------------------- */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.card,
+.stat-card,
+.slot-date-group {
+    animation: fadeIn 0.3s ease;
+}
+
+/* ---------------------------------- */
+/* Responsive Design                */
 /* ---------------------------------- */
 @media (max-width: 1024px) {
     .container {
@@ -1267,10 +1219,6 @@ input[type="radio"] {
     
     .stat-value {
         font-size: 1.75rem;
-    }
-    
-    #statsBar {
-        padding: var(--space-lg);
     }
     
     #multiDateSelector {
@@ -1340,11 +1288,6 @@ input[type="radio"] {
     
     .stat-card {
         padding: var(--space-lg);
-    }
-    
-    #statsBar {
-        padding: var(--space-md);
-        gap: var(--space-md);
     }
     
     .stat-item {
@@ -1417,7 +1360,6 @@ input[type="radio"] {
     }
 }
 
-/* Extra small devices */
 @media (max-width: 380px) {
     #multiDateSelector {
         grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
@@ -1505,7 +1447,7 @@ input[type="radio"] {
 }
 
 /* ---------------------------------- */
-/* Accessibility Enhancements       */
+/* Accessibility                    */
 /* ---------------------------------- */
 .skip-to-main {
     position: absolute;
@@ -1537,7 +1479,6 @@ select:focus-visible {
     outline-offset: 2px;
 }
 
-/* High contrast mode */
 @media (prefers-contrast: high) {
     :root {
         --border: #000000;
@@ -1551,7 +1492,6 @@ select:focus-visible {
     }
 }
 
-/* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -1562,7 +1502,9 @@ select:focus-visible {
     }
 }
 
-/* Print styles */
+/* ---------------------------------- */
+/* Print Styles                     */
+/* ---------------------------------- */
 @media print {
     .btn,
     .card-actions,
@@ -1588,4 +1530,10 @@ select:focus-visible {
     body {
         background: white;
     }
+}error {
+    color: #991b1b;
+    background: var(--danger-light);
+    border-color: var(--danger-color);
 }
+
+.msg-box.
