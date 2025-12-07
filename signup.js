@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT (FIXED)
+// SIGNUP FRONT-END SCRIPT (UPDATED)
 // ================================================================================================
 
 import { 
@@ -47,57 +47,65 @@ export function showSignupForm() {
 }
 
 // ================================================================================================
-// VALIDATE AND SUBMIT SIGNUP (FIXED)
+// VALIDATE AND SUBMIT SIGNUP (UPDATED)
 // ================================================================================================
 export async function submitSignup() {
-    // ✅ FIXED: Check and set flag BEFORE any async operations
     if (isSubmitting) {
         console.warn('Submission already in progress');
         return;
     }
 
-    // ✅ FIXED: Set flag immediately to prevent race condition
     updateIsSubmitting(true);
 
     const msgEl = document.getElementById("signupMsg");
     const submitBtn = document.getElementById("submitSignupBtn");
     
-    // Disable button immediately
     submitBtn.disabled = true;
     submitBtn.textContent = 'Submitting...';
-    
+
     // Get and sanitize inputs
     const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
-    const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
     const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
+    const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
+    const category = sanitizeInput(document.getElementById("categorySelect").value, 20);
     const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
+
+    // Helper: reset submission state on validation failure
+    function resetSubmitState() {
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Signup';
+        msgEl.style.display = 'block';
+    }
 
     // --- Validation ---
     if (!name || name.length < 2) {
         showMessage(msgEl, '⚠️ Please enter your full name (at least 2 characters).', 'error');
-        msgEl.style.display = 'block';
-        // ✅ FIXED: Reset state on validation failure
-        updateIsSubmitting(false);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Signup';
+        resetSubmitState();
         return;
     }
 
-    if (!isValidEmail(email)) {
+    if (!phone || phone.length < 8) {
+        showMessage(msgEl, '⚠️ Please enter a valid phone number.', 'error');
+        resetSubmitState();
+        return;
+    }
+
+    if (email && !isValidEmail(email)) {
         showMessage(msgEl, '⚠️ Please enter a valid email address.', 'error');
-        msgEl.style.display = 'block';
-        updateIsSubmitting(false);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Signup';
+        resetSubmitState();
+        return;
+    }
+
+    if (!category) {
+        showMessage(msgEl, '⚠️ Please select your category.', 'error');
+        resetSubmitState();
         return;
     }
 
     if (selectedSlots.length === 0) {
         showMessage(msgEl, '⚠️ Please select at least one slot.', 'error');
-        msgEl.style.display = 'block';
-        updateIsSubmitting(false);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Signup';
+        resetSubmitState();
         return;
     }
 
@@ -105,10 +113,7 @@ export async function submitSignup() {
     const now = Date.now();
     if (now - lastApiCall < CONFIG.API_COOLDOWN) {
         showMessage(msgEl, '⚠️ Please wait a moment before submitting again.', 'error');
-        msgEl.style.display = 'block';
-        updateIsSubmitting(false);
-        submitBtn.disabled = false;
-        submitBtn.textContent = 'Submit Signup';
+        resetSubmitState();
         return;
     }
 
@@ -123,9 +128,10 @@ export async function submitSignup() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 name, 
-                email, 
                 phone, 
+                email, 
                 notes, 
+                category, 
                 slotIds 
             })
         });
@@ -140,7 +146,6 @@ export async function submitSignup() {
             const successSection = document.getElementById("successMessage");
             const confirmationDetails = document.getElementById("confirmationDetails");
             
-            // ✅ FIXED: Build DOM elements instead of innerHTML
             confirmationDetails.innerHTML = ''; // Clear first
             
             const container = document.createElement('div');
@@ -163,31 +168,36 @@ export async function submitSignup() {
             
             container.appendChild(list);
             confirmationDetails.appendChild(container);
+
+            const categoryInfo = document.createElement('p');
+            categoryInfo.innerHTML = `Selected category: <strong>${sanitizeHTML(category)}</strong>`;
+            confirmationDetails.appendChild(categoryInfo);
             
-            const emailConfirmation = document.createElement('p');
-            emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong>`;
-            confirmationDetails.appendChild(emailConfirmation);
-            
-            // Hide form, show success
+            if (email) {
+                const emailConfirmation = document.createElement('p');
+                emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${sanitizeHTML(email)}</strong>`;
+                confirmationDetails.appendChild(emailConfirmation);
+            }
+
+            // Hide form and show success section
             document.getElementById("signupSection").style.display = "none";
             successSection.style.display = "block";
             successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // Clear form
+            // Clear form fields
             document.getElementById("nameInput").value = '';
-            document.getElementById("emailInput").value = '';
             document.getElementById("phoneInput").value = '';
+            document.getElementById("emailInput").value = '';
+            document.getElementById("categorySelect").value = '';
             document.getElementById("notesInput").value = '';
             
             updateSelectedSlots([]);
             
         } else {
-            // --- SERVER ERROR ---
             const errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
             showMessage(msgEl, `❌ ${errorMsg}`, 'error');
             msgEl.style.display = 'block';
             
-            // If slot conflict, reload slots
             if (response.status === 409) {
                 setTimeout(() => {
                     backToSlotSelection();
@@ -210,7 +220,6 @@ export async function submitSignup() {
 // INITIALIZATION
 // ================================================================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // Attach event listeners properly
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', (e) => {
@@ -218,10 +227,9 @@ document.addEventListener('DOMContentLoaded', () => {
             submitSignup();
         });
     }
-    
+
     const backBtn = document.getElementById('backToSlotsBtn');
     if (backBtn) {
         backBtn.addEventListener('click', backToSlotSelection);
     }
 });
-
