@@ -75,13 +75,26 @@ export function showMessage(container, message, type = 'info', duration = 4000) 
 // Convert "HH:MM" (or "H:MM") to minutes for sorting
 export function parseTimeForSorting(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return 0;
-    const m = timeStr.match(/^(\d{1,2}):?(\d{2})?/);
+
+    // Take the first part before any dash, e.g. "10am - 12pm" -> "10am"
+    const firstPart = timeStr.split('-')[0].trim().toLowerCase();
+
+    // Match patterns like "10", "10am", "10:30", "10:30am"
+    const m = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
     if (!m) return 0;
-    const h = Number(m[1] || 0);
-    const min = Number(m[2] || 0);
-    if (Number.isNaN(h) || Number.isNaN(min)) return 0;
-    return h * 60 + min;
+
+    let hour = Number(m[1]);
+    const minutes = m[2] ? Number(m[2]) : 0;
+    const period = m[3]; // "am" or "pm" or undefined
+
+    if (Number.isNaN(hour) || Number.isNaN(minutes)) return 0;
+
+    if (period === 'pm' && hour !== 12) hour += 12;
+    if (period === 'am' && hour === 12) hour = 0;
+
+    return hour * 60 + minutes;
 }
+
 
 // Map HTTP status codes to friendly error messages
 export function getErrorMessage(status, defaultMsg = 'An error occurred') {
