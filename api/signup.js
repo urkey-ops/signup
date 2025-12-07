@@ -49,7 +49,7 @@ const SHEETS = {
 };
 
 // Environment validation
-const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_PRIVATE_KEY', 'SIGNUPS_GID', 'SLOTS_GID'];
+const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_PRIVATE_KEY', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'SIGNUPS_GID', 'SLOTS_GID'];
 REQUIRED_ENV.forEach(key => {
     if (!process.env[key]) {
         console.error(`❌ CRITICAL: Missing environment variable: ${key}`);
