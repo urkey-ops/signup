@@ -15,7 +15,7 @@ import {
     getErrorMessage, 
     parseTimeForSorting 
 } from './utils.js';
-import { goToSignupForm } from './navigation.js';  // ✅ FIXED: Import from navigation module
+import { goToSignupForm } from './signup-frontend.js';  // ✅ FIXED: Import from navigation module
 
 // ================================================================================================
 // LOADING STATE MANAGEMENT
