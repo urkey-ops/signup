@@ -29,7 +29,7 @@
     </noscript>
 
     <!-- Local Styles -->
-    <link rel="stylesheet" href="user-style.css">
+    <link rel="stylesheet" href="/user-style.css">
 
     <!-- Favicon -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -62,7 +62,6 @@
             padding: 40px 20px;
             color: #64748b;
         }
-        /* ✅ FIX: Better hidden class for accessibility */
         .hidden {
             display: none !important;
         }
@@ -77,7 +76,6 @@
             white-space: nowrap;
             border: 0;
         }
-        /* Loading spinner */
         .spinner {
             display: inline-block;
             width: 20px;
@@ -99,7 +97,7 @@
     </header>
 
     <main>
-        <!-- ✅ FIXED: Lookup Section with proper IDs and ARIA -->
+        <!-- Lookup Section -->
         <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
             <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
             <button id="lookupToggle" 
@@ -108,7 +106,7 @@
                     aria-controls="lookupContent">
                 🔍 Look Up / Cancel Booking
             </button>
-            <!-- ✅ FIX: Added aria-hidden when hidden -->
+
             <div id="lookupContent" class="hidden" aria-hidden="true"> 
                 <p class="description" style="margin-top: 15px;">
                     Enter your phone number to view and manage your bookings.
@@ -123,10 +121,11 @@
                            autocomplete="tel"
                            inputmode="tel"
                            aria-describedby="phone-hint">
+
                     <span id="phone-hint" class="visually-hidden">
                         Enter your 10-digit phone number to search for bookings
                     </span>
-                    <!-- ✅ FIX: Added missing ID that was referenced in lookup.js -->
+
                     <button id="lookupSearchBtn" 
                             class="btn secondary-btn" 
                             aria-label="Search for bookings"
@@ -135,12 +134,12 @@
                     </button>
                 </div>
             </div>
+
             <div id="userBookingsDisplay" 
                  style="margin-top: 15px;" 
                  role="region" 
                  aria-live="polite" 
-                 aria-label="Your bookings">
-            </div>
+                 aria-label="Your bookings"></div>
         </section>
 
         <!-- Slots Section -->
@@ -148,6 +147,7 @@
             <span class="spinner" aria-hidden="true"></span>
             <span>Loading available slots...</span>
         </div>
+
         <div id="slotsDisplay" style="display:none;">
             <p class="description">
                 Select one or more time slots. You can choose multiple slots across different dates. 
@@ -156,8 +156,8 @@
             <div id="datesContainer" role="region" aria-label="Available time slots"></div>
             <div style="height: 100px;" aria-hidden="true"></div> 
         </div>
-        
-        <!-- ✅ FIX: Better floating button structure -->
+
+        <!-- Floating Signup -->
         <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
             <button id="floatingSignupBtn" 
                     class="btn primary-btn" 
@@ -170,11 +170,13 @@
         <!-- Signup Form -->
         <section id="signupSection" style="display:none;" class="card" aria-labelledby="signup-heading">
             <h2 id="signup-heading">✍️ Enter Your Details</h2>
+
             <div id="selectedSlotSummary" 
                  class="selected-slots-summary" 
                  role="region" 
                  aria-label="Selected slots summary">
             </div>
+
             <form id="signupForm" novalidate>
 
                 <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
@@ -262,9 +264,8 @@
     </main>
 </div>
 
-<!-- ✅ FIX: Load scripts with defer and proper error handling -->
+<!-- Error Handler -->
 <script type="module">
-    // Error handler for module loading failures
     window.addEventListener('error', (e) => {
         if (e.filename && e.filename.endsWith('.js')) {
             console.error('Failed to load module:', e.filename);
@@ -284,20 +285,19 @@
     }, true);
 </script>
 
-<!-- ✅ FIX: Removed duplicate event listeners - modules handle their own initialization -->
-<script type="module" src="config.js"></script>
-<script type="module" src="utils.js"></script>
-<script type="module" src="slots.js"></script>
-<script type="module" src="signup.js"></script>
-<script type="module" src="lookup.js"></script>
+<!-- ✅ FIXED: Absolute module paths -->
+<script type="module" src="/config.js"></script>
+<script type="module" src="/utils.js"></script>
+<script type="module" src="/slots.js"></script>
+<script type="module" src="/signup.js"></script>
+<script type="module" src="/lookup.js"></script>
 
-<!-- ✅ FIX: Only expose truly necessary functions to window for debugging -->
+<!-- Debug helpers -->
 <script type="module">
-import { loadSlots } from './slots.js';
-import { lookupBookings } from './lookup.js';
-import { getStateSnapshot } from './config.js';
+import { loadSlots } from '/slots.js';
+import { lookupBookings } from '/lookup.js';
+import { getStateSnapshot } from '/config.js';
 
-// Expose only for console debugging
 if (typeof window !== 'undefined') {
     window.__APP__ = {
         loadSlots,
@@ -308,7 +308,6 @@ if (typeof window !== 'undefined') {
 }
 </script>
 
-<!-- No-JavaScript Fallback -->
 <noscript>
     <div style="padding: 20px; text-align: center; background: #fee; border: 2px solid #c00; margin: 20px; border-radius: 8px;">
         <h2>⚠️ JavaScript Required</h2>
