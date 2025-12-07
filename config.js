@@ -1,5 +1,5 @@
 // ================================================================================================
-// CONFIG.JS - APPLICATION CONFIGURATION (FIXED)
+// CONFIG.JS - APPLICATION CONFIGURATION (UPDATED FOR PHONE-BASED SIGNUP)
 // ================================================================================================
 
 export const API_URL = "/api/signup";
@@ -10,9 +10,10 @@ export const CONFIG = {
     MAX_EMAIL_LENGTH: 254,
     MAX_PHONE_LENGTH: 20,
     MAX_NOTES_LENGTH: 500,
-    API_COOLDOWN: 5000,  // ✅ FIXED: Increased from 1000ms to 5000ms
+    MAX_CATEGORY_LENGTH: 20,   // ✅ Added for 'Select Category' field
+    API_COOLDOWN: 5000,        // ✅ Prevents rapid repeat submissions
     RETRY_DELAY: 3000,
-    CLIENT_CACHE_TTL: 30000,
+    CLIENT_CACHE_TTL: 30000    // ✅ 30s cache for slot data
 };
 
 // ================================================================================================
@@ -29,10 +30,10 @@ export const API_CACHE = {
     TTL: CONFIG.CLIENT_CACHE_TTL
 };
 
-// ✅ FIXED: Proper state mutation that updates the exported reference
+// ✅ Use reference-safe mutation for reactivity
 export function updateSelectedSlots(newSlots) { 
-    selectedSlots.length = 0;  // Clear existing array
-    selectedSlots.push(...newSlots);  // Add new items
+    selectedSlots.length = 0;  
+    selectedSlots.push(...newSlots);  
 }
 
 export function updateLastApiCall(timestamp) { 
