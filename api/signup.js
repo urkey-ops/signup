@@ -1,7 +1,7 @@
 const { google } = require("googleapis");
 
 // ================================================================================================
-// CONFIGURATION & CONSTANTS
+// CONFIGURATION & CONSTANTS (UPDATED FOR PHONE-BASED BOOKING)
 // ================================================================================================
 
 const CONFIG = {
@@ -10,13 +10,14 @@ const CONFIG = {
     MAX_EMAIL_LENGTH: 254,
     MAX_PHONE_LENGTH: 20,
     MAX_NOTES_LENGTH: 500,
-    RATE_LIMIT_WINDOW: 60000, // 1 minute
+    MAX_CATEGORY_LENGTH: 20,
+    RATE_LIMIT_WINDOW: 60000,   // 1 minute
     RATE_LIMIT_MAX_REQUESTS: 20,
-    CACHE_TTL: 30000, // 30 seconds
+    CACHE_TTL: 30000,           // 30 seconds
     MAX_CONCURRENT_BOOKINGS: 3, // Prevent booking spam
 };
 
-// Sheet column mappings
+// Sheet column mappings (added CATEGORY column)
 const SHEETS = {
     SLOTS: {
         NAME: 'Slots',
@@ -31,7 +32,7 @@ const SHEETS = {
     },
     SIGNUPS: {
         NAME: 'Signups',
-        RANGE: 'A2:I',
+        RANGE: 'A2:J',
         COLS: {
             TIMESTAMP: 0,
             DATE: 1,
@@ -39,14 +40,15 @@ const SHEETS = {
             NAME: 3,
             EMAIL: 4,
             PHONE: 5,
-            NOTES: 6,
-            SLOT_ROW_ID: 7,
-            STATUS: 8
+            CATEGORY: 6,  // ✅ new column
+            NOTES: 7,
+            SLOT_ROW_ID: 8,
+            STATUS: 9
         }
     }
 };
 
-// Environment variables - VALIDATE ON STARTUP
+// Environment validation
 const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_SERVICE_ACCOUNT', 'SIGNUPS_GID', 'SLOTS_GID'];
 REQUIRED_ENV.forEach(key => {
     if (!process.env[key]) {
@@ -61,88 +63,61 @@ const SHEET_ID = process.env.SHEET_ID;
 const TIMEZONE = process.env.TIMEZONE || 'America/New_York';
 
 // ================================================================================================
-// SERVER-SIDE CACHING
+// SERVER CACHE
 // ================================================================================================
 
-const cache = {
-    slots: null,
-    timestamp: 0,
-    TTL: CONFIG.CACHE_TTL
-};
+const cache = { slots: null, timestamp: 0, TTL: CONFIG.CACHE_TTL };
 
 function getCachedSlots() {
     const now = Date.now();
-    if (cache.slots && (now - cache.timestamp) < cache.TTL) {
-        return cache.slots;
-    }
+    if (cache.slots && (now - cache.timestamp) < cache.TTL) return cache.slots;
     return null;
 }
-
-function setCachedSlots(data) {
-    cache.slots = data;
-    cache.timestamp = Date.now();
-}
-
-function invalidateCache() {
-    cache.slots = null;
-    cache.timestamp = 0;
-}
+function setCachedSlots(data) { cache.slots = data; cache.timestamp = Date.now(); }
+function invalidateCache() { cache.slots = null; cache.timestamp = 0; }
 
 // ================================================================================================
-// IN-MEMORY RATE LIMITING
+// RATE LIMITING
 // ================================================================================================
 
 const rateLimitMap = new Map();
-const activeBookingsMap = new Map(); // Track concurrent bookings per email
+const activeBookingsMap = new Map();
 
 function cleanupRateLimitMap() {
     const now = Date.now();
     for (const [key, timestamps] of rateLimitMap.entries()) {
-        const validTimestamps = timestamps.filter(t => now - t < CONFIG.RATE_LIMIT_WINDOW);
-        if (validTimestamps.length === 0) {
-            rateLimitMap.delete(key);
-        } else {
-            rateLimitMap.set(key, validTimestamps);
-        }
+        const valid = timestamps.filter(t => now - t < CONFIG.RATE_LIMIT_WINDOW);
+        valid.length ? rateLimitMap.set(key, valid) : rateLimitMap.delete(key);
     }
 }
 
 function checkRateLimit(identifier) {
     const now = Date.now();
-    const userRequests = rateLimitMap.get(identifier) || [];
-    
-    const recentRequests = userRequests.filter(time => now - time < CONFIG.RATE_LIMIT_WINDOW);
-    
-    if (recentRequests.length >= CONFIG.RATE_LIMIT_MAX_REQUESTS) {
-        return false;
-    }
-    
-    recentRequests.push(now);
-    rateLimitMap.set(identifier, recentRequests);
+    const reqs = rateLimitMap.get(identifier) || [];
+    const recent = reqs.filter(t => now - t < CONFIG.RATE_LIMIT_WINDOW);
+    if (recent.length >= CONFIG.RATE_LIMIT_MAX_REQUESTS) return false;
+    recent.push(now);
+    rateLimitMap.set(identifier, recent);
     return true;
 }
 
-function checkConcurrentBookings(email) {
-    const count = activeBookingsMap.get(email) || 0;
+function checkConcurrentBookings(phone) {
+    const count = activeBookingsMap.get(phone) || 0;
     return count < CONFIG.MAX_CONCURRENT_BOOKINGS;
 }
-
-function incrementActiveBookings(email) {
-    const count = activeBookingsMap.get(email) || 0;
-    activeBookingsMap.set(email, count + 1);
+function incrementActiveBookings(phone) {
+    const count = activeBookingsMap.get(phone) || 0;
+    activeBookingsMap.set(phone, count + 1);
+}
+function decrementActiveBookings(phone) {
+    const count = activeBookingsMap.get(phone) || 0;
+    if (count > 0) activeBookingsMap.set(phone, count - 1);
 }
 
-function decrementActiveBookings(email) {
-    const count = activeBookingsMap.get(email) || 0;
-    if (count > 0) {
-        activeBookingsMap.set(email, count - 1);
-    }
-}
-
-// Cleanup every 5 minutes
+// Clean up maps periodically
 setInterval(() => {
     cleanupRateLimitMap();
-    activeBookingsMap.clear(); // Reset concurrent bookings
+    activeBookingsMap.clear();
 }, 300000);
 
 // ================================================================================================
@@ -151,55 +126,55 @@ setInterval(() => {
 
 function sanitizeInput(str, maxLength) {
     if (!str) return '';
-    return str
-        .toString()
-        .trim()
-        .replace(/[<>]/g, '')
-        .substring(0, maxLength);
+    return str.toString().trim().replace(/[<>]/g, '').substring(0, maxLength);
 }
 
 function isValidEmail(email) {
-    if (!email || typeof email !== 'string') return false;
+    if (!email) return true; // Optional now
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email) && email.length <= CONFIG.MAX_EMAIL_LENGTH;
 }
 
 function isValidPhone(phone) {
-    if (!phone) return true; // Optional field
-    return /^[\d\s\-\+\(\)]{7,20}$/.test(phone);
+    if (!phone) return false;
+    return /^[\d\s\-\+\(\)]{8,20}$/.test(phone);
 }
 
 function validateBookingRequest(body) {
     const errors = [];
-    
+
     if (!body.name?.trim() || body.name.length > CONFIG.MAX_NAME_LENGTH) {
-        errors.push(`Name is required (max ${CONFIG.MAX_NAME_LENGTH} characters)`);
+        errors.push(`Name is required (max ${CONFIG.MAX_NAME_LENGTH} characters).`);
     }
-    
-    if (!isValidEmail(body.email)) {
-        errors.push("Valid email is required");
+
+    if (!body.phone?.trim() || !isValidPhone(body.phone)) {
+        errors.push(`Valid phone number is required.`);
     }
-    
-    if (body.phone && !isValidPhone(body.phone)) {
-        errors.push("Invalid phone number format");
+
+    if (body.email && !isValidEmail(body.email)) {
+        errors.push(`Invalid email address.`);
     }
-    
+
+    if (!body.category?.trim() || body.category.length > CONFIG.MAX_CATEGORY_LENGTH) {
+        errors.push(`Valid category selection is required.`);
+    }
+
     if (body.notes && body.notes.length > CONFIG.MAX_NOTES_LENGTH) {
-        errors.push(`Notes must be less than ${CONFIG.MAX_NOTES_LENGTH} characters`);
+        errors.push(`Notes must be less than ${CONFIG.MAX_NOTES_LENGTH} characters.`);
     }
-    
+
     if (!Array.isArray(body.slotIds) || body.slotIds.length === 0) {
-        errors.push("At least one slot must be selected");
+        errors.push(`At least one slot must be selected.`);
     }
-    
+
     if (body.slotIds?.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
-        errors.push(`Maximum ${CONFIG.MAX_SLOTS_PER_BOOKING} slots per booking`);
+        errors.push(`Only up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots allowed.`);
     }
-    
-    if (body.slotIds && !body.slotIds.every(id => Number.isInteger(id) && id > 0)) {
-        errors.push("Invalid slot IDs");
+
+    if (!body.slotIds.every(id => Number.isInteger(id) && id > 0)) {
+        errors.push("Invalid slot IDs provided.");
     }
-    
+
     return errors;
 }
 
@@ -208,18 +183,8 @@ function validateBookingRequest(body) {
 // ================================================================================================
 
 function log(level, message, data = {}) {
-    const logEntry = {
-        timestamp: new Date().toISOString(),
-        level: level.toUpperCase(),
-        message,
-        ...data
-    };
-    
-    if (level === 'error') {
-        console.error(JSON.stringify(logEntry));
-    } else {
-        console.log(JSON.stringify(logEntry));
-    }
+    const entry = { timestamp: new Date().toISOString(), level, message, ...data };
+    console[level === 'error' ? 'error' : 'log'](JSON.stringify(entry));
 }
 
 // ================================================================================================
@@ -230,19 +195,13 @@ let sheetsInstance;
 
 async function getSheets() {
     if (sheetsInstance) return sheetsInstance;
-    
-    try {
-        const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
-        const auth = new google.auth.GoogleAuth({
-            credentials,
-            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-        });
-        sheetsInstance = google.sheets({ version: "v4", auth });
-        return sheetsInstance;
-    } catch (err) {
-        log('error', 'Failed to initialize Google Sheets', { error: err.message });
-        throw new Error("Service configuration error");
-    }
+    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
+    const auth = new google.auth.GoogleAuth({
+        credentials,
+        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    sheetsInstance = google.sheets({ version: "v4", auth });
+    return sheetsInstance;
 }
 
 // ================================================================================================
@@ -251,66 +210,45 @@ async function getSheets() {
 
 module.exports = async function handler(req, res) {
     const startTime = Date.now();
-    
-    // Set security headers
+
+    // Security + CORS
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('X-XSS-Protection', '1; mode=block');
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
     res.setHeader('Cache-Control', 'no-store, max-age=0');
-    
-    // CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
-    
+    if (req.method === 'OPTIONS') return res.status(200).end();
+
     try {
-        // Rate limiting
-        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || 
-                         req.headers['x-real-ip'] || 
-                         'unknown';
-        
+        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.headers['x-real-ip'] || 'unknown';
         if (!checkRateLimit(clientIP)) {
-            log('warn', 'Rate limit exceeded', { ip: clientIP, method: req.method });
-            return res.status(429).json({ 
-                ok: false, 
-                error: "Too many requests. Please wait a moment and try again." 
-            });
+            log('warn', 'Rate limit exceeded', { ip: clientIP });
+            return res.status(429).json({ ok: false, error: "Too many requests. Please try again later." });
         }
 
         const sheets = await getSheets();
 
         // ========================================================================================
-        // GET: Return available slots or user bookings
+        // GET: Lookup by phone number or fetch available slots
         // ========================================================================================
         if (req.method === "GET") {
-            
-            // --- User Booking Lookup --- 
-            if (req.query.email) {
-                const lookupEmail = sanitizeInput(req.query.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
-
-                if (!isValidEmail(lookupEmail)) {
-                    return res.status(400).json({ 
-                        ok: false, 
-                        error: "Invalid email format" 
-                    });
+            if (req.query.phone) {
+                const lookupPhone = sanitizeInput(req.query.phone, CONFIG.MAX_PHONE_LENGTH);
+                if (!isValidPhone(lookupPhone)) {
+                    return res.status(400).json({ ok: false, error: "Invalid phone number format." });
                 }
 
                 try {
-                    log('info', 'Looking up bookings', { email: lookupEmail });
-                    
-                    const signupsResponse = await sheets.spreadsheets.values.get({
+                    log('info', 'Looking up bookings by phone', { phone: lookupPhone });
+                    const response = await sheets.spreadsheets.values.get({
                         spreadsheetId: SHEET_ID,
                         range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
                     });
-                    
-                    const signupRows = signupsResponse.data.values || [];
-
-                    const userBookings = signupRows
+                    const rows = response.data.values || [];
+                    const userBookings = rows
                         .map((row, idx) => ({
                             signupRowId: idx + 2,
                             timestamp: row[SHEETS.SIGNUPS.COLS.TIMESTAMP],
@@ -319,43 +257,26 @@ module.exports = async function handler(req, res) {
                             name: row[SHEETS.SIGNUPS.COLS.NAME],
                             email: row[SHEETS.SIGNUPS.COLS.EMAIL],
                             phone: row[SHEETS.SIGNUPS.COLS.PHONE],
+                            category: row[SHEETS.SIGNUPS.COLS.CATEGORY],
                             notes: row[SHEETS.SIGNUPS.COLS.NOTES],
                             slotRowId: parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]) || null,
                             status: row[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE'
                         }))
-                        .filter(booking => 
-                            booking.email?.trim().toLowerCase() === lookupEmail && 
-                            booking.slotRowId !== null &&
-                            booking.status === 'ACTIVE'
-                        );
+                        .filter(b => b.phone?.trim() === lookupPhone && b.status === 'ACTIVE');
 
-                    log('info', 'Bookings found', { email: lookupEmail, count: userBookings.length });
+                    log('info', 'Phone lookup complete', { phone: lookupPhone, count: userBookings.length });
                     return res.status(200).json({ ok: true, bookings: userBookings });
-
                 } catch (err) {
-                    log('error', 'Error fetching user bookings', { 
-                        email: lookupEmail, 
-                        error: err.message 
-                    });
-                    return res.status(500).json({ 
-                        ok: false, 
-                        error: "Failed to fetch bookings" 
-                    });
+                    log('error', 'Phone lookup failed', { err: err.message });
+                    return res.status(500).json({ ok: false, error: "Failed to fetch bookings." });
                 }
             }
 
-            // --- Fetch All Available Slots (WITH CACHING) ---
+            // --- Load available slots (cached)
             try {
-                const cachedData = getCachedSlots();
-                if (cachedData) {
-                    log('info', 'Cache hit - returning cached slots', { 
-                        cacheAge: Date.now() - cache.timestamp 
-                    });
-                    return res.status(200).json(cachedData);
-                }
+                const cached = getCachedSlots();
+                if (cached) return res.status(200).json(cached);
 
-                log('info', 'Cache miss - fetching from Google Sheets');
-                
                 const response = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SLOTS.NAME}!${SHEETS.SLOTS.RANGE}`,
@@ -368,40 +289,25 @@ module.exports = async function handler(req, res) {
                     slotLabel: row[SHEETS.SLOTS.COLS.LABEL] || "",
                     capacity: parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0,
                     taken: parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0,
-                    available: Math.max(0, (parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0) - (parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0)),
+                    available: Math.max(0, (parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0) -
+                        (parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0))
                 }));
 
-                // Group by date and filter out past dates
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
+                const today = new Date(); today.setHours(0, 0, 0, 0);
                 const grouped = {};
                 slots.forEach(slot => {
                     const slotDate = new Date(slot.date);
                     if (slotDate >= today && slot.capacity > 0) {
-                        if (!grouped[slot.date]) {
-                            grouped[slot.date] = [];
-                        }
+                        if (!grouped[slot.date]) grouped[slot.date] = [];
                         grouped[slot.date].push(slot);
                     }
                 });
 
                 const result = { ok: true, dates: grouped };
                 setCachedSlots(result);
-
-                log('info', 'Slots fetched and cached', { 
-                    totalSlots: slots.length,
-                    dates: Object.keys(grouped).length,
-                    duration: Date.now() - startTime 
-                });
-
                 return res.status(200).json(result);
-            } catch (err) {
-                log('error', 'Error reading slots', { error: err.message });
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to fetch slots" 
-                });
+            } catch {
+                return res.status(500).json({ ok: false, error: "Slots not available." });
             }
         }
 
@@ -409,107 +315,66 @@ module.exports = async function handler(req, res) {
         // POST: Create new booking
         // ========================================================================================
         if (req.method === "POST") {
-            const validationErrors = validateBookingRequest(req.body);
-            if (validationErrors.length > 0) {
-                log('warn', 'Validation failed', { errors: validationErrors });
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: validationErrors.join('; ') 
-                });
-            }
+            const errors = validateBookingRequest(req.body);
+            if (errors.length) return res.status(400).json({ ok: false, error: errors.join('; ') });
 
-            const { slotIds } = req.body;
-            
             const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
-            const email = sanitizeInput(req.body.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
             const phone = sanitizeInput(req.body.phone, CONFIG.MAX_PHONE_LENGTH);
+            const email = sanitizeInput(req.body.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
+            const category = sanitizeInput(req.body.category, CONFIG.MAX_CATEGORY_LENGTH);
             const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
+            const slotIds = req.body.slotIds;
 
-            // Check concurrent bookings
-            if (!checkConcurrentBookings(email)) {
-                log('warn', 'Too many concurrent bookings', { email });
-                return res.status(429).json({
-                    ok: false,
-                    error: "You have too many booking requests in progress. Please wait a moment."
-                });
-            }
+            if (!checkConcurrentBookings(phone))
+                return res.status(429).json({ ok: false, error: "Too many concurrent requests. Try again." });
 
-            incrementActiveBookings(email);
-
+            incrementActiveBookings(phone);
             try {
-                log('info', 'Processing booking request', { email, name, slotCount: slotIds.length });
+                const sheetsData = await sheets.spreadsheets.values.batchGet({
+                    spreadsheetId: SHEET_ID,
+                    ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
+                });
 
-                // Atomic fetch
-                const [slotsResponse, signupsResponse] = await Promise.all([
-                    sheets.spreadsheets.values.batchGet({
-                        spreadsheetId: SHEET_ID,
-                        ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
-                    }),
-                    sheets.spreadsheets.values.get({
-                        spreadsheetId: SHEET_ID,
-                        range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
-                    })
-                ]);
+                const signupFetch = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
+                });
 
-                const slotRanges = slotsResponse.data.valueRanges;
-                const existingSignups = signupsResponse.data.values || [];
+                const slotRanges = sheetsData.data.valueRanges;
+                const existing = signupFetch.data.values || [];
+                const nowStr = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
 
                 const signupRows = [];
-                const updates = [];
-                const now = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
+                const updateRequests = [];
 
                 for (let i = 0; i < slotIds.length; i++) {
                     const slotId = slotIds[i];
-                    const slotData = slotRanges[i].values?.[0];
+                    const row = slotRanges[i].values?.[0];
+                    if (!row) return res.status(400).json({ ok: false, error: "Slot data missing." });
 
-                    if (!slotData || slotData.length < 4) {
-                        log('warn', 'Slot not found', { slotId, email });
-                        decrementActiveBookings(email);
-                        return res.status(400).json({ ok: false, error: `Slot not found. Please refresh and try again.` });
-                    }
+                    const date = row[SHEETS.SLOTS.COLS.DATE];
+                    const label = row[SHEETS.SLOTS.COLS.LABEL];
+                    const capacity = parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0;
+                    const taken = parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0;
 
-                    const slot = {
-                        date: slotData[SHEETS.SLOTS.COLS.DATE],
-                        label: slotData[SHEETS.SLOTS.COLS.LABEL],
-                        capacity: parseInt(slotData[SHEETS.SLOTS.COLS.CAPACITY]) || 0,
-                        taken: parseInt(slotData[SHEETS.SLOTS.COLS.TAKEN]) || 0
-                    };
+                    const duplicate = existing.find(r =>
+                        r[SHEETS.SIGNUPS.COLS.PHONE]?.trim() === phone &&
+                        parseInt(r[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]) === slotId &&
+                        (r[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE').startsWith('ACTIVE')
+                    );
+                    if (duplicate) return res.status(409).json({ ok: false, error: `Already booked ${label} on ${date}.` });
 
-                    const slotDate = new Date(slot.date);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
+                    if (taken >= capacity)
+                        return res.status(409).json({ ok: false, error: `Slot ${label} on ${date} is full.` });
 
-                    if (slotDate < today) {
-                        log('warn', 'Attempted booking of past slot', { slotId, date: slot.date, email });
-                        decrementActiveBookings(email);
-                        return res.status(400).json({ ok: false, error: `Cannot book slot for ${slot.date} - this date has passed.` });
-                    }
-
-                    const duplicateBooking = existingSignups.find(row => {
-                        const rowEmail = row[SHEETS.SIGNUPS.COLS.EMAIL]?.trim().toLowerCase();
-                        const rowSlotId = parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]);
-                        const rowStatus = row[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
-                        return rowEmail === email && rowSlotId === slotId && rowStatus === 'ACTIVE';
+                    signupRows.push([nowStr, date, label, name, email, phone, category, notes, slotId, 'ACTIVE']);
+                    updateRequests.push({
+                        range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
+                        values: [[taken + 1]]
                     });
-
-                    if (duplicateBooking) {
-                        log('warn', 'Duplicate booking attempt', { email, slotId, date: slot.date, label: slot.label });
-                        decrementActiveBookings(email);
-                        return res.status(409).json({ ok: false, error: `You already have an active booking for ${slot.label} on ${slot.date}.` });
-                    }
-
-                    if (slot.taken >= slot.capacity) {
-                        log('warn', 'Slot full', { slotId, date: slot.date, label: slot.label, capacity: slot.capacity, taken: slot.taken });
-                        decrementActiveBookings(email);
-                        return res.status(409).json({ ok: false, error: `The slot "${slot.label}" on ${slot.date} is now full. Please select another slot.` });
-                    }
-
-                    signupRows.push([now, slot.date, slot.label, name, req.body.email.trim(), phone, notes, slotId, 'ACTIVE']);
-                    const newTaken = slot.taken + 1;
-                    updates.push({ range: `${SHEETS.SLOTS.NAME}!D${slotId}`, values: [[newTaken]] });
                 }
 
-                // Atomic write
+                // BatchWrite
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
                     requestBody: {
@@ -517,23 +382,23 @@ module.exports = async function handler(req, res) {
                             {
                                 appendCells: {
                                     sheetId: SIGNUPS_GID,
-                                    rows: signupRows.map(row => ({
-                                        values: row.map(cell => ({ userEnteredValue: { stringValue: String(cell) } }))
+                                    rows: signupRows.map(r => ({
+                                        values: r.map(c => ({ userEnteredValue: { stringValue: String(c) } }))
                                     })),
                                     fields: 'userEnteredValue'
                                 }
                             },
-                            ...updates.map(update => ({
+                            ...updateRequests.map(u => ({
                                 updateCells: {
                                     range: {
                                         sheetId: SLOTS_GID,
-                                        startRowIndex: parseInt(update.range.match(/\d+/)[0]) - 1,
-                                        endRowIndex: parseInt(update.range.match(/\d+/)[0]),
+                                        startRowIndex: parseInt(u.range.match(/\d+/)[0]) - 1,
+                                        endRowIndex: parseInt(u.range.match(/\d+/)[0]),
                                         startColumnIndex: 3,
                                         endColumnIndex: 4
                                     },
                                     rows: [{
-                                        values: update.values.map(val => ({
+                                        values: u.values.map(val => ({
                                             userEnteredValue: { numberValue: parseInt(val[0]) }
                                         }))
                                     }],
@@ -545,39 +410,12 @@ module.exports = async function handler(req, res) {
                 });
 
                 invalidateCache();
-                decrementActiveBookings(email);
-
-                log('info', 'Booking successful', { 
-                    email, 
-                    name,
-                    slotCount: slotIds.length,
-                    duration: Date.now() - startTime 
-                });
-
-                return res.status(200).json({ 
-                    ok: true, 
-                    message: `Successfully booked ${slotIds.length} slot${slotIds.length === 1 ? '' : 's'}!` 
-                });
-
+                decrementActiveBookings(phone);
+                return res.status(200).json({ ok: true, message: "Booking successful!" });
             } catch (err) {
-                decrementActiveBookings(email);
-                log('error', 'Error creating booking', { 
-                    email, 
-                    error: err.message,
-                    stack: err.stack 
-                });
-                
-                if (err.code === 429) {
-                    return res.status(429).json({ 
-                        ok: false, 
-                        error: "Service is busy. Please try again in a moment." 
-                    });
-                }
-                
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to complete booking. Please try again." 
-                });
+                decrementActiveBookings(phone);
+                log('error', 'Booking failed', { err: err.message });
+                return res.status(500).json({ ok: false, error: "Booking could not be completed." });
             }
         }
 
@@ -585,54 +423,30 @@ module.exports = async function handler(req, res) {
         // PATCH: Cancel booking
         // ========================================================================================
         if (req.method === "PATCH") {
-            const { signupRowId, slotRowId } = req.body;
-
-            if (!signupRowId || !slotRowId || 
-                !Number.isInteger(signupRowId) || !Number.isInteger(slotRowId)) {
-                return res.status(400).json({ 
-                    ok: false, 
-                    error: "Invalid request parameters" 
-                });
+            const { signupRowId, slotRowId, phone } = req.body;
+            if (!signupRowId || !slotRowId || !phone) {
+                return res.status(400).json({ ok: false, error: "Missing cancellation parameters." });
             }
 
             try {
-                log('info', 'Processing cancellation', { signupRowId, slotRowId });
-
-                const signupResponse = await sheets.spreadsheets.values.get({
+                const signupResp = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:I${signupRowId}`,
+                    range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
                 });
+                const row = signupResp.data.values?.[0];
+                if (!row) return res.status(404).json({ ok: false, error: "Booking not found." });
+                if (row[SHEETS.SIGNUPS.COLS.PHONE]?.trim() !== phone)
+                    return res.status(403).json({ ok: false, error: "Phone number does not match booking." });
 
-                const signupRow = signupResponse.data.values?.[0];
-                if (!signupRow) {
-                    log('warn', 'Booking not found', { signupRowId });
-                    return res.status(404).json({ 
-                        ok: false, 
-                        error: "Booking not found" 
-                    });
-                }
-
-                const bookingStatus = signupRow[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
-                if (bookingStatus !== 'ACTIVE') {
-                    log('warn', 'Booking already cancelled', { signupRowId });
-                    return res.status(400).json({ 
-                        ok: false, 
-                        error: "This booking has already been cancelled" 
-                    });
-                }
-
-                const slotRange = `${SHEETS.SLOTS.NAME}!D${slotRowId}`;
-                const slotResponse = await sheets.spreadsheets.values.get({
+                const slotResp = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
-                    range: slotRange,
+                    range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
                 });
-                
-                const currentTaken = parseInt(slotResponse.data.values?.[0]?.[0] || 0);
+                const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
                 const newTaken = Math.max(0, currentTaken - 1);
 
-                const cancelledTimestamp = new Date().toISOString();
-                
-                // Atomic cancellation
+                const ts = new Date().toISOString();
+
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
                     requestBody: {
@@ -643,12 +457,12 @@ module.exports = async function handler(req, res) {
                                         sheetId: SIGNUPS_GID,
                                         startRowIndex: signupRowId - 1,
                                         endRowIndex: signupRowId,
-                                        startColumnIndex: 8,
-                                        endColumnIndex: 9
+                                        startColumnIndex: 9,
+                                        endColumnIndex: 10
                                     },
                                     rows: [{
                                         values: [{
-                                            userEnteredValue: { stringValue: `CANCELLED:${cancelledTimestamp}` }
+                                            userEnteredValue: { stringValue: `CANCELLED:${ts}` }
                                         }]
                                     }],
                                     fields: 'userEnteredValue'
@@ -676,49 +490,16 @@ module.exports = async function handler(req, res) {
                 });
 
                 invalidateCache();
-
-                log('info', 'Cancellation successful', { 
-                    signupRowId, 
-                    slotRowId,
-                    duration: Date.now() - startTime 
-                });
-
-                return res.status(200).json({ 
-                    ok: true, 
-                    message: "Booking cancelled successfully!" 
-                });
-
+                return res.status(200).json({ ok: true, message: "Booking cancelled successfully." });
             } catch (err) {
-                log('error', 'Error cancelling booking', { 
-                    signupRowId, 
-                    slotRowId,
-                    error: err.message,
-                    stack: err.stack 
-                });
-                
-                return res.status(500).json({ 
-                    ok: false, 
-                    error: "Failed to cancel booking. Please try again." 
-                });
+                log('error', 'Cancel booking failed', { err: err.message });
+                return res.status(500).json({ ok: false, error: "Cancellation failed." });
             }
         }
 
-        res.setHeader("Allow", ["GET", "POST", "PATCH"]);
-        log('warn', 'Method not allowed', { method: req.method, ip: clientIP });
-        return res.status(405).json({ 
-            ok: false, 
-            error: `Method ${req.method} not allowed` 
-        });
-
+        return res.status(405).json({ ok: false, error: "Method not allowed." });
     } catch (err) {
-        log('error', 'Unhandled error in API handler', { 
-            error: err.message,
-            stack: err.stack 
-        });
-        
-        return res.status(500).json({ 
-            ok: false, 
-            error: "An unexpected error occurred. Please try again." 
-        });
+        log('error', 'Unhandled error', { err: err.message });
+        return res.status(500).json({ ok: false, error: "Unexpected server error." });
     }
 };
