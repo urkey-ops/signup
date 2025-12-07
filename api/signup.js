@@ -40,7 +40,7 @@ const SHEETS = {
             NAME: 3,
             EMAIL: 4,
             PHONE: 5,
-            CATEGORY: 6,  // ✅ new column
+            CATEGORY: 6,
             NOTES: 7,
             SLOT_ROW_ID: 8,
             STATUS: 9
@@ -49,18 +49,37 @@ const SHEETS = {
 };
 
 // Environment validation
+console.log('🔍 STARTUP: Checking environment variables...');
 const REQUIRED_ENV = ['SHEET_ID', 'GOOGLE_PRIVATE_KEY', 'GOOGLE_SERVICE_ACCOUNT_EMAIL', 'SIGNUPS_GID', 'SLOTS_GID'];
+const envStatus = {};
 REQUIRED_ENV.forEach(key => {
-    if (!process.env[key]) {
+    const exists = !!process.env[key];
+    envStatus[key] = exists ? '✅' : '❌ MISSING';
+    if (!exists) {
         console.error(`❌ CRITICAL: Missing environment variable: ${key}`);
-        throw new Error(`Missing required environment variable: ${key}`);
     }
 });
+console.log('Environment variables status:', envStatus);
+
+// Only throw after logging all missing vars
+const missingVars = REQUIRED_ENV.filter(key => !process.env[key]);
+if (missingVars.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
 
 const SIGNUPS_GID = parseInt(process.env.SIGNUPS_GID);
 const SLOTS_GID = parseInt(process.env.SLOTS_GID);
 const SHEET_ID = process.env.SHEET_ID;
 const TIMEZONE = process.env.TIMEZONE || 'America/New_York';
+
+console.log('✅ Configuration loaded:', {
+    SHEET_ID: SHEET_ID.substring(0, 10) + '...',
+    SIGNUPS_GID,
+    SLOTS_GID,
+    TIMEZONE,
+    HAS_SERVICE_EMAIL: !!process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL,
+    HAS_PRIVATE_KEY: !!process.env.GOOGLE_PRIVATE_KEY
+});
 
 // ================================================================================================
 // SERVER CACHE
@@ -70,11 +89,23 @@ const cache = { slots: null, timestamp: 0, TTL: CONFIG.CACHE_TTL };
 
 function getCachedSlots() {
     const now = Date.now();
-    if (cache.slots && (now - cache.timestamp) < cache.TTL) return cache.slots;
+    if (cache.slots && (now - cache.timestamp) < cache.TTL) {
+        console.log('📦 Cache HIT - returning cached slots');
+        return cache.slots;
+    }
+    console.log('📦 Cache MISS - will fetch fresh data');
     return null;
 }
-function setCachedSlots(data) { cache.slots = data; cache.timestamp = Date.now(); }
-function invalidateCache() { cache.slots = null; cache.timestamp = 0; }
+function setCachedSlots(data) { 
+    cache.slots = data; 
+    cache.timestamp = Date.now();
+    console.log('📦 Cache UPDATED');
+}
+function invalidateCache() { 
+    cache.slots = null; 
+    cache.timestamp = 0;
+    console.log('📦 Cache INVALIDATED');
+}
 
 // ================================================================================================
 // RATE LIMITING
@@ -95,7 +126,10 @@ function checkRateLimit(identifier) {
     const now = Date.now();
     const reqs = rateLimitMap.get(identifier) || [];
     const recent = reqs.filter(t => now - t < CONFIG.RATE_LIMIT_WINDOW);
-    if (recent.length >= CONFIG.RATE_LIMIT_MAX_REQUESTS) return false;
+    if (recent.length >= CONFIG.RATE_LIMIT_MAX_REQUESTS) {
+        console.log('⚠️ Rate limit exceeded for:', identifier);
+        return false;
+    }
     recent.push(now);
     rateLimitMap.set(identifier, recent);
     return true;
@@ -108,10 +142,12 @@ function checkConcurrentBookings(phone) {
 function incrementActiveBookings(phone) {
     const count = activeBookingsMap.get(phone) || 0;
     activeBookingsMap.set(phone, count + 1);
+    console.log(`📊 Active bookings for ${phone}: ${count + 1}`);
 }
 function decrementActiveBookings(phone) {
     const count = activeBookingsMap.get(phone) || 0;
     if (count > 0) activeBookingsMap.set(phone, count - 1);
+    console.log(`📊 Active bookings for ${phone}: ${Math.max(0, count - 1)}`);
 }
 
 // Clean up maps periodically
@@ -194,31 +230,57 @@ function log(level, message, data = {}) {
 let sheetsInstance;
 
 async function getSheets() {
-    if (sheetsInstance) return sheetsInstance;
+    console.log('🔐 getSheets() called');
+    
+    if (sheetsInstance) {
+        console.log('✅ Returning cached sheets instance');
+        return sheetsInstance;
+    }
 
+    console.log('🔐 Initializing new Google Sheets client...');
+    
     const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
     
-    // Add detailed logging
-    console.log('Auth debug:', {
+    console.log('🔐 Auth credentials check:', {
         hasEmail: !!GOOGLE_SERVICE_ACCOUNT_EMAIL,
         hasKey: !!GOOGLE_PRIVATE_KEY,
-        emailValue: GOOGLE_SERVICE_ACCOUNT_EMAIL?.substring(0, 20) + '...' // partial for security
+        emailPrefix: GOOGLE_SERVICE_ACCOUNT_EMAIL ? GOOGLE_SERVICE_ACCOUNT_EMAIL.substring(0, 20) + '...' : 'MISSING',
+        keyPrefix: GOOGLE_PRIVATE_KEY ? GOOGLE_PRIVATE_KEY.substring(0, 30) + '...' : 'MISSING',
+        keyLength: GOOGLE_PRIVATE_KEY ? GOOGLE_PRIVATE_KEY.length : 0
     });
     
     if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+        console.error('❌ Missing Google service account credentials');
         throw new Error("Missing Google service account env variables");
     }
 
-    const auth = new google.auth.GoogleAuth({
-        credentials: {
-            client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
-            private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // works even if key has no \n
-        },
-        scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
+    try {
+        console.log('🔐 Creating GoogleAuth instance...');
+        
+        // Clean the private key
+        const cleanedKey = GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n');
+        console.log('🔐 Private key cleaned, length:', cleanedKey.length);
+        
+        const auth = new google.auth.GoogleAuth({
+            credentials: {
+                client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+                private_key: cleanedKey,
+            },
+            scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+        });
 
-    sheetsInstance = google.sheets({ version: "v4", auth });
-    return sheetsInstance;
+        console.log('🔐 GoogleAuth created, initializing sheets API...');
+        sheetsInstance = google.sheets({ version: "v4", auth });
+        console.log('✅ Google Sheets client initialized successfully');
+        
+        return sheetsInstance;
+    } catch (error) {
+        console.error('❌ FATAL: Failed to initialize Google Sheets client');
+        console.error('Error name:', error.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+        throw error;
+    }
 }
 
 // ================================================================================================
@@ -227,6 +289,14 @@ async function getSheets() {
 
 module.exports = async function handler(req, res) {
     const startTime = Date.now();
+    const requestId = Math.random().toString(36).substring(7);
+    
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log(`🚀 REQUEST START [${requestId}]`);
+    console.log(`📍 Method: ${req.method}`);
+    console.log(`📍 URL: ${req.url}`);
+    console.log(`📍 Query:`, req.query);
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Security + CORS
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -237,34 +307,51 @@ module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    
+    if (req.method === 'OPTIONS') {
+        console.log('✅ OPTIONS request handled');
+        return res.status(200).end();
+    }
 
     try {
         const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || req.headers['x-real-ip'] || 'unknown';
+        console.log(`👤 Client IP: ${clientIP}`);
+        
         if (!checkRateLimit(clientIP)) {
-            log('warn', 'Rate limit exceeded', { ip: clientIP });
+            log('warn', 'Rate limit exceeded', { ip: clientIP, requestId });
             return res.status(429).json({ ok: false, error: "Too many requests. Please try again later." });
         }
 
+        console.log('🔧 Initializing Google Sheets...');
         const sheets = await getSheets();
+        console.log('✅ Google Sheets client ready');
 
         // ========================================================================================
         // GET: Lookup by phone number or fetch available slots
         // ========================================================================================
         if (req.method === "GET") {
+            console.log('📥 Processing GET request');
+            
             if (req.query.phone) {
+                console.log('📞 Phone lookup requested');
                 const lookupPhone = sanitizeInput(req.query.phone, CONFIG.MAX_PHONE_LENGTH);
+                console.log('📞 Looking up phone:', lookupPhone);
+                
                 if (!isValidPhone(lookupPhone)) {
+                    console.log('❌ Invalid phone format');
                     return res.status(400).json({ ok: false, error: "Invalid phone number format." });
                 }
 
                 try {
-                    log('info', 'Looking up bookings by phone', { phone: lookupPhone });
+                    console.log('📞 Fetching signups from sheet...');
                     const response = await sheets.spreadsheets.values.get({
                         spreadsheetId: SHEET_ID,
                         range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
                     });
+                    
                     const rows = response.data.values || [];
+                    console.log(`📞 Found ${rows.length} total signups`);
+                    
                     const userBookings = rows
                         .map((row, idx) => ({
                             signupRowId: idx + 2,
@@ -281,25 +368,48 @@ module.exports = async function handler(req, res) {
                         }))
                         .filter(b => b.phone?.trim() === lookupPhone && b.status === 'ACTIVE');
 
-                    log('info', 'Phone lookup complete', { phone: lookupPhone, count: userBookings.length });
+                    console.log(`📞 Found ${userBookings.length} bookings for phone ${lookupPhone}`);
+                    log('info', 'Phone lookup complete', { phone: lookupPhone, count: userBookings.length, requestId });
                     return res.status(200).json({ ok: true, bookings: userBookings });
                 } catch (err) {
-                    log('error', 'Phone lookup failed', { err: err.message });
+                    console.error('❌ Phone lookup failed');
+                    console.error('Error name:', err.name);
+                    console.error('Error message:', err.message);
+                    console.error('Error stack:', err.stack);
+                    log('error', 'Phone lookup failed', { err: err.message, stack: err.stack, requestId });
                     return res.status(500).json({ ok: false, error: "Failed to fetch bookings." });
                 }
             }
 
             // --- Load available slots (cached)
+            console.log('📅 Fetching available slots');
             try {
                 const cached = getCachedSlots();
-                if (cached) return res.status(200).json(cached);
+                if (cached) {
+                    console.log('✅ Returning cached slots');
+                    return res.status(200).json(cached);
+                }
 
+                console.log('📊 Fetching slots from Google Sheets...');
+                console.log('📊 Sheet ID:', SHEET_ID);
+                console.log('📊 Range:', `${SHEETS.SLOTS.NAME}!${SHEETS.SLOTS.RANGE}`);
+                
                 const response = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SLOTS.NAME}!${SHEETS.SLOTS.RANGE}`,
                 });
 
+                console.log('📊 API Response received');
+                console.log('📊 Response status:', response.status);
+                console.log('📊 Response statusText:', response.statusText);
+                
                 const rows = response.data.values || [];
+                console.log(`📊 Retrieved ${rows.length} slot rows`);
+                
+                if (rows.length > 0) {
+                    console.log('📊 First row sample:', rows[0]);
+                }
+                
                 const slots = rows.map((row, idx) => ({
                     id: idx + 2,
                     date: row[SHEETS.SLOTS.COLS.DATE] || "",
@@ -309,6 +419,8 @@ module.exports = async function handler(req, res) {
                     available: Math.max(0, (parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0) -
                         (parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0))
                 }));
+
+                console.log(`📊 Processed ${slots.length} slots`);
 
                 const today = new Date(); today.setHours(0, 0, 0, 0);
                 const grouped = {};
@@ -320,10 +432,32 @@ module.exports = async function handler(req, res) {
                     }
                 });
 
+                console.log(`📊 Grouped into ${Object.keys(grouped).length} dates`);
+                console.log('📊 Dates:', Object.keys(grouped));
+
                 const result = { ok: true, dates: grouped };
                 setCachedSlots(result);
+                
+                console.log('✅ Slots fetched and cached successfully');
                 return res.status(200).json(result);
-            } catch {
+            } catch (err) {
+                console.error('❌ CRITICAL: Failed to fetch slots');
+                console.error('Error name:', err.name);
+                console.error('Error message:', err.message);
+                console.error('Error code:', err.code);
+                console.error('Error stack:', err.stack);
+                
+                if (err.response) {
+                    console.error('API Response status:', err.response.status);
+                    console.error('API Response data:', err.response.data);
+                }
+                
+                log('error', 'Slots fetch failed', { 
+                    err: err.message, 
+                    code: err.code,
+                    stack: err.stack, 
+                    requestId 
+                });
                 return res.status(500).json({ ok: false, error: "Slots not available." });
             }
         }
@@ -332,8 +466,14 @@ module.exports = async function handler(req, res) {
         // POST: Create new booking
         // ========================================================================================
         if (req.method === "POST") {
+            console.log('📝 Processing POST request (new booking)');
+            console.log('📝 Request body:', JSON.stringify(req.body, null, 2));
+            
             const errors = validateBookingRequest(req.body);
-            if (errors.length) return res.status(400).json({ ok: false, error: errors.join('; ') });
+            if (errors.length) {
+                console.log('❌ Validation failed:', errors);
+                return res.status(400).json({ ok: false, error: errors.join('; ') });
+            }
 
             const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
             const phone = sanitizeInput(req.body.phone, CONFIG.MAX_PHONE_LENGTH);
@@ -342,16 +482,22 @@ module.exports = async function handler(req, res) {
             const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
             const slotIds = req.body.slotIds;
 
-            if (!checkConcurrentBookings(phone))
+            console.log('📝 Sanitized data:', { name, phone, email, category, slotIds });
+
+            if (!checkConcurrentBookings(phone)) {
+                console.log('⚠️ Too many concurrent bookings for phone:', phone);
                 return res.status(429).json({ ok: false, error: "Too many concurrent requests. Try again." });
+            }
 
             incrementActiveBookings(phone);
             try {
+                console.log('📝 Fetching slot data for booking...');
                 const sheetsData = await sheets.spreadsheets.values.batchGet({
                     spreadsheetId: SHEET_ID,
                     ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
                 });
 
+                console.log('📝 Fetching existing signups...');
                 const signupFetch = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
@@ -361,28 +507,47 @@ module.exports = async function handler(req, res) {
                 const existing = signupFetch.data.values || [];
                 const nowStr = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
 
+                console.log('📝 Processing booking for', slotIds.length, 'slots');
+
                 const signupRows = [];
                 const updateRequests = [];
 
                 for (let i = 0; i < slotIds.length; i++) {
                     const slotId = slotIds[i];
                     const row = slotRanges[i].values?.[0];
-                    if (!row) return res.status(400).json({ ok: false, error: "Slot data missing." });
+                    
+                    console.log(`📝 Processing slot ${slotId}:`, row);
+                    
+                    if (!row) {
+                        console.error('❌ Slot data missing for ID:', slotId);
+                        decrementActiveBookings(phone);
+                        return res.status(400).json({ ok: false, error: "Slot data missing." });
+                    }
 
                     const date = row[SHEETS.SLOTS.COLS.DATE];
                     const label = row[SHEETS.SLOTS.COLS.LABEL];
                     const capacity = parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0;
                     const taken = parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0;
 
+                    console.log(`📝 Slot ${slotId}: ${label} on ${date} - ${taken}/${capacity} taken`);
+
                     const duplicate = existing.find(r =>
                         r[SHEETS.SIGNUPS.COLS.PHONE]?.trim() === phone &&
                         parseInt(r[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]) === slotId &&
                         (r[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE').startsWith('ACTIVE')
                     );
-                    if (duplicate) return res.status(409).json({ ok: false, error: `Already booked ${label} on ${date}.` });
+                    
+                    if (duplicate) {
+                        console.log('❌ Duplicate booking detected');
+                        decrementActiveBookings(phone);
+                        return res.status(409).json({ ok: false, error: `Already booked ${label} on ${date}.` });
+                    }
 
-                    if (taken >= capacity)
+                    if (taken >= capacity) {
+                        console.log('❌ Slot full');
+                        decrementActiveBookings(phone);
                         return res.status(409).json({ ok: false, error: `Slot ${label} on ${date} is full.` });
+                    }
 
                     signupRows.push([nowStr, date, label, name, email, phone, category, notes, slotId, 'ACTIVE']);
                     updateRequests.push({
@@ -391,6 +556,10 @@ module.exports = async function handler(req, res) {
                     });
                 }
 
+                console.log('📝 Writing booking to sheets...');
+                console.log('📝 Signup rows:', signupRows.length);
+                console.log('📝 Update requests:', updateRequests.length);
+                
                 // BatchWrite
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
@@ -426,12 +595,19 @@ module.exports = async function handler(req, res) {
                     }
                 });
 
+                console.log('✅ Booking written successfully');
                 invalidateCache();
                 decrementActiveBookings(phone);
+                log('info', 'Booking successful', { phone, slotCount: slotIds.length, requestId });
                 return res.status(200).json({ ok: true, message: "Booking successful!" });
             } catch (err) {
+                console.error('❌ Booking failed');
+                console.error('Error name:', err.name);
+                console.error('Error message:', err.message);
+                console.error('Error stack:', err.stack);
+                
                 decrementActiveBookings(phone);
-                log('error', 'Booking failed', { err: err.message });
+                log('error', 'Booking failed', { err: err.message, stack: err.stack, requestId });
                 return res.status(500).json({ ok: false, error: "Booking could not be completed." });
             }
         }
@@ -440,21 +616,36 @@ module.exports = async function handler(req, res) {
         // PATCH: Cancel booking
         // ========================================================================================
         if (req.method === "PATCH") {
+            console.log('🗑️ Processing PATCH request (cancel booking)');
+            console.log('🗑️ Request body:', req.body);
+            
             const { signupRowId, slotRowId, phone } = req.body;
             if (!signupRowId || !slotRowId || !phone) {
+                console.log('❌ Missing cancellation parameters');
                 return res.status(400).json({ ok: false, error: "Missing cancellation parameters." });
             }
 
             try {
+                console.log('🗑️ Fetching signup to cancel...');
                 const signupResp = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
                 });
                 const row = signupResp.data.values?.[0];
-                if (!row) return res.status(404).json({ ok: false, error: "Booking not found." });
-                if (row[SHEETS.SIGNUPS.COLS.PHONE]?.trim() !== phone)
+                
+                if (!row) {
+                    console.log('❌ Booking not found');
+                    return res.status(404).json({ ok: false, error: "Booking not found." });
+                }
+                
+                console.log('🗑️ Found booking:', row);
+                
+                if (row[SHEETS.SIGNUPS.COLS.PHONE]?.trim() !== phone) {
+                    console.log('❌ Phone mismatch');
                     return res.status(403).json({ ok: false, error: "Phone number does not match booking." });
+                }
 
+                console.log('🗑️ Updating slot availability...');
                 const slotResp = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
@@ -462,8 +653,11 @@ module.exports = async function handler(req, res) {
                 const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
                 const newTaken = Math.max(0, currentTaken - 1);
 
+                console.log(`🗑️ Slot availability: ${currentTaken} -> ${newTaken}`);
+
                 const ts = new Date().toISOString();
 
+                console.log('🗑️ Writing cancellation to sheets...');
                 await sheets.spreadsheets.batchUpdate({
                     spreadsheetId: SHEET_ID,
                     requestBody: {
@@ -506,17 +700,5 @@ module.exports = async function handler(req, res) {
                     }
                 });
 
+                console.log('✅ Cancellation successful');
                 invalidateCache();
-                return res.status(200).json({ ok: true, message: "Booking cancelled successfully." });
-            } catch (err) {
-                log('error', 'Cancel booking failed', { err: err.message });
-                return res.status(500).json({ ok: false, error: "Cancellation failed." });
-            }
-        }
-
-        return res.status(405).json({ ok: false, error: "Method not allowed." });
-    } catch (err) {
-        log('error', 'Unhandled error', { err: err.message });
-        return res.status(500).json({ ok: false, error: "Unexpected server error." });
-    }
-};
