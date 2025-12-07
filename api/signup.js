@@ -195,13 +195,21 @@ let sheetsInstance;
 
 async function getSheets() {
     if (sheetsInstance) return sheetsInstance;
-    const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT);
-credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+
+    // --- NEW: Use separate email + key like /submit-survey.js ---
+    const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
+    if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
+        throw new Error("Missing Google service account env variables");
+    }
 
     const auth = new google.auth.GoogleAuth({
-        credentials,
+        credentials: {
+            client_email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
+            private_key: GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'), // works even if key has no \n
+        },
         scopes: ["https://www.googleapis.com/auth/spreadsheets"],
     });
+
     sheetsInstance = google.sheets({ version: "v4", auth });
     return sheetsInstance;
 }
