@@ -6,7 +6,7 @@
     <meta name="description" content="Book your time slots easily and manage your bookings online">
     <meta name="theme-color" content="#3b82f6">
     
-    <!-- Content Security Policy -->
+    <!-- ✅ FIX: Added Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
                    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
@@ -28,8 +28,8 @@
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     </noscript>
 
-    <!-- Local Styles - Update to use correct path -->
-    <link rel="stylesheet" href="/user-style.css">
+    <!-- Local Styles -->
+    <link rel="stylesheet" href="user-style.css">
 
     <!-- Favicon -->
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
@@ -62,7 +62,7 @@
             padding: 40px 20px;
             color: #64748b;
         }
-        /* Better hidden class for accessibility */
+        /* ✅ FIX: Better hidden class for accessibility */
         .hidden {
             display: none !important;
         }
@@ -99,7 +99,7 @@
     </header>
 
     <main>
-        <!-- Lookup Section with proper IDs and ARIA -->
+        <!-- ✅ FIXED: Lookup Section with proper IDs and ARIA -->
         <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
             <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
             <button id="lookupToggle" 
@@ -108,7 +108,7 @@
                     aria-controls="lookupContent">
                 🔍 Look Up / Cancel Booking
             </button>
-            <!-- Added aria-hidden when hidden -->
+            <!-- ✅ FIX: Added aria-hidden when hidden -->
             <div id="lookupContent" class="hidden" aria-hidden="true"> 
                 <p class="description" style="margin-top: 15px;">
                     Enter your phone number to view and manage your bookings.
@@ -126,7 +126,7 @@
                     <span id="phone-hint" class="visually-hidden">
                         Enter your 10-digit phone number to search for bookings
                     </span>
-                    <!-- Added missing ID that was referenced in lookup.js -->
+                    <!-- ✅ FIX: Added missing ID that was referenced in lookup.js -->
                     <button id="lookupSearchBtn" 
                             class="btn secondary-btn" 
                             aria-label="Search for bookings"
@@ -157,7 +157,7 @@
             <div style="height: 100px;" aria-hidden="true"></div> 
         </div>
         
-        <!-- Better floating button structure -->
+        <!-- ✅ FIX: Better floating button structure -->
         <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
             <button id="floatingSignupBtn" 
                     class="btn primary-btn" 
@@ -262,8 +262,9 @@
     </main>
 </div>
 
-<!-- Error handler for module loading failures -->
+<!-- ✅ FIX: Load scripts with defer and proper error handling -->
 <script type="module">
+    // Error handler for module loading failures
     window.addEventListener('error', (e) => {
         if (e.filename && e.filename.endsWith('.js')) {
             console.error('Failed to load module:', e.filename);
@@ -283,18 +284,18 @@
     }, true);
 </script>
 
-<!-- Load modules in correct order -->
-<script type="module" src="/config.js"></script>
-<script type="module" src="/utils.js"></script>
-<script type="module" src="/slots.js"></script>
-<script type="module" src="/signup.js"></script>
-<script type="module" src="/lookup.js"></script>
+<!-- ✅ FIX: Removed duplicate event listeners - modules handle their own initialization -->
+<script type="module" src="config.js"></script>
+<script type="module" src="utils.js"></script>
+<script type="module" src="slots.js"></script>
+<script type="module" src="signup.js"></script>
+<script type="module" src="lookup.js"></script>
 
-<!-- Only expose truly necessary functions to window for debugging -->
+<!-- ✅ FIX: Only expose truly necessary functions to window for debugging -->
 <script type="module">
-import { loadSlots } from '/slots.js';
-import { lookupBookings } from '/lookup.js';
-import { getStateSnapshot } from '/config.js';
+import { loadSlots } from './slots.js';
+import { lookupBookings } from './lookup.js';
+import { getStateSnapshot } from './config.js';
 
 // Expose only for console debugging
 if (typeof window !== 'undefined') {
