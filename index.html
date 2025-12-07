@@ -105,20 +105,42 @@
             <h2 id="signup-heading">✍️ Enter Your Details</h2>
             <div id="selectedSlotSummary" class="selected-slots-summary" role="region" aria-label="Selected slots summary"></div>
             <form id="signupForm" novalidate>
+
                 <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
-                <input type="text" id="nameInput" class="form-input" placeholder="Your Full Name *" required maxlength="100" autocomplete="name" aria-required="true">
-                
-                <label for="emailInput" class="visually-hidden">Your Email Address (Required)</label>
-                <input type="email" id="emailInput" class="form-input" placeholder="Your Email Address *" required maxlength="254" autocomplete="email" aria-required="true">
-                
-                <label for="phoneInput" class="visually-hidden">Phone Number (Optional)</label>
-                <input type="tel" id="phoneInput" class="form-input" placeholder="Phone Number (Optional)" maxlength="20" autocomplete="tel">
-                
+                <input type="text" id="nameInput" class="form-input" 
+                       placeholder="Your Full Name *" required maxlength="100" 
+                       autocomplete="name" aria-required="true">
+
+                <label for="phoneInput" class="visually-hidden">Phone Number (Required)</label>
+                <input type="tel" id="phoneInput" class="form-input" 
+                       placeholder="Phone Number *" required maxlength="20" 
+                       autocomplete="tel" aria-required="true">
+
+                <label for="emailInput" class="visually-hidden">Your Email Address (Optional)</label>
+                <input type="email" id="emailInput" class="form-input" 
+                       placeholder="Your Email Address (Optional)" maxlength="254" 
+                       autocomplete="email">
+
+                <label for="categorySelect" class="visually-hidden">Select Category (Required)</label>
+                <select id="categorySelect" class="form-input" required aria-required="true">
+                    <option value="" disabled selected>-- Select Category * --</option>
+                    <option value="Bal">Bal</option>
+                    <option value="Balika">Balika</option>
+                    <option value="Kishore">Kishore</option>
+                    <option value="Kishori">Kishori</option>
+                    <option value="Yuvak">Yuvak</option>
+                    <option value="Yuvati">Yuvati</option>
+                    <option value="Premvati">Premvati</option>
+                    <option value="Sanyukta">Sanyukta</option>
+                </select>
+
                 <label for="notesInput" class="visually-hidden">Any special notes or comments (Optional)</label>
-                <textarea id="notesInput" class="form-input" placeholder="Any special notes or comments (Optional)" rows="3" maxlength="500"></textarea>
-                
+                <textarea id="notesInput" class="form-input" 
+                          placeholder="Any special notes or comments (Optional)" 
+                          rows="3" maxlength="500"></textarea>
+
                 <div id="signupMsg" class="msg-box" role="alert" aria-live="assertive"></div>
-                
+
                 <button type="submit" id="submitSignupBtn" class="btn primary-btn">Submit Signup</button>
                 <button type="button" id="backToSlotsBtn" class="btn secondary-btn">← Back to Slot Selection</button>
             </form>
@@ -141,10 +163,6 @@
 <script type="module" src="slots.js"></script>
 
 <script type="module">
-/*
-  Wiring for non-inline buttons that previously relied on inline onclick attributes.
-  Keeps page behavior the same while avoiding inline JS in HTML.
-*/
 import { showSignupForm, submitSignup } from './signup.js';
 import { lookupBookings, toggleLookup } from './lookup.js';
 import { resetPage, backToSlotSelection, removeSlotFromSummary, loadSlots } from './slots.js';
@@ -158,8 +176,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const floatingSignupBtn = document.getElementById('floatingSignupBtn');
     if (floatingSignupBtn) {
-        // showSignupForm is attached inside slots.js updateFloatingButton as well,
-        // but keep this as a backup
         floatingSignupBtn.addEventListener('click', showSignupForm);
     }
 
@@ -177,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetPageBtn = document.getElementById('resetPageBtn');
     if (resetPageBtn) resetPageBtn.addEventListener('click', resetPage);
 
-    // Expose a few functions for debugging / older code paths if necessary
     window.loadSlots = loadSlots;
     window.removeSlotFromSummary = removeSlotFromSummary;
 });
