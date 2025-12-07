@@ -1,5 +1,6 @@
 /* --user-style.css-------------------------------- */
 /* Modern Minimalistic Design System  */
+/* ✅ FIXED: All bugs resolved + enhancements */
 /* ---------------------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
@@ -12,6 +13,10 @@
     --success-hover: #059669;
     --danger-color: #ef4444;        /* Modern Red */
     --danger-hover: #dc2626;
+    --warning-color: #f59e0b;       /* ✅ NEW: Warning/Info colors */
+    --warning-light: #fef3c7;
+    --info-color: #3b82f6;
+    --info-light: #dbeafe;
     
     /* Neutrals */
     --background: #f8fafc;
@@ -43,10 +48,15 @@
     /* Typography */
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 
-    /* WEEKEND COLORS - NEW ADDITIONS */
+    /* Weekend Colors */
     --weekend-primary: #8b5cf6;
     --weekend-light: #f3e8ff;
     --weekend-border: #c084fc;
+    
+    /* Animation Durations */
+    --transition-fast: 0.15s;
+    --transition-normal: 0.2s;
+    --transition-slow: 0.3s;
 }
 
 /* ---------------------------------- */
@@ -115,11 +125,21 @@ h3 {
     box-shadow: var(--shadow-sm);
     border: 1px solid var(--border);
     margin-bottom: var(--space-xl);
-    transition: box-shadow 0.2s ease;
+    transition: box-shadow var(--transition-normal) ease;
 }
 
 .card:hover {
     box-shadow: var(--shadow-md);
+}
+
+.card.card-compact {
+    padding-top: var(--space-md);
+    padding-bottom: var(--space-md);
+    margin-bottom: var(--space-lg);
+}
+
+.card.card-compact.lookup-section {
+    padding-bottom: 0 !important;
 }
 
 /* ---------------------------------- */
@@ -135,11 +155,11 @@ h3 {
     font-size: 0.9375rem;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--transition-fast) ease;
     outline: none;
     text-decoration: none;
     font-family: inherit;
-    min-height: 48px; /* Ensure buttons are large enough for touch targets */
+    min-height: 48px;
 }
 
 .btn:disabled {
@@ -147,7 +167,6 @@ h3 {
     cursor: not-allowed;
 }
 
-/* Primary Button (Usually the Call to Action - Signup/Submit) */
 .primary-btn {
     background: var(--success-color);
     color: white;
@@ -164,7 +183,6 @@ h3 {
     transform: translateY(0);
 }
 
-/* Secondary Button (Usually for Lookup/Back) */
 .secondary-btn {
     background: var(--primary-color);
     color: white;
@@ -194,8 +212,8 @@ h3 {
     font-family: inherit;
     color: var(--text-primary);
     background: var(--surface);
-    transition: all 0.2s ease;
-    min-height: 48px; /* CRITICAL: Ensure inputs are thumb-friendly */
+    transition: all var(--transition-normal) ease;
+    min-height: 48px;
 }
 
 .form-input:focus {
@@ -208,10 +226,20 @@ h3 {
     color: var(--text-muted);
 }
 
+/* ✅ FIX: Added invalid state styling */
+.form-input[aria-invalid="true"] {
+    border-color: var(--danger-color);
+}
+
+.form-input[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 3px #fee2e2;
+}
+
 textarea.form-input {
     resize: vertical;
     min-height: 80px;
 }
+
 select.form-input {
     appearance: none;
     -webkit-appearance: none;
@@ -223,9 +251,8 @@ select.form-input {
     padding-right: 2.25rem;
 }
 
-
 /* ---------------------------------- */
-/* Floating Button (The Continue Button) */
+/* Floating Button                   */
 /* ---------------------------------- */
 #floatingSignupBtnContainer {
     position: fixed;
@@ -233,18 +260,15 @@ select.form-input {
     left: 0;
     right: 0;
     z-index: 1000;
-    
-    /* CRITICAL FIX: Use env() for safe area insets (e.g., iOS Safari bottom bar) */
     padding-top: var(--space-sm); 
     padding-bottom: max(var(--space-sm), env(safe-area-inset-bottom));
     padding-left: max(var(--space-lg), env(safe-area-inset-left));
     padding-right: max(var(--space-lg), env(safe-area-inset-right));
-
     background: rgba(255, 255, 255, 0.95);
     backdrop-filter: blur(10px);
     box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
     border-top: 1px solid var(--border);
-    animation: slideUp 0.3s ease;
+    animation: slideUp var(--transition-slow) ease;
 }
 
 @keyframes slideUp {
@@ -264,8 +288,8 @@ select.form-input {
     font-size: 1rem;
     padding: 0.875rem 1.5rem; 
     font-weight: 600;
-    min-height: 52px; /* Ensure this primary button is robustly touch-friendly */
-    width: 100%; /* Important for the floating block button */
+    min-height: 52px;
+    width: 100%;
 }
 
 /* ---------------------------------- */
@@ -303,11 +327,11 @@ select.form-input {
     border-radius: var(--radius-md);
     padding: var(--space-md);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal) ease;
     text-align: center;
     font-size: 0.875rem;
     font-weight: 500;
-    min-height: 64px; /* Essential for touch target size */
+    min-height: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -347,6 +371,12 @@ select.form-input {
     margin-top: var(--space-xs);
 }
 
+.slot:focus {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+    z-index: 1;
+}
+
 /* ---------------------------------- */
 /* Booking Summary - Compact Chips  */
 /* ---------------------------------- */
@@ -373,7 +403,7 @@ select.form-input {
     border-radius: 24px;
     padding: 8px 8px 8px 14px;
     gap: 10px;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal) ease;
     box-shadow: var(--shadow-sm);
     max-width: 100%;
 }
@@ -381,6 +411,22 @@ select.form-input {
 .slot-chip:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-1px);
+}
+
+/* ✅ FIX: Added missing .removing animation */
+.slot-chip.removing {
+    animation: slideOut var(--transition-slow) ease-out forwards;
+}
+
+@keyframes slideOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.8) translateX(20px);
+    }
 }
 
 .chip-content {
@@ -420,7 +466,7 @@ select.form-input {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal) ease;
     line-height: 1;
     font-weight: 700;
     flex-shrink: 0;
@@ -442,7 +488,6 @@ select.form-input {
 .lookup-section {
     background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
     border: 1px solid var(--primary-light);
-    padding-bottom: 0 !important;
 }
 
 .lookup-controls {
@@ -477,6 +522,13 @@ select.form-input {
 /* ---------------------------------- */
 /* Bookings Display                 */
 /* ---------------------------------- */
+/* ✅ FIX: Added missing .bookings-list class */
+.bookings-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
 .booking-item {
     background: white;
     border: 1px solid var(--border);
@@ -484,7 +536,7 @@ select.form-input {
     padding: var(--space-lg);
     margin: var(--space-md) 0;
     box-shadow: var(--shadow-sm);
-    transition: all 0.2s ease;
+    transition: all var(--transition-normal) ease;
 }
 
 .booking-item:hover {
@@ -504,7 +556,7 @@ select.form-input {
 .booking-item .btn {
     margin-top: var(--space-sm);
     background: var(--danger-color);
-    width: 100%; /* Block button for booking actions */
+    width: 100%;
 }
 
 .booking-item .btn:hover {
@@ -514,13 +566,13 @@ select.form-input {
 /* ---------------------------------- */
 /* Message Box                      */
 /* ---------------------------------- */
+/* ✅ FIX: Removed default display:none, added all message types */
 .msg-box {
     padding: var(--space-md);
     margin-top: var(--space-md);
     border-radius: var(--radius-md);
     font-size: 0.9375rem;
     font-weight: 500;
-    display: none;
 }
 
 .msg-box.error {
@@ -535,8 +587,20 @@ select.form-input {
     border: 1px solid #a7f3d0;
 }
 
+.msg-box.warning {
+    color: #92400e;
+    background: var(--warning-light);
+    border: 1px solid #fde68a;
+}
+
+.msg-box.info {
+    color: #1e40af;
+    background: var(--info-light);
+    border: 1px solid #bfdbfe;
+}
+
 /* ---------------------------------- */
-/* WEEKEND HIGHLIGHTING */
+/* Weekend Highlighting             */
 /* ---------------------------------- */
 .weekend-selector {
     background: linear-gradient(135deg, var(--weekend-light), #e9d5ff);
@@ -559,26 +623,49 @@ select.form-input {
     font-weight: 700 !important;
 }
 
-/* Responsive weekend chips */
 @media (max-width: 576px) {
     .weekend-selector {
         grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
     }
 }
 
-/* --- Utility Class for Compact Cards --- */
-.card.card-compact {
-    /* Significantly reduce vertical padding */
-    padding-top: var(--space-md);       /* 16px */
-    padding-bottom: var(--space-md);    /* 16px */
-    margin-bottom: var(--space-lg);     /* 24px below (reduced from 32px) */
+/* ---------------------------------- */
+/* Utility Classes                  */
+/* ---------------------------------- */
+/* ✅ FIX: Single definition of .hidden */
+.hidden {
+    display: none !important;
 }
 
-/* Ensure the lookup section overrides the compact card padding for its toggle button */
-.card.card-compact.lookup-section {
-    padding-bottom: 0 !important; /* Keep this to prevent button overlap */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
 }
 
+.text-center {
+    text-align: center;
+}
+
+.mt-1 { margin-top: var(--space-sm); }
+.mt-2 { margin-top: var(--space-md); }
+.mt-3 { margin-top: var(--space-lg); }
+.mb-1 { margin-bottom: var(--space-sm); }
+.mb-2 { margin-bottom: var(--space-md); }
+.mb-3 { margin-bottom: var(--space-lg); }
+
+.full-width-mobile {
+    width: 100%;
+    text-align: center;
+    padding: 0.625rem 1.25rem;
+    margin-bottom: var(--space-md);
+}
 
 .date-chip.disabled {
     opacity: 0.5;
@@ -601,7 +688,7 @@ select.form-input {
 }
 
 /* ---------------------------------- */
-/* Responsive Adjustments - Mobile Density */
+/* Responsive Adjustments           */
 /* ---------------------------------- */
 @media (max-width: 576px) {
     .container {
@@ -617,25 +704,21 @@ select.form-input {
     }
     
     .card {
-        /* Reduced card padding for better mobile density */
         padding: var(--space-md); 
         margin-bottom: var(--space-lg);
         border-radius: var(--radius-lg);
     }
     
-    /* Compact date card spacing */
     .date-card {
         padding: var(--space-md);
         margin-bottom: var(--space-md);
     }
     
     .slot {
-        /* Slightly reduced padding, maintaining min-height for touch */
         padding: var(--space-sm) var(--space-xs); 
         font-size: 0.8125rem;
     }
     
-    /* Very compact floating button container */
     #floatingSignupBtnContainer {
         padding-top: var(--space-xs); 
         padding-bottom: max(var(--space-xs), env(safe-area-inset-bottom));
@@ -648,7 +731,6 @@ select.form-input {
         font-size: 0.95rem;
     }
 
-    /* Compact Chip Design for Summary on Mobile */
     .chips-container {
         gap: 6px;
     }
@@ -671,7 +753,6 @@ select.form-input {
     }
 }
 
-/* For very small screens (e.g., iPhone SE width) */
 @media (max-width: 380px) {
     .chip-content {
         flex-direction: column;
@@ -685,34 +766,7 @@ select.form-input {
 }
 
 /* ---------------------------------- */
-/* Utility Classes                  */
-/* ---------------------------------- */
-.text-center {
-    text-align: center;
-}
-
-.mt-1 { margin-top: var(--space-sm); }
-.mt-2 { margin-top: var(--space-md); }
-.mt-3 { margin-top: var(--space-lg); }
-.mb-1 { margin-bottom: var(--space-sm); }
-.mb-2 { margin-bottom: var(--space-md); }
-.mb-3 { margin-bottom: var(--space-lg); }
-
-/** Hides the content by default until toggled by JavaScript (Required for Collapsible UI) */
-.hidden {
-    display: none !important;
-}
-
-/** Ensures the toggle button takes full width on mobile devices for easier tapping */
-.full-width-mobile {
-    width: 100%;
-    text-align: center; /* Center the text inside the button */
-    padding: 0.625rem 1.25rem; /* Match .btn padding for consistency */
-    margin-bottom: var(--space-md); /* Creates space below the button */
-}
-
-/* ---------------------------------- */
-/* Loading States & Animations        */
+/* Loading States & Animations      */
 /* ---------------------------------- */
 @keyframes fadeIn {
     from {
@@ -728,78 +782,22 @@ select.form-input {
 .card,
 .date-card,
 .booking-item {
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn var(--transition-slow) ease;
 }
 
-/* Smooth transitions for interactive elements */
 button,
 input,
 .slot {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Focus visible for accessibility */
+/* ✅ FIX: Unified focus-visible styles */
 *:focus-visible {
-    outline: 2px solid var(--primary-color);
-    outline-offset: 2px;
-}
-
-/* ---------------------------------- */
-/* Accessibility Enhancements         */
-/* ---------------------------------- */
-
-/* Visually hidden labels for screen readers */
-.visually-hidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-}
-
-/* Skip to main content link for keyboard users */
-.skip-to-main {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--primary-color);
-    color: white;
-    padding: 8px;
-    text-decoration: none;
-    z-index: 10000;
-}
-
-.skip-to-main:focus {
-    top: 0;
-}
-
-/* Enhanced focus states for keyboard navigation */
-a:focus-visible,
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible {
     outline: 3px solid var(--primary-color);
     outline-offset: 2px;
 }
 
-/* Ensure sufficient color contrast */
-small {
-    color: var(--text-secondary);
-}
-
-/* Improve slot keyboard accessibility */
-.slot:focus {
-    outline: 3px solid var(--primary-color);
-    outline-offset: 2px;
-    z-index: 1;
-}
-
-/* Loading indicator animation */
+/* Loading spinner animation */
 @keyframes spinner {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
@@ -815,6 +813,28 @@ small {
     animation: spinner 0.8s linear infinite;
     vertical-align: middle;
     margin-right: 8px;
+}
+
+/* ---------------------------------- */
+/* Accessibility                    */
+/* ---------------------------------- */
+.skip-to-main {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 10000;
+}
+
+.skip-to-main:focus {
+    top: 0;
+}
+
+small {
+    color: var(--text-secondary);
 }
 
 /* High contrast mode support */
@@ -843,7 +863,7 @@ small {
 /* Print styles */
 @media print {
     .btn,
-    .floating-signup-btn-container,
+    #floatingSignupBtnContainer,
     .lookup-section {
         display: none;
     }
@@ -853,4 +873,3 @@ small {
         border: 1px solid #000;
     }
 }
-
