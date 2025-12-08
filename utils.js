@@ -280,11 +280,11 @@ export function getElementByIdSafe(id) {
     return el;
 }
 
-// ✅ NEW: Helper to validate phone numbers (basic)
+// ✅ NEW: Helper to validate phone numbers (10-15 digits after cleaning, matches backend)
 export function isValidPhone(phone) {
     if (!phone || typeof phone !== 'string') return false;
     // Remove common formatting characters
     const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
-    // Check if it's 10-15 digits
+    // Check if it's 10-15 digits (matches backend expectation more closely)
     return /^\+?\d{10,15}$/.test(cleaned);
 }
