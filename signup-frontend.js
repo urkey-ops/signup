@@ -42,11 +42,13 @@ export function goToSignupForm() {
         signupSection.style.display = "block";
         updateSummaryDisplay();
         signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        setTimeout(function() {  // ← Use function() instead of arrow
+    const nameInput = document.getElementById("nameInput");
+    if (nameInput) nameInput.focus();
+}, 300);
         
-        setTimeout(function() {
-            const nameInput = document.getElementById("nameInput");
-            if (nameInput) nameInput.focus();
-        }, 300);
+      
     }
 }
 
@@ -168,8 +170,13 @@ export async function submitSignup() {
     const rawPhone = document.getElementById("phoneInput") ? document.getElementById("phoneInput").value : '';
     const name = sanitizeInput(document.getElementById("nameInput") ? document.getElementById("nameInput").value : '', CONFIG.MAX_NAME_LENGTH);
     const phone = normalizePhone(rawPhone);
-    const email = sanitizeInput(document.getElementById("emailInput") ? document.getElementById("emailInput").value : '', CONFIG.MAX_EMAIL_LENGTH);
-    if (email) email = email.toLowerCase();
+
+    let email = sanitizeInput(document.getElementById("emailInput") ? document.getElementById("emailInput").value : '', CONFIG.MAX_EMAIL_LENGTH);
+if (email) {
+    email = email.toLowerCase();
+}
+    
+   
     const category = sanitizeInput(document.getElementById("categorySelect") ? document.getElementById("categorySelect").value : '', 50);
     const notes = sanitizeInput(document.getElementById("notesInput") ? document.getElementById("notesInput").value : '', CONFIG.MAX_NOTES_LENGTH);
 
