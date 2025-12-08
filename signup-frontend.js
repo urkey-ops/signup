@@ -351,7 +351,7 @@ function setupRealtimeValidation() {
             }
         });
         
-        inputs.nameInput.addEventEventListener('input', function() {
+        inputs.nameInput.addEventListener('input', function() {
             inputs.nameInput.style.borderColor = '';
             inputs.nameInput.removeAttribute('aria-invalid');
         });
