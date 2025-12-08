@@ -8,6 +8,7 @@ import {
     selectedSlots, 
     lastApiCall,
     isSubmitting,
+    API_CACHE,  // ✅ ADD THIS
     updateSelectedSlots,
     updateLastApiCall,
     updateIsSubmitting,
@@ -47,8 +48,6 @@ export function goToSignupForm() {
     const nameInput = document.getElementById("nameInput");
     if (nameInput) nameInput.focus();
 }, 300);
-        
-      
     }
 }
 
@@ -243,9 +242,13 @@ if (email) {
 
         if (response.ok && data.ok) {
             // Invalidate cache and reset UI
-            if (typeof API_CACHE !== 'undefined') {
-                API_CACHE.data = null;
-            }
+           
+            // ✅ BETTER CACHE INVALIDATION
+if (API_CACHE) {
+    API_CACHE.data = null;
+    API_CACHE.timestamp = 0;
+}
+
             updateSelectedSlots([]);
             resetSlotSelectionUI();
             
@@ -308,23 +311,36 @@ if (email) {
             
             resetSubmitState();
             
-        } else {
-            let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
-            
-            if (response.status === 409) {
-                errorMsg += ' Some slots may have been booked by others. Please select different slots.';
-            } else if (response.status === 429) {
-                errorMsg += ' Too many requests. Please wait a minute and try again.';
-            }
-            
-            showMessage(msgEl, '❌ ' + errorMsg, 'error');
-            
-            if (response.status === 409) {
-                setTimeout(function() {
-                    backToSlotSelection();
-                }, 3000);
-            }
-        }
+       } else {
+    let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
+    
+    if (response.status === 409) {
+        // ✅ SHOW DETAILED SERVER INFO
+        const totalSlots = slotIds.length;
+        const validSlots = data.validSlots || 0;
+        const conflictedCount = totalSlots - validSlots;
+        
+        errorMsg = data.error || `Conflicts (${conflictedCount}/${totalSlots} slots unavailable)`;
+        showMessage(msgEl, `⚠️ ${errorMsg}`, 'warning');
+        
+        // Auto-refresh slots + return
+        updateSelectedSlots([]);
+        resetSlotSelectionUI();
+        setTimeout(function() {
+            window.dispatchEvent(new CustomEvent('reloadSlots'));
+            backToSlotSelection();
+        }, 2500);
+        resetSubmitState();
+        return;
+    } else if (response.status === 429) {
+        errorMsg += ' Too many requests. Please wait a minute and try again.';
+        showMessage(msgEl, `❌ ${errorMsg}`, 'error');
+    } else {
+        showMessage(msgEl, `❌ ${errorMsg}`, 'error');
+    }
+    
+    resetSubmitState();
+}
 
     } catch (err) {
         console.error('Signup error:', err);
