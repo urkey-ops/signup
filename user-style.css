@@ -699,47 +699,10 @@ select.form-input {
 }
 
 /* ============================================================ */
-/* WEEKEND HIGHLIGHTING                                        */
-/* ============================================================ */
-.weekend-selector {
-    background: linear-gradient(135deg, var(--weekend-light), #e9d5ff);
-    border: 2px solid var(--weekend-border);
-}
-
-.weekend-selector h3 {
-    color: var(--weekend-primary);
-}
-
-.date-chip.weekend-chip,
-.date-chip.weekend-highlight {
-    background: linear-gradient(135deg, var(--weekend-primary), #a78bfa) !important;
-    border-color: var(--weekend-border) !important;
-    color: white !important;
-}
-
-.date-weekday.weekend {
-    color: var(--weekend-primary) !important;
-    font-weight: 700 !important;
-}
-
-/* ============================================================ */
 /* LOADING STATES                                              */
 /* ============================================================ */
+.loading-spinner,
 .spinner {
-    display: inline-block;
-    width: 20px;
-    height: 20px;
-    border: 3px solid var(--border);
-    border-top-color: var(--primary-color);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
-
-.loading-spinner {
     display: inline-block;
     width: 20px;
     height: 20px;
@@ -749,6 +712,10 @@ select.form-input {
     animation: spin 0.8s linear infinite;
     vertical-align: middle;
     margin-right: var(--space-sm);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
 /* ============================================================ */
@@ -916,21 +883,6 @@ select.form-input {
 *:focus-visible {
     outline: 3px solid var(--primary-color);
     outline-offset: 2px;
-}
-
-skip-to-main {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: var(--primary-color);
-    color: white;
-    padding: 8px;
-    text-decoration: none;
-    z-index: 10000;
-}
-
-.skip-to-main:focus {
-    top: 0;
 }
 
 small {
