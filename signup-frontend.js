@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT (FIXED - Book Another Slot button working)
+// SIGNUP FRONT-END SCRIPT (FIXED - Book Another Slot + PHONE NORMALIZATION)
 // ================================================================================================
 
 import { 
@@ -11,32 +11,45 @@ import {
     API_CACHE,
     updateSelectedSlots,
     updateLastApiCall,
-    updateIsSubmitting
+    updateIsSubmitting,
+    normalizePhone
 } from './config.js';
 import { 
     sanitizeInput,
     sanitizeHTML, 
     showMessage, 
     getErrorMessage,
-    isValidEmail 
+    isValidEmail,
+    isValidPhone 
 } from './utils.js';
-import { updateSummaryDisplay } from './slots.js';
+import { updateSummaryDisplay, resetSlotSelectionUI } from './slots.js';
 
 // ================================================================================================
 // SHOW SIGNUP FORM
 // ================================================================================================
 export function goToSignupForm() { 
     if (selectedSlots.length === 0) {
-        alert('Please select at least one slot before continuing.');
+        showMessage('Please select at least one slot before continuing.', 'warning');
         return;
     }
-    document.getElementById("slotsDisplay").style.display = "none";
-    document.getElementById("floatingSignupBtnContainer").style.display = "none";
-    document.getElementById("signupSection").style.display = "block";
-
-    updateSummaryDisplay();
-    document.getElementById("signupSection").scrollIntoView({ behavior: 'smooth', block: 'start' });
-    setTimeout(() => document.getElementById("nameInput")?.focus(), 300);
+    
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
+    const signupSection = document.getElementById("signupSection");
+    
+    if (slotsDisplay) slotsDisplay.style.display = "none";
+    if (floatingBtn) floatingBtn.style.display = "none";
+    if (signupSection) {
+        signupSection.style.display = "block";
+        updateSummaryDisplay();
+        signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        // Focus name input after scroll
+        setTimeout(() => {
+            const nameInput = document.getElementById("nameInput");
+            if (nameInput) nameInput.focus();
+        }, 300);
+    }
 }
 
 // ================================================================================================
@@ -56,21 +69,29 @@ function backToSlotSelection() {
     if (slotsDisplay) slotsDisplay.style.display = "block";
     if (floatingBtn) floatingBtn.style.display = "none";
     
-    // Clear selections and messages
+    // ✅ CRITICAL FIX: Clear BOTH state AND UI selection states
     updateSelectedSlots([]);
+    resetSlotSelectionUI();
+    
+    // Clear form and messages
     const msgEl = document.getElementById("signupMsg");
     if (msgEl) msgEl.textContent = '';
     
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // Clear form inputs
+    const formInputs = ['nameInput', 'phoneInput', 'emailInput', 'categorySelect', 'notesInput'];
+    formInputs.forEach(id => {
+        const input = document.getElementById(id);
+        if (input) input.value = '';
+    });
     
-    // Trigger slots reload
+    // Scroll to top and trigger slots reload
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     window.dispatchEvent(new CustomEvent('reloadSlots'));
     
-    console.log('✅ Returned to slot selection');
+    console.log('✅ Returned to slot selection (state + UI reset)');
 }
 
-// ✅ CRITICAL: Expose globally so HTML onclick can call it
+// Expose globally for HTML onclick handlers
 window.backToSlotSelection = backToSlotSelection;
 
 // ================================================================================================
@@ -87,11 +108,12 @@ function validateName(name) {
 }
 
 function validatePhone(phone) {
-    if (!phone || phone.length < 8) {
-        return { valid: false, message: 'Please enter a valid phone number' };
+    const normalized = normalizePhone(phone);
+    if (!normalized || normalized.length < 8) {
+        return { valid: false, message: 'Please enter a valid phone number (10 digits)' };
     }
-    if (phone.length > CONFIG.MAX_PHONE_LENGTH) {
-        return { valid: false, message: 'Phone number too long' };
+    if (!isValidPhone(phone)) {
+        return { valid: false, message: 'Phone must be exactly 10 digits' };
     }
     return { valid: true };
 }
@@ -118,10 +140,17 @@ export async function submitSignup() {
     const msgEl = document.getElementById("signupMsg");
     const submitBtn = document.getElementById("submitSignupBtn");
     
+    if (!msgEl || !submitBtn) {
+        console.error('Signup form elements not found');
+        updateIsSubmitting(false);
+        return;
+    }
+    
     submitBtn.disabled = true;
     const originalBtnText = submitBtn.textContent;
-    submitBtn.innerHTML = `<span style="display: inline-block; animation: spin 1s linear infinite;">⏳</span> Submitting...`;
+    submitBtn.innerHTML = `<span class="loading-spinner"></span> Submitting...`;
     
+    // Add spinner styles if missing
     if (!document.getElementById('spinner-style')) {
         const style = document.createElement('style');
         style.id = 'spinner-style';
@@ -130,15 +159,28 @@ export async function submitSignup() {
                 from { transform: rotate(0deg); }
                 to { transform: rotate(360deg); }
             }
+            .loading-spinner {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                border: 3px solid var(--border);
+                border-top-color: var(--primary-color);
+                border-radius: 50%;
+                animation: spin 0.8s linear infinite;
+                vertical-align: middle;
+                margin-right: 8px;
+            }
         `;
         document.head.appendChild(style);
     }
 
-    const name = sanitizeInput(document.getElementById("nameInput").value, CONFIG.MAX_NAME_LENGTH);
-    const phone = sanitizeInput(document.getElementById("phoneInput").value, CONFIG.MAX_PHONE_LENGTH);
-    const email = sanitizeInput(document.getElementById("emailInput").value, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
-    const category = sanitizeInput(document.getElementById("categorySelect").value, 50);
-    const notes = sanitizeInput(document.getElementById("notesInput").value, CONFIG.MAX_NOTES_LENGTH);
+    // ✅ NORMALIZE PHONE before submission
+    const rawPhone = document.getElementById("phoneInput")?.value || '';
+    const name = sanitizeInput(document.getElementById("nameInput")?.value, CONFIG.MAX_NAME_LENGTH);
+    const phone = normalizePhone(rawPhone);
+    const email = sanitizeInput(document.getElementById("emailInput")?.value, CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase();
+    const category = sanitizeInput(document.getElementById("categorySelect")?.value, 50);
+    const notes = sanitizeInput(document.getElementById("notesInput")?.value, CONFIG.MAX_NOTES_LENGTH);
 
     function resetSubmitState() {
         updateIsSubmitting(false);
@@ -146,7 +188,7 @@ export async function submitSignup() {
         submitBtn.textContent = originalBtnText;
     }
 
-    // Validation
+    // Validation with normalized phone
     const nameValidation = validateName(name);
     if (!nameValidation.valid) {
         showMessage(msgEl, `⚠️ ${nameValidation.message}`, 'error');
@@ -154,7 +196,7 @@ export async function submitSignup() {
         return;
     }
 
-    const phoneValidation = validatePhone(phone);
+    const phoneValidation = validatePhone(rawPhone);
     if (!phoneValidation.valid) {
         showMessage(msgEl, `⚠️ ${phoneValidation.message}`, 'error');
         resetSubmitState();
@@ -203,13 +245,23 @@ export async function submitSignup() {
         const data = await response.json();
 
         if (response.ok && data.ok) {
+            // Invalidate cache and reset UI
             API_CACHE.data = null;
+            updateSelectedSlots([]);
+            resetSlotSelectionUI();
             
             const successSection = document.getElementById("successMessage");
             const confirmationDetails = document.getElementById("confirmationDetails");
             
+            if (!successSection || !confirmationDetails) {
+                console.error('Success section elements not found');
+                resetSubmitState();
+                return;
+            }
+            
             confirmationDetails.innerHTML = '';
             
+            // Build confirmation details
             const container = document.createElement('div');
             container.style.margin = '20px 0';
             
@@ -239,41 +291,25 @@ export async function submitSignup() {
             container.appendChild(list);
             confirmationDetails.appendChild(container);
 
+            // Category info
             const categoryInfo = document.createElement('p');
             categoryInfo.style.marginTop = '15px';
-            const categoryLabel = document.createElement('span');
-            categoryLabel.textContent = 'Selected category: ';
-            const categoryValue = document.createElement('strong');
-            categoryValue.textContent = category;
-            categoryInfo.appendChild(categoryLabel);
-            categoryInfo.appendChild(categoryValue);
+            categoryInfo.innerHTML = `Selected category: <strong>${category}</strong>`;
             confirmationDetails.appendChild(categoryInfo);
             
             if (email) {
                 const emailConfirmation = document.createElement('p');
                 emailConfirmation.style.marginTop = '10px';
-                const emailLabel = document.createElement('span');
-                emailLabel.textContent = 'A confirmation email will be sent to ';
-                const emailValue = document.createElement('strong');
-                emailValue.textContent = email;
-                emailConfirmation.appendChild(emailLabel);
-                emailConfirmation.appendChild(emailValue);
+                emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${email}</strong>`;
                 confirmationDetails.appendChild(emailConfirmation);
             }
 
-            document.getElementById("signupSection").style.display = "none";
+            document.getElementById("signupSection")?.style.display = "none";
             successSection.style.display = "block";
             successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // Clear form
-            document.getElementById("nameInput").value = '';
-            document.getElementById("phoneInput").value = '';
-            document.getElementById("emailInput").value = '';
-            document.getElementById("categorySelect").value = '';
-            document.getElementById("notesInput").value = '';
-            msgEl.textContent = '';
-            
-            updateSelectedSlots([]);
+            // Clear form completely
+            resetSubmitState();
             
         } else {
             let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
@@ -299,10 +335,6 @@ export async function submitSignup() {
             ? 'Unable to connect to the server. Please check your internet connection.' 
             : 'An unexpected error occurred. Please try again.';
         showMessage(msgEl, `❌ ${errorMsg}`, 'error');
-    } finally {
-        updateIsSubmitting(false);
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalBtnText;
     }
 }
 
@@ -310,64 +342,69 @@ export async function submitSignup() {
 // REAL-TIME VALIDATION ON BLUR
 // ================================================================================================
 function setupRealtimeValidation() {
-    const nameInput = document.getElementById("nameInput");
-    const phoneInput = document.getElementById("phoneInput");
-    const emailInput = document.getElementById("emailInput");
+    const inputs = {
+        nameInput: document.getElementById("nameInput"),
+        phoneInput: document.getElementById("phoneInput"),
+        emailInput: document.getElementById("emailInput")
+    };
     
-    if (nameInput) {
-        nameInput.addEventListener('blur', () => {
-            const value = sanitizeInput(nameInput.value, CONFIG.MAX_NAME_LENGTH);
+    // Name validation
+    if (inputs.nameInput) {
+        inputs.nameInput.addEventListener('blur', () => {
+            const value = sanitizeInput(inputs.nameInput.value, CONFIG.MAX_NAME_LENGTH);
             const validation = validateName(value);
             if (value && !validation.valid) {
-                nameInput.style.borderColor = '#ef4444';
-                nameInput.setAttribute('aria-invalid', 'true');
+                inputs.nameInput.style.borderColor = '#ef4444';
+                inputs.nameInput.setAttribute('aria-invalid', 'true');
             } else {
-                nameInput.style.borderColor = '';
-                nameInput.removeAttribute('aria-invalid');
+                inputs.nameInput.style.borderColor = '';
+                inputs.nameInput.removeAttribute('aria-invalid');
             }
         });
         
-        nameInput.addEventListener('input', () => {
-            nameInput.style.borderColor = '';
-            nameInput.removeAttribute('aria-invalid');
+        inputs.nameInput.addEventListener('input', () => {
+            inputs.nameInput.style.borderColor = '';
+            inputs.nameInput.removeAttribute('aria-invalid');
         });
     }
     
-    if (phoneInput) {
-        phoneInput.addEventListener('blur', () => {
-            const value = sanitizeInput(phoneInput.value, CONFIG.MAX_PHONE_LENGTH);
+    // Phone validation (with normalization feedback)
+    if (inputs.phoneInput) {
+        inputs.phoneInput.addEventListener('blur', () => {
+            const value = inputs.phoneInput.value;
             const validation = validatePhone(value);
             if (value && !validation.valid) {
-                phoneInput.style.borderColor = '#ef4444';
-                phoneInput.setAttribute('aria-invalid', 'true');
+                inputs.phoneInput.style.borderColor = '#ef4444';
+                inputs.phoneInput.setAttribute('aria-invalid', 'true');
             } else {
-                phoneInput.style.borderColor = '';
-                phoneInput.removeAttribute('aria-invalid');
+                inputs.phoneInput.style.borderColor = '';
+                inputs.phoneInput.removeAttribute('aria-invalid');
             }
         });
         
-        phoneInput.addEventListener('input', () => {
-            phoneInput.style.borderColor = '';
-            phoneInput.removeAttribute('aria-invalid');
+        inputs.phoneInput.addEventListener('input', () => {
+            inputs.phoneInput.style.borderColor = '';
+            inputs.phoneInput.removeAttribute('aria-invalid');
         });
     }
     
-    if (emailInput) {
-        emailInput.addEventListener('blur', () => {
-            const value = sanitizeInput(emailInput.value, CONFIG.MAX_EMAIL_LENGTH);
+    // Email validation
+    if (inputs.emailInput) {
+        inputs.emailInput.addEventListener('blur', () => {
+            const value = sanitizeInput(inputs.emailInput.value, CONFIG.MAX_EMAIL_LENGTH);
             const validation = validateEmailField(value);
             if (value && !validation.valid) {
-                emailInput.style.borderColor = '#ef4444';
-                emailInput.setAttribute('aria-invalid', 'true');
+                inputs.emailInput.style.borderColor = '#ef4444';
+                inputs.emailInput.setAttribute('aria-invalid', 'true');
             } else {
-                emailInput.style.borderColor = '';
-                emailInput.removeAttribute('aria-invalid');
+                inputs.emailInput.style.borderColor = '';
+                inputs.emailInput.removeAttribute('aria-invalid');
             }
         });
         
-        emailInput.addEventListener('input', () => {
-            emailInput.style.borderColor = '';
-            emailInput.removeAttribute('aria-invalid');
+        inputs.emailInput.addEventListener('input', () => {
+            inputs.emailInput.style.borderColor = '';
+            inputs.emailInput.removeAttribute('aria-invalid');
         });
     }
 }
@@ -391,7 +428,6 @@ document.addEventListener('DOMContentLoaded', () => {
         backBtn.addEventListener('click', backToSlotSelection);
     }
     
-    // ✅ NEW: Add event listener for "Book Another Slot" button
     const resetPageBtn = document.getElementById('resetPageBtn');
     if (resetPageBtn) {
         resetPageBtn.addEventListener('click', backToSlotSelection);
