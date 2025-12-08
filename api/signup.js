@@ -384,7 +384,6 @@ if (req.method === "POST") {
         const signupRows = [];
         const updateRequests = [];
         const errorDetails = [];  // ✅ FIXED: OUTSIDE LOOP
-
         // ✅ SINGLE PASS - NO NESTED LOOPS
         for (let i = 0; i < slotIds.length; i++) {
             const slotId = slotIds[i];
@@ -484,145 +483,96 @@ if (req.method === "POST") {
         decrementActiveBookings(normalizedPhone);
         return res.status(500).json({ ok: false, error: "Booking failed. Please try again." });
     }
-}
+}  // ✅ POST handler ends HERE
 
+// ✅ PATCH: Cancel booking (column 8 - proper indentation)
+if (req.method === "PATCH") {
+    console.log('🗑️ PATCH cancel');
+    const { signupRowId, slotRowId, phone } = req.body;
+    
+    if (!signupRowId || !slotRowId || !phone) {
+        return res.status(400).json({ ok: false, error: "Missing signupRowId, slotRowId, or phone." });
+    }
 
-                    // ✅ STORE NORMALIZED PHONE
-                    signupRows.push([nowStr, date, label, name, email, normalizedPhone, category, notes, slotId, 'ACTIVE']);
-                    updateRequests.push({
-                        range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
-                        values: [[taken + 1]]
-                    });
-                }
+    const normalizedPhone = normalizePhone(phone);
+    if (!isValidPhone(phone)) {
+        return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
+    }
 
-                await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: SHEET_ID,
-                    requestBody: {
-                        requests: [
-                            {
-                                appendCells: {
-                                    sheetId: SIGNUPS_GID,
-                                    rows: signupRows.map(r => ({
-                                        values: r.map(c => ({ userEnteredValue: { stringValue: String(c) } }))
-                                    })),
-                                    fields: 'userEnteredValue'
-                                }
-                            },
-                            ...updateRequests.map(u => ({
-                                updateCells: {
-                                    range: {
-                                        sheetId: SLOTS_GID,
-                                        startRowIndex: parseInt(u.range.match(/\d+/)[0]) - 1,
-                                        endRowIndex: parseInt(u.range.match(/\d+/)[0]),
-                                        startColumnIndex: 3,
-                                        endColumnIndex: 4
-                                    },
-                                    rows: [{ values: u.values.map(val => ({ userEnteredValue: { numberValue: parseInt(val[0]) } })) }],
-                                    fields: 'userEnteredValue'
-                                }
-                            }))
-                        ]
-                    }
-                });
-
-                console.log(`✅ Booking successful for ${normalizedPhone}: ${slotIds.length} slots`);
-                invalidateCache();
-                decrementActiveBookings(normalizedPhone);
-                return res.status(200).json({ ok: true, message: "Booking successful!" });
-                
-            } catch (err) {
-                console.error('❌ Booking failed:', err.message);
-                decrementActiveBookings(normalizedPhone);
-                return res.status(500).json({ ok: false, error: "Booking failed. Please try again." });
-            }
+    try {
+        const signupResp = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
+        });
+        const row = signupResp.data.values?.[0];
+        if (!row) {
+            return res.status(404).json({ ok: false, error: "Booking not found." });
+        }
+        
+        // ✅ NORMALIZED PHONE COMPARISON
+        if (normalizePhone(row[5]) !== normalizedPhone) {
+            return res.status(403).json({ ok: false, error: "Phone mismatch. Cannot cancel." });
         }
 
-        // PATCH: Cancel booking
-        if (req.method === "PATCH") {
-            console.log('🗑️ PATCH cancel');
-            const { signupRowId, slotRowId, phone } = req.body;
-            
-            if (!signupRowId || !slotRowId || !phone) {
-                return res.status(400).json({ ok: false, error: "Missing signupRowId, slotRowId, or phone." });
-            }
+        const slotResp = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
+        });
+        const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
+        const newTaken = Math.max(0, currentTaken - 1);
+        const ts = new Date().toISOString();
 
-            const normalizedPhone = normalizePhone(phone);
-            if (!isValidPhone(phone)) {
-                return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
-            }
-
-            try {
-                const signupResp = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
-                });
-                const row = signupResp.data.values?.[0];
-                if (!row) {
-                    return res.status(404).json({ ok: false, error: "Booking not found." });
-                }
-                
-                // ✅ NORMALIZED PHONE COMPARISON
-                if (normalizePhone(row[5]) !== normalizedPhone) {
-                    return res.status(403).json({ ok: false, error: "Phone mismatch. Cannot cancel." });
-                }
-
-                const slotResp = await sheets.spreadsheets.values.get({
-                    spreadsheetId: SHEET_ID,
-                    range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
-                });
-                const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
-                const newTaken = Math.max(0, currentTaken - 1);
-                const ts = new Date().toISOString();
-
-                await sheets.spreadsheets.batchUpdate({
-                    spreadsheetId: SHEET_ID,
-                    requestBody: {
-                        requests: [
-                            {
-                                updateCells: {
-                                    range: {
-                                        sheetId: SIGNUPS_GID,
-                                        startRowIndex: signupRowId - 1,
-                                        endRowIndex: signupRowId,
-                                        startColumnIndex: 9,
-                                        endColumnIndex: 10
-                                    },
-                                    rows: [{ values: [{ userEnteredValue: { stringValue: `CANCELLED:${ts}` } }] }],
-                                    fields: 'userEnteredValue'
-                                }
+        await sheets.spreadsheets.batchUpdate({
+            spreadsheetId: SHEET_ID,
+            requestBody: {
+                requests: [
+                    {
+                        updateCells: {
+                            range: {
+                                sheetId: SIGNUPS_GID,
+                                startRowIndex: signupRowId - 1,
+                                endRowIndex: signupRowId,
+                                startColumnIndex: 9,
+                                endColumnIndex: 10
                             },
-                            {
-                                updateCells: {
-                                    range: {
-                                        sheetId: SLOTS_GID,
-                                        startRowIndex: slotRowId - 1,
-                                        endRowIndex: slotRowId,
-                                        startColumnIndex: 3,
-                                        endColumnIndex: 4
-                                    },
-                                    rows: [{ values: [{ userEnteredValue: { numberValue: newTaken } }] }],
-                                    fields: 'userEnteredValue'
-                                }
-                            }
-                        ]
+                            rows: [{ values: [{ userEnteredValue: { stringValue: `CANCELLED:${ts}` } }] }],
+                            fields: 'userEnteredValue'
+                        }
+                    },
+                    {
+                        updateCells: {
+                            range: {
+                                sheetId: SLOTS_GID,
+                                startRowIndex: slotRowId - 1,
+                                endRowIndex: slotRowId,
+                                startColumnIndex: 3,
+                                endColumnIndex: 4
+                            },
+                            rows: [{ values: [{ userEnteredValue: { numberValue: newTaken } }] }],
+                            fields: 'userEnteredValue'
+                        }
                     }
-                });
-
-                console.log(`✅ Cancellation successful: signupRow ${signupRowId}, slotRow ${slotRowId}`);
-                invalidateCache();
-                return res.status(200).json({ ok: true, message: "Cancelled successfully." });
-                
-            } catch (err) {
-                console.error('❌ Cancel failed:', err.message);
-                return res.status(500).json({ ok: false, error: "Cancellation failed. Please try again." });
+                ]
             }
-        }
+        });
 
-        return res.status(405).json({ ok: false, error: "Method not allowed." });
+        console.log(`✅ Cancellation successful: signupRow ${signupRowId}, slotRow ${slotRowId}`);
+        invalidateCache();
+        return res.status(200).json({ ok: true, message: "Cancelled successfully." });
         
     } catch (err) {
-        console.error('❌ Unhandled error:', err.message);
-        console.error('Stack:', err.stack);
-        return res.status(500).json({ ok: false, error: "Internal server error." });
+        console.error('❌ Cancel failed:', err.message);
+        return res.status(500).json({ ok: false, error: "Cancellation failed. Please try again." });
     }
+}
+
+return res.status(405).json({ ok: false, error: "Method not allowed." });
+        
+} catch (err) {
+    console.error('❌ Unhandled error:', err.message);
+    console.error('Stack:', err.stack);
+    return res.status(500).json({ ok: false, error: "Internal server error." });
+}
 };
+
+       
