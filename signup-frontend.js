@@ -206,14 +206,11 @@ export async function submitSignup() {
     margin: 8px 0; padding: 6px 12px;
     background: white; border-radius: 6px;
     border-left: 4px solid #3b82f6;
-    color: #1f2937 !important;
-}`;  
+    color: #1f2937 !important;} 
+    ;  
     document.head.appendChild(style);
 }  
 
-
-
-`
     const rawPhone = document.getElementById("phoneInput")?.value || '';
     const name = sanitizeInput(document.getElementById("nameInput")?.value || '', CONFIG.MAX_NAME_LENGTH);
     const phone = normalizePhone(rawPhone);
