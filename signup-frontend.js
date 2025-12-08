@@ -206,10 +206,11 @@ export async function submitSignup() {
         margin: 8px 0; padding: 6px 12px;
         background: white; border-radius: 6px;
         border-left: 4px solid #3b82f6;
-        color: #1f2937 !important; /* 🔥 DARK TEXT */
-    `;
-    document.head.appendChild(style);  // 🔥 ADD THIS LINE!
-}  // 🔥 ADD THIS CLOSING BRACE!
+        color: #1f2937 !important; }
+    `;  // ✅ ONE BACKTICK HERE!
+    document.head.appendChild(style);  // ✅ UNCOMMENT THIS!
+}  // ✅ ONE CLOSING BRACE HERE!
+
 
 `
     const rawPhone = document.getElementById("phoneInput")?.value || '';
