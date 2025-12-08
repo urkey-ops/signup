@@ -1,22 +1,23 @@
 // ============================================================================================
-// SIGNUP FRONT-END SCRIPT (GRACEFUL CONFLICT UX)
+// SIGNUP FRONT-END SCRIPT (GRACEFUL CONFLICT UX) - BUG-FREE VERSION
 // ================================================================================================
 
 import { 
     API_URL, 
     CONFIG, 
-    selectedSlots, 
-    lastApiCall,
-    isSubmitting,
+    getSelectedSlots,
+    getLastApiCall,
+    getIsSubmitting,
     API_CACHE,
     updateSelectedSlots,
     updateLastApiCall,
     updateIsSubmitting,
-    normalizePhone
+    normalizePhone,
+    canSubmit
 } from './config.js';
 import { 
     sanitizeInput,
-    sanitizeHTML, 
+    escapeHTML,
     showMessage, 
     getErrorMessage,
     isValidEmail,
@@ -25,127 +26,18 @@ import {
 import { updateSummaryDisplay, resetSlotSelectionUI } from './slots.js';
 
 // ================================================================================================
-// SHOW SIGNUP FORM
+// MODULE-LEVEL STATE
 // ================================================================================================
-export function goToSignupForm() { 
-    if (selectedSlots.length === 0) {
-        showMessage('Please select at least one slot before continuing.', 'warning');
-        return;
-    }
-    
-    const slotsDisplay = document.getElementById("slotsDisplay");
-    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
-    const signupSection = document.getElementById("signupSection");
-    
-    if (slotsDisplay) slotsDisplay.style.display = "none";
-    if (floatingBtn) floatingBtn.style.display = "none";
-    if (signupSection) {
-        signupSection.style.display = "block";
-        updateSummaryDisplay();
-        signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-        setTimeout(function() {
-            const nameInput = document.getElementById("nameInput");
-            if (nameInput) nameInput.focus();
-        }, 300);
-    }
-}
+let conflictActionButtons = null; // Track conflict UI buttons for cleanup
 
 // ================================================================================================
-// NAVIGATION HELPER - RESET TO SLOT SELECTION
+// INJECT STYLES ONCE ON MODULE LOAD
 // ================================================================================================
-function backToSlotSelection() {
-    console.log('📍 Returning to slot selection...');
+(function injectStyles() {
+    if (document.getElementById('signup-spinner-style')) return;
     
-    const successSection = document.getElementById("successMessage");
-    const signupSection = document.getElementById("signupSection");
-    const slotsDisplay = document.getElementById("slotsDisplay");
-    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
-    
-    if (successSection) successSection.style.display = "none";
-    if (signupSection) signupSection.style.display = "none";
-    if (slotsDisplay) slotsDisplay.style.display = "block";
-    if (floatingBtn) floatingBtn.style.display = "none";
-    
-    updateSelectedSlots([]);
-    resetSlotSelectionUI();
-    
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) msgEl.innerHTML = ''; // Clear HTML content
-    
-    const formInputs = ['nameInput', 'phoneInput', 'emailInput', 'categorySelect', 'notesInput'];
-    formInputs.forEach(function(id) {
-        const input = document.getElementById(id);
-        if (input) input.value = '';
-    });
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    window.dispatchEvent(new CustomEvent('reloadSlots'));
-    
-    console.log('✅ Returned to slot selection (state + UI reset)');
-}
-
-window.backToSlotSelection = backToSlotSelection;
-
-// ================================================================================================
-// REAL-TIME VALIDATION HELPERS
-// ================================================================================================
-function validateName(name) {
-    if (!name || name.length < 2) {
-        return { valid: false, message: 'Name must be at least 2 characters' };
-    }
-    if (name.length > CONFIG.MAX_NAME_LENGTH) {
-        return { valid: false, message: 'Name too long (max ' + CONFIG.MAX_NAME_LENGTH + ' characters)' };
-    }
-    return { valid: true };
-}
-
-function validatePhone(phone) {
-    const normalized = normalizePhone(phone);
-    if (!normalized || normalized.length < 8) {
-        return { valid: false, message: 'Please enter a valid phone number (10 digits)' };
-    }
-    if (!isValidPhone(phone)) {
-        return { valid: false, message: 'Phone must be exactly 10 digits' };
-    }
-    return { valid: true };
-}
-
-function validateEmailField(email) {
-    if (!email) return { valid: true };
-    if (!isValidEmail(email)) {
-        return { valid: false, message: 'Please enter a valid email address' };
-    }
-    return { valid: true };
-}
-
-// ================================================================================================
-// VALIDATE AND SUBMIT SIGNUP (GRACEFUL CONFLICT HANDLING)
-// ================================================================================================
-export async function submitSignup() {
-    if (isSubmitting) {
-        console.warn('Submission already in progress');
-        return;
-    }
-
-    updateIsSubmitting(true);
-
-    const msgEl = document.getElementById("signupMsg");
-    const submitBtn = document.getElementById("submitSignupBtn");
-    
-    if (!msgEl || !submitBtn) {
-        console.error('Signup form elements not found');
-        updateIsSubmitting(false);
-        return;
-    }
-    
-    submitBtn.disabled = true;
-    const originalBtnText = submitBtn.textContent;
-    submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
-    
-   if (!document.getElementById('spinner-style')) {
     const style = document.createElement('style');
-    style.id = 'spinner-style';
+    style.id = 'signup-spinner-style';
     style.textContent = `
 @keyframes spin {
     from { transform: rotate(0deg); }
@@ -206,11 +98,164 @@ export async function submitSignup() {
     margin: 8px 0; padding: 6px 12px;
     background: white; border-radius: 6px;
     border-left: 4px solid #3b82f6;
-    color: #1f2937 !important;} 
-    ;  
+    color: #1f2937 !important;
+}
+    `;
     document.head.appendChild(style);
-}  
+})();
 
+// ================================================================================================
+// SHOW SIGNUP FORM
+// ================================================================================================
+export function goToSignupForm() {
+    const selectedSlots = getSelectedSlots();
+    
+    if (selectedSlots.length === 0) {
+        showMessage('Please select at least one slot before continuing.', 'warning');
+        return;
+    }
+    
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
+    const signupSection = document.getElementById("signupSection");
+    
+    if (slotsDisplay) slotsDisplay.style.display = "none";
+    if (floatingBtn) floatingBtn.style.display = "none";
+    if (signupSection) {
+        signupSection.style.display = "block";
+        updateSummaryDisplay();
+        signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+        setTimeout(function() {
+            const nameInput = document.getElementById("nameInput");
+            if (nameInput) nameInput.focus();
+        }, 300);
+    }
+}
+
+// ================================================================================================
+// NAVIGATION HELPER - RESET TO SLOT SELECTION
+// ================================================================================================
+function backToSlotSelection() {
+    console.log('📍 Returning to slot selection...');
+    
+    const successSection = document.getElementById("successMessage");
+    const signupSection = document.getElementById("signupSection");
+    const slotsDisplay = document.getElementById("slotsDisplay");
+    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
+    
+    if (successSection) successSection.style.display = "none";
+    if (signupSection) signupSection.style.display = "none";
+    if (slotsDisplay) slotsDisplay.style.display = "block";
+    if (floatingBtn) floatingBtn.style.display = "none";
+    
+    updateSelectedSlots([]);
+    resetSlotSelectionUI();
+    
+    const msgEl = document.getElementById("signupMsg");
+    if (msgEl) msgEl.textContent = ''; // Clear text content
+    
+    const formInputs = ['nameInput', 'phoneInput', 'emailInput', 'categorySelect', 'notesInput'];
+    formInputs.forEach(function(id) {
+        const input = document.getElementById(id);
+        if (input) {
+            input.value = '';
+            input.style.borderColor = '';
+            input.removeAttribute('aria-invalid');
+        }
+    });
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.dispatchEvent(new CustomEvent('reloadSlots'));
+    
+    console.log('✅ Returned to slot selection (state + UI reset)');
+}
+
+window.backToSlotSelection = backToSlotSelection;
+
+// ================================================================================================
+// REAL-TIME VALIDATION HELPERS
+// ================================================================================================
+function validateName(name) {
+    if (!name || name.length < 2) {
+        return { valid: false, message: 'Name must be at least 2 characters' };
+    }
+    if (name.length > CONFIG.MAX_NAME_LENGTH) {
+        return { valid: false, message: 'Name too long (max ' + CONFIG.MAX_NAME_LENGTH + ' characters)' };
+    }
+    return { valid: true };
+}
+
+function validatePhone(phone) {
+    const normalized = normalizePhone(phone);
+    if (!normalized || normalized.length < 8) {
+        return { valid: false, message: 'Please enter a valid phone number (10 digits)' };
+    }
+    if (!isValidPhone(phone)) {
+        return { valid: false, message: 'Phone must be exactly 10 digits' };
+    }
+    return { valid: true };
+}
+
+function validateEmailField(email) {
+    if (!email) return { valid: true };
+    if (!isValidEmail(email)) {
+        return { valid: false, message: 'Please enter a valid email address' };
+    }
+    return { valid: true };
+}
+
+// ================================================================================================
+// CLEANUP CONFLICT ACTION BUTTONS
+// ================================================================================================
+function cleanupConflictButtons() {
+    if (conflictActionButtons) {
+        conflictActionButtons.forEach(btn => {
+            if (btn && btn.parentNode) {
+                btn.replaceWith(btn.cloneNode(true)); // Remove all listeners
+            }
+        });
+        conflictActionButtons = null;
+    }
+}
+
+// ================================================================================================
+// VALIDATE AND SUBMIT SIGNUP (GRACEFUL CONFLICT HANDLING)
+// ================================================================================================
+export async function submitSignup() {
+    // Immediate DOM-level lock to prevent double-clicks
+    const submitBtn = document.getElementById("submitSignupBtn");
+    if (!submitBtn) {
+        console.error('Submit button not found');
+        return;
+    }
+    
+    if (submitBtn.disabled) {
+        console.warn('Button already disabled - submission in progress');
+        return;
+    }
+    
+    submitBtn.disabled = true;
+    
+    if (getIsSubmitting()) {
+        console.warn('Submission already in progress');
+        return;
+    }
+
+    updateIsSubmitting(true);
+
+    const msgEl = document.getElementById("signupMsg");
+    
+    if (!msgEl) {
+        console.error('Signup message element not found');
+        updateIsSubmitting(false);
+        submitBtn.disabled = false;
+        return;
+    }
+    
+    const originalBtnText = submitBtn.textContent;
+    submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
+    
     const rawPhone = document.getElementById("phoneInput")?.value || '';
     const name = sanitizeInput(document.getElementById("nameInput")?.value || '', CONFIG.MAX_NAME_LENGTH);
     const phone = normalizePhone(rawPhone);
@@ -253,21 +298,22 @@ export async function submitSignup() {
         return;
     }
 
+    const selectedSlots = getSelectedSlots();
     if (selectedSlots.length === 0) {
         showMessage(msgEl, '⚠️ Please select at least one slot.', 'error');
         resetSubmitState();
         return;
     }
 
-    const now = Date.now();
-    if (now - lastApiCall < CONFIG.API_COOLDOWN) {
-        const waitTime = Math.ceil((CONFIG.API_COOLDOWN - (now - lastApiCall)) / 1000);
-        showMessage(msgEl, `⚠️ Please wait ${waitTime} seconds before submitting again.`, 'error');
+    // Use canSubmit helper for cooldown check
+    const submitCheck = canSubmit();
+    if (!submitCheck.canSubmit) {
+        showMessage(msgEl, `⚠️ Please wait ${submitCheck.waitTime} seconds before submitting again.`, 'error');
         resetSubmitState();
         return;
     }
 
-    showMessage(msgEl, '⏳ Processing your booking...', 'info', 0);
+    showMessage(msgEl, '⏳ Processing your booking...', 'info', 8000); // Longer duration for persistent message
 
     try {
         const slotIds = selectedSlots.map(s => s.id);
@@ -287,6 +333,10 @@ export async function submitSignup() {
                 API_CACHE.data = null;
                 API_CACHE.timestamp = 0;
             }
+            
+            // Store slots for confirmation before clearing
+            const confirmedSlots = [...selectedSlots];
+            
             updateSelectedSlots([]);
             resetSlotSelectionUI();
             
@@ -308,7 +358,7 @@ export async function submitSignup() {
                 list.style.margin = '10px auto';
                 list.style.paddingLeft = '20px';
                 
-                const sortedSlots = selectedSlots.slice().sort((a, b) => {
+                const sortedSlots = confirmedSlots.slice().sort((a, b) => {
                     const dateCompare = new Date(a.date) - new Date(b.date);
                     if (dateCompare !== 0) return dateCompare;
                     return a.label.localeCompare(b.label);
@@ -326,13 +376,13 @@ export async function submitSignup() {
 
                 const categoryInfo = document.createElement('p');
                 categoryInfo.style.marginTop = '15px';
-                categoryInfo.innerHTML = `Selected category: <strong>${category}</strong>`;
+                categoryInfo.innerHTML = `Selected category: <strong>${escapeHTML(category)}</strong>`;
                 confirmationDetails.appendChild(categoryInfo);
                 
                 if (email) {
                     const emailConfirmation = document.createElement('p');
                     emailConfirmation.style.marginTop = '10px';
-                    emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${email}</strong>`;
+                    emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${escapeHTML(email)}</strong>`;
                     confirmationDetails.appendChild(emailConfirmation);
                 }
 
@@ -346,57 +396,117 @@ export async function submitSignup() {
             return;
             
         } else if (response.status === 409) {
-            // ✅ GRACEFUL CONFLICT HANDLING
+            // ✅ GRACEFUL CONFLICT HANDLING WITH XSS PROTECTION
             const totalSlots = slotIds.length;
             const validSlots = data.validSlots || 0;
             const conflictedCount = totalSlots - validSlots;
             
+            // Cleanup previous conflict buttons
+            cleanupConflictButtons();
+            
             // Clear previous messages/actions
             msgEl.innerHTML = '';
             
-            // Show detailed conflicts
-            msgEl.innerHTML = `
-                <div>⚠️ ${data.error}</div>
-                <details class="conflict-details">
-                    <summary>Show details (${validSlots}✅ ${conflictedCount}❌)</summary>
-                    ${data.slotStatus?.map(slot => 
-                        `<div style="margin:4px 0">${slot.status === 'valid' ? '✅' : '❌'} ${slot.date} ${slot.label}: ${slot.reason || 'OK'}</div>`
-                    ).join('') || 'No slot details available'}
-                </details>
-                <div class="conflict-actions">
-                    <button id="bookValidSlotsBtn" class="btn btn-primary">✅ Book ${validSlots} Valid Slots</button>
-                    <button id="removeConflictsBtn" class="btn btn-secondary">🗑️ Remove ${conflictedCount} Conflicts</button>
-                    <button id="backToSlotsBtn" class="btn btn-outline">🔄 Back to Slots</button>
-                </div>
-            `;
-            // ✅ SAFE EVENT HANDLERS (unique IDs + once: true)
-            const bookBtn = document.getElementById('bookValidSlotsBtn');
-            const removeBtn = document.getElementById('removeConflictsBtn');
-            const backBtn = document.getElementById('backToSlotsBtn');
+            // Create container
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = '⚠️ ' + (data.error || 'Some slots are no longer available');
+            msgEl.appendChild(messageDiv);
             
-            if (bookBtn) {
-                bookBtn.addEventListener('click', () => {
-                    const validSlotIds = data.slotStatus.filter(s => s.status === 'valid').map(s => s.slotId);
-                    updateSelectedSlots(selectedSlots.filter(s => validSlotIds.includes(s.id)));
-                    submitSignup(); // Re-submit valid only
-                }, { once: true });
+            // Show detailed conflicts (XSS-safe)
+            const details = document.createElement('details');
+            details.className = 'conflict-details';
+            
+            const summary = document.createElement('summary');
+            summary.textContent = `Show details (${validSlots}✅ ${conflictedCount}❌)`;
+            details.appendChild(summary);
+            
+            if (data.slotStatus && Array.isArray(data.slotStatus)) {
+                data.slotStatus.forEach(slot => {
+                    const slotDiv = document.createElement('div');
+                    const icon = slot.status === 'valid' ? '✅' : '❌';
+                    slotDiv.textContent = `${icon} ${escapeHTML(slot.date)} ${escapeHTML(slot.label)}: ${escapeHTML(slot.reason || 'OK')}`;
+                    details.appendChild(slotDiv);
+                });
+            } else {
+                const noDetails = document.createElement('div');
+                noDetails.textContent = 'No slot details available';
+                details.appendChild(noDetails);
             }
             
-            if (removeBtn) {
-                removeBtn.addEventListener('click', () => {
-                    const conflictedIds = data.slotStatus.filter(s => s.status === 'conflict').map(s => s.slotId);
-                    updateSelectedSlots(selectedSlots.filter(s => !conflictedIds.includes(s.id)));
-                    updateSummaryDisplay();
-                    msgEl.innerHTML = `<div style="color:#10b981">🗑️ Removed ${conflictedCount} conflicted slots</div>`;
-                }, { once: true });
-            }
+            msgEl.appendChild(details);
             
-            if (backBtn) {
-                backBtn.addEventListener('click', () => {
-                    window.dispatchEvent(new CustomEvent('reloadSlots'));
-                    backToSlotSelection();
-                }, { once: true });
-            }
+            // Create action buttons container
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'conflict-actions';
+            
+            const bookBtn = document.createElement('button');
+            bookBtn.className = 'btn btn-primary';
+            bookBtn.textContent = `✅ Book ${validSlots} Valid Slots`;
+            
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'btn btn-secondary';
+            removeBtn.textContent = `🗑️ Remove ${conflictedCount} Conflicts`;
+            
+            const backBtn = document.createElement('button');
+            backBtn.className = 'btn btn-outline';
+            backBtn.textContent = '🔄 Back to Slots';
+            
+            actionsDiv.appendChild(bookBtn);
+            actionsDiv.appendChild(removeBtn);
+            actionsDiv.appendChild(backBtn);
+            msgEl.appendChild(actionsDiv);
+            
+            // Store button references for cleanup
+            conflictActionButtons = [bookBtn, removeBtn, backBtn];
+            
+            // Event handlers (one-time use)
+            bookBtn.addEventListener('click', async () => {
+                if (!data.slotStatus) return;
+                
+                const validSlotIds = data.slotStatus
+                    .filter(s => s.status === 'valid')
+                    .map(s => s.slotId);
+                
+                const currentSlots = getSelectedSlots();
+                const validSlotsOnly = currentSlots.filter(s => validSlotIds.includes(s.id));
+                
+                if (validSlotsOnly.length === 0) {
+                    showMessage(msgEl, '❌ No valid slots remaining', 'error');
+                    return;
+                }
+                
+                updateSelectedSlots(validSlotsOnly);
+                updateSummaryDisplay();
+                cleanupConflictButtons();
+                await submitSignup(); // Re-submit valid only
+            }, { once: true });
+            
+            removeBtn.addEventListener('click', () => {
+                if (!data.slotStatus) return;
+                
+                const conflictedIds = data.slotStatus
+                    .filter(s => s.status === 'conflict')
+                    .map(s => s.slotId);
+                
+                const currentSlots = getSelectedSlots();
+                const remainingSlots = currentSlots.filter(s => !conflictedIds.includes(s.id));
+                
+                updateSelectedSlots(remainingSlots);
+                updateSummaryDisplay();
+                cleanupConflictButtons();
+                
+                msgEl.innerHTML = '';
+                const successDiv = document.createElement('div');
+                successDiv.style.color = '#10b981';
+                successDiv.textContent = `🗑️ Removed ${conflictedCount} conflicted slots`;
+                msgEl.appendChild(successDiv);
+            }, { once: true });
+            
+            backBtn.addEventListener('click', () => {
+                window.dispatchEvent(new CustomEvent('reloadSlots'));
+                cleanupConflictButtons();
+                backToSlotSelection();
+            }, { once: true });
             
             resetSubmitState();
             return;
