@@ -282,12 +282,13 @@
     }, true);
 </script>
 
-<!-- Load modules in dependency order -->
+    <!-- Replace the script section at bottom with this EXACT order -->
 <script type="module" src="config.js"></script>
 <script type="module" src="utils.js"></script>
 <script type="module" src="slots.js"></script>
+<script type="module" src="lookup.js"></script>  <!-- MOVED UP -->
 <script type="module" src="signup-frontend.js"></script>
-<script type="module" src="lookup.js"></script>
+
 
 <!-- Initialize app -->
 <script type="module">
