@@ -407,15 +407,15 @@ if (req.method === "POST") {
             );
             
             if (duplicate) {
-                errorDetails.push(`Already booked: ${label} on ${date}`);
+                errorDetails.push(`You already booked this: ${label} on ${date}`);
                 continue;
             }
 
             // Check capacity
-            if (taken >= capacity) {
-                errorDetails.push(`${label} on ${date}: ${taken}/${capacity} spots taken`);
-                continue;
-            }
+         if (taken >= capacity) {
+    errorDetails.push(`This slot is full: ${label} on ${date}`);
+    continue;
+}
 
             // ✅ ALL GOOD - BOOK IT
             signupRows.push([nowStr, date, label, name, email, normalizedPhone, category, notes, slotId, 'ACTIVE']);
