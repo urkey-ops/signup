@@ -430,12 +430,18 @@ if (req.method === "POST") {
             console.log('⚠️ Conflicts found:', errorDetails);
             decrementActiveBookings(normalizedPhone);
             return res.status(409).json({ 
-                ok: false,
-                error: `Conflicts (${errorDetails.length}/${slotIds.length}): ${errorDetails.slice(0,3).join('; ')}${errorDetails.length > 3 ? '...' : ''}`,
-                conflictedSlots: errorDetails.map(d => d.split(':')[0].trim()),
-                validSlots: signupRows.length
-            });
-        }
+    ok: false,
+    error: `Conflicts (${errorDetails.length}/${slotIds.length})`,
+    conflictedSlots: errorDetails.map(d => d.split(':')[0].trim()),
+    validSlots: signupRows.length,
+    slotStatus: slotIds.map((id, i) => ({     // ✅ NEW: Per-slot status
+        slotId: id,
+        date: slotRanges[i]?.values?.[0]?.[0] || 'Unknown',
+        label: slotRanges[i]?.values?.[0]?.[1] || 'Unknown',
+        status: errorDetails[i] ? 'conflict' : 'valid',
+        reason: errorDetails[i] || null
+    }))
+});
 
         if (signupRows.length === 0) {
             decrementActiveBookings(normalizedPhone);
