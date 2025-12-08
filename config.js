@@ -1,296 +1,296 @@
 // ================================================================================================
-// CONFIG.JS - APPLICATION CONFIGURATION (UPDATED FOR PHONE-BASED SIGNUP + FIXES)
+// UTILS.JS - HELPER FUNCTIONS (UPDATED FOR SAFE SANITIZATION + IMPROVEMENTS)
 // ================================================================================================
 
-export const API_URL = "/api/signup";
-
-export const CONFIG = {
-    MAX_SLOTS_PER_BOOKING: 10,
-    MAX_NAME_LENGTH: 100,
-    MAX_EMAIL_LENGTH: 254,
-    MAX_PHONE_LENGTH: 20,
-    MAX_NOTES_LENGTH: 500,
-    MAX_CATEGORY_LENGTH: 50,   // ✅ FIX: Increased from 20 to 50 to match signup.js
-    API_COOLDOWN: 5000,        // 5 seconds - prevents rapid repeat submissions
-    RETRY_DELAY: 3000,         // 3 seconds - delay before retry
-    CLIENT_CACHE_TTL: 30000,   // 30 seconds - cache duration for slot data
-    MESSAGE_DURATION: 4000,    // 4 seconds - default message display duration
-    SUCCESS_REDIRECT_DELAY: 1500, // 1.5 seconds - delay before redirecting after success
-};
-
-// ✅ FIX: Validate configuration on load
-(function validateConfig() {
-    const requiredNumbers = [
-        'MAX_SLOTS_PER_BOOKING',
-        'MAX_NAME_LENGTH',
-        'MAX_EMAIL_LENGTH',
-        'MAX_PHONE_LENGTH',
-        'MAX_NOTES_LENGTH',
-        'MAX_CATEGORY_LENGTH',
-        'API_COOLDOWN',
-        'RETRY_DELAY',
-        'CLIENT_CACHE_TTL'
-    ];
-    
-    for (const key of requiredNumbers) {
-        if (typeof CONFIG[key] !== 'number' || CONFIG[key] <= 0) {
-            console.error(`Invalid config value for ${key}: ${CONFIG[key]}`);
-            throw new Error(`Configuration error: ${key} must be a positive number`);
-        }
-    }
-    
-    // Validate specific constraints
-    if (CONFIG.MAX_EMAIL_LENGTH > 254) {
-        console.warn('MAX_EMAIL_LENGTH exceeds RFC 5321 limit (254). Setting to 254.');
-        CONFIG.MAX_EMAIL_LENGTH = 254;
-    }
-    
-    if (CONFIG.MAX_SLOTS_PER_BOOKING < 1 || CONFIG.MAX_SLOTS_PER_BOOKING > 50) {
-        console.error('MAX_SLOTS_PER_BOOKING should be between 1 and 50');
-    }
-    
-    console.log('✅ Configuration validated successfully');
-})();
-
-// ================================================================================================
-// STATE MANAGEMENT
-// ================================================================================================
-
-export let selectedSlots = [];
-export let lastApiCall = 0;
-export let isSubmitting = false;
-
-export const API_CACHE = {
-    data: null,
-    timestamp: 0,
-    TTL: CONFIG.CLIENT_CACHE_TTL
-};
-
-// ================================================================================================
-// STATE UPDATE FUNCTIONS (WITH VALIDATION)
-// ================================================================================================
-
-/**
- * Update selected slots array in a reference-safe way
- * @param {Array} newSlots - Array of slot objects with {id, date, label}
- */
-export function updateSelectedSlots(newSlots) {
-    // ✅ FIX: Validate input
-    if (!Array.isArray(newSlots)) {
-        console.error('updateSelectedSlots: newSlots must be an array');
-        return;
-    }
-    
-    // ✅ FIX: Validate slot objects
-    const validSlots = newSlots.filter(slot => {
-        if (!slot || typeof slot !== 'object') return false;
-        if (!slot.id || !slot.date || !slot.label) {
-            console.warn('Invalid slot object:', slot);
-            return false;
-        }
-        return true;
+// Escape HTML so it's safe to insert via innerHTML
+export function escapeHTML(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/[&<>"'\/]/g, function (s) {
+        return ({
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#39;',
+            '/': '&#x2F;'
+        })[s];
     });
-    
-    // ✅ FIX: Enforce max slots limit
-    if (validSlots.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
-        console.warn(`Too many slots (${validSlots.length}). Limiting to ${CONFIG.MAX_SLOTS_PER_BOOKING}`);
-        validSlots.splice(CONFIG.MAX_SLOTS_PER_BOOKING);
-    }
-    
-    // Clear and update using reference-safe mutation
-    selectedSlots.length = 0;
-    selectedSlots.push(...validSlots);
-    
-    // ✅ NEW: Trigger custom event for reactive updates
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('slotsUpdated', { 
-            detail: { slots: [...selectedSlots] } 
-        }));
-    }
-    
-    console.log(`✅ Selected slots updated: ${selectedSlots.length} slot(s)`);
 }
 
-/**
- * Update last API call timestamp
- * @param {number} timestamp - Unix timestamp in milliseconds
- */
-export function updateLastApiCall(timestamp) {
-    // ✅ FIX: Validate timestamp
-    if (typeof timestamp !== 'number' || timestamp < 0) {
-        console.error('updateLastApiCall: Invalid timestamp');
+// Sanitize HTML (alias to escapeHTML) - returns a string safe for innerHTML
+export function sanitizeHTML(str) {
+    return escapeHTML(str);
+}
+
+// Sanitize user input for free-text fields (strip obvious dangerous pieces)
+// This client-side sanitization reduces attack surface; ALWAYS validate again on the server.
+export function sanitizeInput(str, maxLength = 1000) {
+    if (str === null || str === undefined) return '';
+    let s = String(str).trim().substring(0, maxLength);
+
+    // Remove angle brackets
+    s = s.replace(/[<>]/g, '');
+
+    // Remove javascript: pseudo-protocol
+    s = s.replace(/javascript:/gi, '');
+
+    // Remove inline handlers like onmouseover="..." or onload='...'
+    s = s.replace(/on\w+\s*=\s*(['"]).*?\1/gi, '');
+
+    // Remove unprintable/control characters
+    s = s.replace(/[\x00-\x1F\x7F]/g, '');
+
+    return s;
+}
+
+// Validate email format
+export function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email) && email.length <= 254;
+}
+
+// Normalize phone to digits-only (strips ALL formatting for storage / comparison)
+export function normalizePhone(phone) {
+    if (!phone || typeof phone !== 'string') return '';
+    const digits = phone.replace(/\D/g, '');
+    return digits;
+}
+
+// Validate phone numbers (EXACTLY 10 digits after normalization)
+export function isValidPhone(phone) {
+    const digits = normalizePhone(phone);
+    return digits.length === 10;
+}
+
+// ✅ FIX: Completely rewritten showMessage to support both signatures
+// Can be called as: showMessage('text', 'type', duration)
+// OR: showMessage(element, 'text', 'type', duration)
+export function showMessage(arg1, arg2, arg3, arg4) {
+    let container, message, type, duration;
+
+    // Detect which signature is being used
+    if (typeof arg1 === 'string' && (typeof arg2 === 'string' || arg2 === undefined)) {
+        // Called as: showMessage(message, type, duration)
+        // Auto-create or find a global message container
+        container = document.getElementById('globalMessageContainer');
+        if (!container) {
+            container = document.createElement('div');
+            container.id = 'globalMessageContainer';
+            container.className = 'msg-box';
+            container.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                max-width: 400px;
+                padding: 12px 20px;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                font-size: 14px;
+                transition: opacity 0.3s ease;
+            `;
+            document.body.appendChild(container);
+        }
+        message = arg1;
+        type = arg2 || 'info';
+        duration = typeof arg3 === 'number' ? arg3 : 4000;
+    } else {
+        // Called as: showMessage(container, message, type, duration)
+        container = arg1;
+        message = arg2;
+        type = arg3 || 'info';
+        duration = typeof arg4 === 'number' ? arg4 : 4000;
+    }
+
+    // Validate container is a DOM element
+    if (!container || !(container instanceof Element)) {
+        console.error('showMessage: Invalid container element');
         return;
     }
-    
-    lastApiCall = timestamp;
-}
 
-/**
- * Update submission state
- * @param {boolean} status - True if submitting, false otherwise
- */
-export function updateIsSubmitting(status) {
-    // ✅ FIX: Validate boolean
-    if (typeof status !== 'boolean') {
-        console.error('updateIsSubmitting: Status must be boolean');
-        return;
+    container.textContent = message;
+    container.style.display = 'block';
+    container.style.opacity = '1';
+
+    // Ensure the base class and the type class are present; remove other type classes
+    container.classList.add('msg-box', type);
+    ['info', 'success', 'error', 'warning'].forEach(t => {
+        if (t !== type) container.classList.remove(t);
+    });
+
+    // Apply color based on type
+    const colors = {
+        success: { bg: '#10b981', text: 'white' },
+        error: { bg: '#ef4444', text: 'white' },
+        warning: { bg: '#f59e0b', text: 'white' },
+        info: { bg: '#3b82f6', text: 'white' }
+    };
+
+    const color = colors[type] || colors.info;
+    container.style.backgroundColor = color.bg;
+    container.style.color = color.text;
+
+    // Clear previous timeout to prevent premature clearing
+    if (container._messageTimeout) {
+        clearTimeout(container._messageTimeout);
     }
-    
-    isSubmitting = status;
-    
-    // ✅ NEW: Dispatch event for UI updates
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('submittingStateChanged', { 
-            detail: { isSubmitting: status } 
-        }));
+
+    if (duration > 0) {
+        const currentMessage = message;
+        container._messageTimeout = setTimeout(() => {
+            // Only clear if the message hasn't changed
+            if (container.textContent === currentMessage) {
+                container.style.opacity = '0';
+                setTimeout(() => {
+                    if (container.textContent === currentMessage) {
+                        container.textContent = '';
+                        container.style.display = 'none';
+                        container.classList.remove(type);
+                    }
+                }, 300); // Match opacity transition
+            }
+        }, duration);
     }
 }
 
-// ================================================================================================
-// CACHE MANAGEMENT HELPERS
-// ================================================================================================
+// Improved parseTimeForSorting with better range handling
+export function parseTimeForSorting(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') return 0;
 
-/**
- * Invalidate API cache completely
- */
-export function invalidateCache() {
-    API_CACHE.data = null;
-    API_CACHE.timestamp = 0;
-    console.log('✅ API cache invalidated');
+    // Normalize spaces around dash: "10am - 12pm" or "10am-12pm" -> consistent format
+    const normalized = timeStr.replace(/\s*-\s*/g, '-').trim();
+
+    // Take the first part before any dash, e.g. "10am-12pm" -> "10am"
+    const firstPart = normalized.split('-')[0].trim().toLowerCase();
+
+    // Match patterns like "10", "10am", "10:30", "10:30am", "10:30 am"
+    const m = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+    if (!m) return 0;
+
+    let hour = Number(m[1]);
+    const minutes = m[2] ? Number(m[2]) : 0;
+    const period = m[3] ? m[3].toLowerCase() : null; // "am" or "pm" or null
+
+    if (Number.isNaN(hour) || Number.isNaN(minutes)) return 0;
+
+    // Validate ranges
+    if (hour < 0 || hour > 23 || minutes < 0 || minutes > 59) return 0;
+
+    // Handle 12-hour format conversion
+    if (period === 'pm' && hour !== 12) hour += 12;
+    if (period === 'am' && hour === 12) hour = 0;
+
+    return hour * 60 + minutes;
 }
 
-/**
- * Check if cache is still valid
- * @returns {boolean} True if cache is valid
- */
-export function isCacheValid() {
-    if (!API_CACHE.data) return false;
-    const now = Date.now();
-    const isValid = (now - API_CACHE.timestamp) < API_CACHE.TTL;
-    return isValid;
-}
-
-/**
- * Update cache with new data
- * @param {Object} data - Data to cache
- */
-export function updateCache(data) {
-    if (!data) {
-        console.warn('updateCache: No data provided');
-        return;
+// Map HTTP status codes to friendly error messages
+export function getErrorMessage(status, defaultMsg = 'An error occurred') {
+    switch (status) {
+        case 400: return 'Bad request. Please try again.';
+        case 401: return 'Unauthorized access.';
+        case 403: return 'Forbidden. You do not have permission.';
+        case 404: return 'Resource not found.';
+        case 409: return 'Booking conflict. Please try again.';
+        case 429: return 'Too many requests. Please wait a moment.';
+        case 500: return 'Internal server error. Please try later.';
+        case 502: return 'Bad gateway. Server unreachable.';
+        case 503: return 'Service unavailable. Try again later.';
+        default: return defaultMsg;
     }
-    
-    API_CACHE.data = data;
-    API_CACHE.timestamp = Date.now();
-    console.log('✅ API cache updated');
 }
 
-/**
- * Get cached data if valid, null otherwise
- * @returns {Object|null} Cached data or null
- */
-export function getCachedData() {
-    if (isCacheValid()) {
-        console.log('✅ Using cached data');
-        return API_CACHE.data;
-    }
-    console.log('⚠️ Cache expired or empty');
-    return null;
-}
-
-// ================================================================================================
-// UTILITY HELPERS
-// ================================================================================================
-
-/**
- * Reset all application state (useful for logout/cleanup)
- */
-export function resetAppState() {
-    updateSelectedSlots([]);
-    updateLastApiCall(0);
-    updateIsSubmitting(false);
-    invalidateCache();
-    console.log('✅ Application state reset');
-}
-
-/**
- * Get current state snapshot (useful for debugging)
- * @returns {Object} Current state snapshot
- */
-export function getStateSnapshot() {
-    return {
-        selectedSlots: [...selectedSlots],
-        selectedSlotsCount: selectedSlots.length,
-        lastApiCall,
-        isSubmitting,
-        cache: {
-            hasData: !!API_CACHE.data,
-            timestamp: API_CACHE.timestamp,
-            isValid: isCacheValid(),
-            age: Date.now() - API_CACHE.timestamp
-        },
-        config: { ...CONFIG }
+// Debounce function to limit rapid function calls
+export function debounce(func, wait = 300) {
+    let timeout;
+    return function (...args) {
+        const ctx = this;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(ctx, args), wait);
     };
 }
 
-/**
- * Check if user can submit based on cooldown
- * @returns {Object} {canSubmit: boolean, waitTime: number}
- */
-export function canSubmit() {
-    const now = Date.now();
-    const timeSinceLastCall = now - lastApiCall;
-    const canSubmit = timeSinceLastCall >= CONFIG.API_COOLDOWN;
-    const waitTime = canSubmit ? 0 : Math.ceil((CONFIG.API_COOLDOWN - timeSinceLastCall) / 1000);
-    
-    return { canSubmit, waitTime };
+// Deep clone an object (uses structuredClone if available)
+export function deepClone(obj) {
+    if (typeof structuredClone === 'function') {
+        try {
+            return structuredClone(obj);
+        } catch (e) {
+            // fallback to JSON below
+        }
+    }
+    try {
+        return JSON.parse(JSON.stringify(obj));
+    } catch (e) {
+        // fallback shallow copy
+        if (obj && typeof obj === 'object') return Object.assign(Array.isArray(obj) ? [] : {}, obj);
+        return obj;
+    }
 }
 
-// ================================================================================================
-// DEBUG MODE (Only in development)
-// ================================================================================================
-
-if (typeof window !== 'undefined') {
-    // ✅ NEW: Expose debug helpers in development
-    window.__APP_DEBUG__ = {
-        getState: getStateSnapshot,
-        resetState: resetAppState,
-        invalidateCache,
-        isCacheValid,
-        selectedSlots: () => [...selectedSlots],
-        config: CONFIG
-    };
-    
-    console.log('💡 Debug helpers available at window.__APP_DEBUG__');
+// Check if an element is visible in viewport
+export function isElementInViewport(el) {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
 }
 
-// ================================================================================================
-// EXPORTS SUMMARY
-// ================================================================================================
-/*
-Configuration:
-- API_URL: API endpoint
-- CONFIG: Application configuration object
+// Simple delay / sleep
+export function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-State:
-- selectedSlots: Array of selected slot objects
-- lastApiCall: Timestamp of last API call
-- isSubmitting: Boolean submission state
-- API_CACHE: Cache object with data, timestamp, and TTL
+// Format number with commas using locale
+export function formatNumber(num) {
+    const n = Number(num);
+    if (Number.isNaN(n)) return String(num);
+    return n.toLocaleString();
+}
 
-State Updates:
-- updateSelectedSlots(newSlots): Update selected slots
-- updateLastApiCall(timestamp): Update last API call time
-- updateIsSubmitting(status): Update submission state
+// Improved date validation with better error handling
+export function isValidDate(dateStr) {
+    if (!dateStr) return false;
 
-Cache Management:
-- invalidateCache(): Clear cache
-- isCacheValid(): Check if cache is valid
-- updateCache(data): Update cache with new data
-- getCachedData(): Get cached data if valid
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return false;
 
-Utilities:
-- resetAppState(): Reset all state
-- getStateSnapshot(): Get current state for debugging
-- canSubmit(): Check if user can submit based on cooldown
-*/
+        // Strict check for ISO date (YYYY-MM-DD)
+        const isoMatch = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            const y = Number(isoMatch[1]);
+            const m = Number(isoMatch[2]);
+            const day = Number(isoMatch[3]);
+
+            // Validate month and day ranges
+            if (m < 1 || m > 12 || day < 1 || day > 31) return false;
+
+            return d.getUTCFullYear() === y &&
+                   (d.getUTCMonth() + 1) === m &&
+                   d.getUTCDate() === day;
+        }
+
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// Generate a random ID (for slots or temporary elements)
+export function generateRandomId(prefix = 'id') {
+    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+}
+
+// Helper to safely get element by ID with error logging
+export function getElementByIdSafe(id) {
+    const el = document.getElementById(id);
+    if (!el) {
+        console.warn(`Element with ID "${id}" not found in DOM`);
+    }
+    return el;
+}
