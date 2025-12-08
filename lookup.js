@@ -1,11 +1,12 @@
 // ================================================================================================
-// LOOKUP.JS (UPDATED FOR PHONE NUMBER LOOKUP + TOGGLE BEHAVIOR + FIXES)
+// LOOKUP.JS (UPDATED FOR PHONE NORMALIZATION + DEFENSIVE DOM CHECKS)
 // ================================================================================================
 
 import { 
     API_URL, 
     CONFIG, 
-    API_CACHE 
+    API_CACHE,
+    normalizePhone 
 } from './config.js';
 import { 
     sanitizeInput, 
@@ -25,6 +26,7 @@ let isCancelling = false;
 // HELPER FUNCTIONS
 // ================================================================================================
 function showLoadingState(displayEl, message = '⏳ Loading...') {
+    if (!displayEl) return;
     displayEl.innerHTML = '';
     const loadingDiv = document.createElement('div');
     loadingDiv.className = 'msg-box info';
@@ -35,6 +37,7 @@ function showLoadingState(displayEl, message = '⏳ Loading...') {
 }
 
 function showError(displayEl, message) {
+    if (!displayEl) return;
     displayEl.innerHTML = '';
     const errorDiv = document.createElement('div');
     errorDiv.className = 'msg-box error';
@@ -43,39 +46,55 @@ function showError(displayEl, message) {
 }
 
 function showInfo(displayEl, message) {
+    if (!displayEl) return;
     displayEl.innerHTML = '';
     const infoDiv = document.createElement('div');
-    infoDiv.className = 'msg-box';
+    infoDiv.className = 'msg-box info';
     infoDiv.textContent = message;
     displayEl.appendChild(infoDiv);
 }
 
+function showSuccess(displayEl, message) {
+    if (!displayEl) return;
+    displayEl.innerHTML = '';
+    const successDiv = document.createElement('div');
+    successDiv.className = 'msg-box success';
+    successDiv.style.padding = '20px';
+    successDiv.style.textAlign = 'center';
+    successDiv.textContent = `✅ ${message}`;
+    displayEl.appendChild(successDiv);
+}
+
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (FIXED)
+// LOOKUP BOOKINGS BY PHONE NUMBER (PHONE NORMALIZATION FIXED)
 // ================================================================================================
 export async function lookupBookings() {
-    // ✅ FIX: Prevent duplicate searches
     if (isSearching) {
         console.warn('Search already in progress');
         return;
     }
 
     const phoneInput = document.getElementById("lookupPhone");
-    const phone = sanitizeInput(phoneInput.value, CONFIG.MAX_PHONE_LENGTH);
     const displayEl = document.getElementById("userBookingsDisplay");
-    // ✅ FIX: Use specific ID instead of generic class selector
     const searchBtn = document.getElementById("lookupSearchBtn");
 
-    if (!phone) {
-        showError(displayEl, 'Please enter your phone number.');
-        phoneInput?.focus();
+    if (!phoneInput || !displayEl) {
+        console.error('Lookup elements not found');
         return;
     }
 
-    // ✅ FIX: Better phone validation
-    if (!isValidPhone(phone)) {
-        showError(displayEl, 'Please enter a valid phone number (10-15 digits).');
-        phoneInput?.focus();
+    const rawPhone = phoneInput.value.trim();
+    const normalizedPhone = normalizePhone(rawPhone);
+
+    if (!rawPhone) {
+        showError(displayEl, 'Please enter your phone number.');
+        phoneInput.focus();
+        return;
+    }
+
+    if (!isValidPhone(rawPhone)) {
+        showError(displayEl, 'Please enter a valid 10-digit phone number.');
+        phoneInput.focus();
         return;
     }
 
@@ -84,12 +103,14 @@ export async function lookupBookings() {
         searchBtn.disabled = true;
         const originalBtnText = searchBtn.textContent;
         searchBtn.textContent = '🔍 Searching...';
+        searchBtn._originalText = originalBtnText;
     }
     
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
 
     try {
-        const res = await fetch(`${API_URL}?phone=${encodeURIComponent(phone)}`);
+        // ✅ USE NORMALIZED PHONE for API lookup
+        const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`);
         
         if (!res.ok) {
             const errorMsg = getErrorMessage(res.status, "Failed to look up bookings.");
@@ -111,10 +132,8 @@ export async function lookupBookings() {
             return;
         }
 
-        // ✅ FIX: Build DOM nodes with better structure and sorting
+        // Build sorted booking list
         displayEl.innerHTML = '';
-        
-        // Sort bookings by date (earliest first)
         const sortedBookings = [...bookings].sort((a, b) => {
             return new Date(a.date) - new Date(b.date);
         });
@@ -122,14 +141,9 @@ export async function lookupBookings() {
         const listDiv = document.createElement('div');
         listDiv.className = 'bookings-list';
 
-        sortedBookings.forEach((booking, index) => {
+        sortedBookings.forEach((booking) => {
             const item = document.createElement('div');
             item.className = 'booking-item';
-            item.style.marginBottom = '16px';
-            item.style.padding = '16px';
-            item.style.border = '1px solid #e0e0e0';
-            item.style.borderRadius = '8px';
-            item.style.backgroundColor = '#fafafa';
 
             // Date and time header
             const title = document.createElement('div');
@@ -148,33 +162,27 @@ export async function lookupBookings() {
             
             item.appendChild(title);
 
-            // Details container
+            // Details
             const detailsDiv = document.createElement('div');
             detailsDiv.style.marginBottom = '12px';
             detailsDiv.style.color = '#64748b';
 
-            // Name
             const nameDiv = document.createElement('div');
-            nameDiv.style.marginBottom = '4px';
             const nameSmall = document.createElement('small');
             nameSmall.textContent = `Name: ${booking.name}`;
             nameDiv.appendChild(nameSmall);
             detailsDiv.appendChild(nameDiv);
 
-            // Category (if available)
             if (booking.category) {
                 const catDiv = document.createElement('div');
-                catDiv.style.marginBottom = '4px';
                 const catSmall = document.createElement('small');
                 catSmall.textContent = `Category: ${booking.category}`;
                 catDiv.appendChild(catSmall);
                 detailsDiv.appendChild(catDiv);
             }
 
-            // Notes (optional)
             if (booking.notes) {
                 const notesDiv = document.createElement('div');
-                notesDiv.style.marginBottom = '4px';
                 const notesSmall = document.createElement('small');
                 notesSmall.textContent = `Notes: ${booking.notes}`;
                 notesDiv.appendChild(notesSmall);
@@ -183,7 +191,7 @@ export async function lookupBookings() {
 
             item.appendChild(detailsDiv);
 
-            // Cancel booking button
+            // Cancel button
             const btn = document.createElement('button');
             btn.className = 'btn secondary-btn';
             btn.style.marginTop = '8px';
@@ -207,7 +215,7 @@ export async function lookupBookings() {
                 cancelBooking(sId, slId, date, label, ev.currentTarget);
             });
 
-            // Hover effect
+            // Hover effects
             btn.addEventListener('mouseenter', () => {
                 btn.style.background = '#dc2626';
             });
@@ -229,32 +237,39 @@ export async function lookupBookings() {
         showError(displayEl, errorMsg);
     } finally {
         isSearching = false;
-        if (searchBtn) {
+        if (searchBtn && searchBtn._originalText) {
             searchBtn.disabled = false;
-            searchBtn.textContent = 'Search';
+            searchBtn.textContent = searchBtn._originalText;
         }
     }
 }
 
-// ✅ FIX: Debounced version for keypress events
+// Debounced version for keypress events
 export const lookupBookingsDebounced = debounce(lookupBookings, 500);
 
 // ================================================================================================
-// CANCEL BOOKING BY PHONE (FIXED)
+// CANCEL BOOKING BY PHONE (NORMALIZED PHONE)
 // ================================================================================================
 export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, buttonElement) {
-    // ✅ FIX: Prevent multiple simultaneous cancellations
     if (isCancelling) {
         console.warn('Cancellation already in progress');
         return;
     }
 
     const phoneInput = document.getElementById("lookupPhone");
-    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const displayEl = document.getElementById("userBookingsDisplay");
 
-    if (!phone) {
-        alert('❌ Error: Phone number is required for cancellation. Please ensure it is entered above.');
-        phoneInput?.focus();
+    if (!phoneInput || !displayEl) {
+        console.error('Lookup elements not found for cancellation');
+        return;
+    }
+
+    const rawPhone = phoneInput.value.trim();
+    const normalizedPhone = normalizePhone(rawPhone);
+
+    if (!rawPhone || !isValidPhone(rawPhone)) {
+        alert('❌ Error: Valid phone number is required for cancellation.');
+        phoneInput.focus();
         return;
     }
 
@@ -262,10 +277,8 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         return;
     }
 
-    const displayEl = document.getElementById("userBookingsDisplay");
     const originalHTML = displayEl.innerHTML;
     
-    // ✅ FIX: Show loading on the specific button
     if (buttonElement) {
         buttonElement.disabled = true;
         const originalText = buttonElement.textContent;
@@ -284,53 +297,32 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
             body: JSON.stringify({ 
                 signupRowId, 
                 slotRowId,
-                phone
+                phone: normalizedPhone  // ✅ SEND NORMALIZED PHONE
             })
         });
 
         const data = await res.json();
 
         if (res.ok && data.ok) {
-            // ✅ FIX: Show success message in DOM instead of alert
-            const successDiv = document.createElement('div');
-            successDiv.className = 'msg-box success';
-            successDiv.style.padding = '20px';
-            successDiv.style.textAlign = 'center';
-            successDiv.style.marginBottom = '20px';
-            successDiv.textContent = `✅ ${data.message || "Booking cancelled successfully!"}`;
+            showSuccess(displayEl, data.message || "Booking cancelled successfully!");
             
-            displayEl.innerHTML = '';
-            displayEl.appendChild(successDiv);
-            
-            // ✅ FIX: Invalidate cache properly
+            // Invalidate cache
             API_CACHE.data = null;
             API_CACHE.timestamp = 0;
             
-            // ✅ FIX: Wait before refreshing to let user see success message
+            // Refresh bookings after success
             setTimeout(() => {
                 lookupBookings();
             }, 1500);
             
         } else {
             const errorMsg = data.error || getErrorMessage(res.status, "Failed to cancel booking.");
+            showError(displayEl, errorMsg);
             
-            // Show error in DOM
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'msg-box error';
-            errorDiv.style.padding = '20px';
-            errorDiv.style.textAlign = 'center';
-            errorDiv.style.marginBottom = '20px';
-            errorDiv.textContent = `❌ ${errorMsg}`;
-            
-            displayEl.innerHTML = originalHTML;
-            displayEl.insertBefore(errorDiv, displayEl.firstChild);
-            
-            // Auto-remove error after 5 seconds
+            // Restore original list after error
             setTimeout(() => {
-                errorDiv.style.opacity = '0';
-                errorDiv.style.transition = 'opacity 0.3s';
-                setTimeout(() => errorDiv.remove(), 300);
-            }, 5000);
+                displayEl.innerHTML = originalHTML;
+            }, 3000);
         }
 
     } catch (err) {
@@ -340,8 +332,6 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
             : 'An unexpected error occurred. Please try again.';
         
         showError(displayEl, errorMsg);
-        
-        // Restore original HTML after showing error briefly
         setTimeout(() => {
             displayEl.innerHTML = originalHTML;
         }, 3000);
@@ -349,7 +339,6 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
     } finally {
         isCancelling = false;
         
-        // ✅ FIX: Restore button state
         if (buttonElement && buttonElement._originalText) {
             buttonElement.disabled = false;
             buttonElement.textContent = buttonElement._originalText;
@@ -358,7 +347,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
 }
 
 // ================================================================================================
-// TOGGLE LOOKUP SECTION (Fixed: Better state management)
+// TOGGLE LOOKUP SECTION
 // ================================================================================================
 export function toggleLookup() {
     const content = document.getElementById('lookupContent');
@@ -370,25 +359,26 @@ export function toggleLookup() {
 
     const wasHidden = content.classList.contains('hidden');
     content.classList.toggle('hidden');
-    
-    // ✅ FIX: Keep aria-hidden in sync with visibility
     content.setAttribute('aria-hidden', content.classList.contains('hidden').toString());
     
     const isExpanded = !content.classList.contains('hidden');
-    toggleButton?.setAttribute('aria-expanded', isExpanded.toString());
+    if (toggleButton) {
+        toggleButton.setAttribute('aria-expanded', isExpanded.toString());
+    }
 
     if (isExpanded) {
-        // Opening: focus input and scroll into view
         setTimeout(() => {
-            phoneInput?.focus();
+            if (phoneInput) {
+                phoneInput.focus();
+                phoneInput.value = '';
+            }
             content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
     } else {
-        // ✅ FIX: Clear everything properly when closing
+        // Clear everything when closing
         if (phoneInput) phoneInput.value = '';
         if (displayEl) displayEl.innerHTML = '';
         
-        // Reset state flags
         isSearching = false;
         isCancelling = false;
     }
@@ -404,7 +394,6 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleBtn.setAttribute('aria-expanded', 'false');
     }
 
-    // ✅ FIX: Use specific ID selector
     const searchBtn = document.getElementById('lookupSearchBtn');
     if (searchBtn) {
         searchBtn.addEventListener('click', (e) => {
@@ -415,15 +404,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const lookupPhone = document.getElementById('lookupPhone');
     if (lookupPhone) {
-        // ✅ FIX: Use debounced version for keypress
         lookupPhone.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                lookupBookings(); // Immediate on Enter
+                lookupBookings();
             }
         });
         
-        // ✅ NEW: Clear error styling on input
         lookupPhone.addEventListener('input', () => {
             lookupPhone.style.borderColor = '';
         });
