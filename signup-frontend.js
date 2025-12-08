@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FRONT-END SCRIPT (FIXED - Book Another Slot + PHONE NORMALIZATION)
+// SIGNUP FRONT-END SCRIPT (FIXED SYNTAX ERROR)
 // ================================================================================================
 
 import { 
@@ -8,7 +8,6 @@ import {
     selectedSlots, 
     lastApiCall,
     isSubmitting,
-    API_CACHE,
     updateSelectedSlots,
     updateLastApiCall,
     updateIsSubmitting,
@@ -44,8 +43,7 @@ export function goToSignupForm() {
         updateSummaryDisplay();
         signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         
-        // Focus name input after scroll
-        setTimeout(() => {
+        setTimeout(function() {
             const nameInput = document.getElementById("nameInput");
             if (nameInput) nameInput.focus();
         }, 300);
@@ -58,7 +56,6 @@ export function goToSignupForm() {
 function backToSlotSelection() {
     console.log('📍 Returning to slot selection...');
     
-    // Hide all sections
     const successSection = document.getElementById("successMessage");
     const signupSection = document.getElementById("signupSection");
     const slotsDisplay = document.getElementById("slotsDisplay");
@@ -69,29 +66,24 @@ function backToSlotSelection() {
     if (slotsDisplay) slotsDisplay.style.display = "block";
     if (floatingBtn) floatingBtn.style.display = "none";
     
-    // ✅ CRITICAL FIX: Clear BOTH state AND UI selection states
     updateSelectedSlots([]);
     resetSlotSelectionUI();
     
-    // Clear form and messages
     const msgEl = document.getElementById("signupMsg");
     if (msgEl) msgEl.textContent = '';
     
-    // Clear form inputs
     const formInputs = ['nameInput', 'phoneInput', 'emailInput', 'categorySelect', 'notesInput'];
-    formInputs.forEach(id => {
+    formInputs.forEach(function(id) {
         const input = document.getElementById(id);
         if (input) input.value = '';
     });
     
-    // Scroll to top and trigger slots reload
     window.scrollTo({ top: 0, behavior: 'smooth' });
     window.dispatchEvent(new CustomEvent('reloadSlots'));
     
     console.log('✅ Returned to slot selection (state + UI reset)');
 }
 
-// Expose globally for HTML onclick handlers
 window.backToSlotSelection = backToSlotSelection;
 
 // ================================================================================================
@@ -102,7 +94,7 @@ function validateName(name) {
         return { valid: false, message: 'Name must be at least 2 characters' };
     }
     if (name.length > CONFIG.MAX_NAME_LENGTH) {
-        return { valid: false, message: `Name too long (max ${CONFIG.MAX_NAME_LENGTH} characters)` };
+        return { valid: false, message: 'Name too long (max ' + CONFIG.MAX_NAME_LENGTH + ' characters)' };
     }
     return { valid: true };
 }
@@ -127,7 +119,7 @@ function validateEmailField(email) {
 }
 
 // ================================================================================================
-// VALIDATE AND SUBMIT SIGNUP
+// VALIDATE AND SUBMIT SIGNUP (FIXED SYNTAX)
 // ================================================================================================
 export async function submitSignup() {
     if (isSubmitting) {
@@ -148,9 +140,8 @@ export async function submitSignup() {
     
     submitBtn.disabled = true;
     const originalBtnText = submitBtn.textContent;
-    submitBtn.innerHTML = `<span class="loading-spinner"></span> Submitting...`;
+    submitBtn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
     
-    // Add spinner styles if missing
     if (!document.getElementById('spinner-style')) {
         const style = document.createElement('style');
         style.id = 'spinner-style';
@@ -174,13 +165,13 @@ export async function submitSignup() {
         document.head.appendChild(style);
     }
 
-    // ✅ NORMALIZE PHONE before submission
-    const rawPhone = document.getElementById("phoneInput")?.value || '';
-    const name = sanitizeInput(document.getElementById("nameInput")?.value, CONFIG.MAX_NAME_LENGTH);
+    const rawPhone = document.getElementById("phoneInput") ? document.getElementById("phoneInput").value : '';
+    const name = sanitizeInput(document.getElementById("nameInput") ? document.getElementById("nameInput").value : '', CONFIG.MAX_NAME_LENGTH);
     const phone = normalizePhone(rawPhone);
-    const email = sanitizeInput(document.getElementById("emailInput")?.value, CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase();
-    const category = sanitizeInput(document.getElementById("categorySelect")?.value, 50);
-    const notes = sanitizeInput(document.getElementById("notesInput")?.value, CONFIG.MAX_NOTES_LENGTH);
+    const email = sanitizeInput(document.getElementById("emailInput") ? document.getElementById("emailInput").value : '', CONFIG.MAX_EMAIL_LENGTH);
+    if (email) email = email.toLowerCase();
+    const category = sanitizeInput(document.getElementById("categorySelect") ? document.getElementById("categorySelect").value : '', 50);
+    const notes = sanitizeInput(document.getElementById("notesInput") ? document.getElementById("notesInput").value : '', CONFIG.MAX_NOTES_LENGTH);
 
     function resetSubmitState() {
         updateIsSubmitting(false);
@@ -188,24 +179,23 @@ export async function submitSignup() {
         submitBtn.textContent = originalBtnText;
     }
 
-    // Validation with normalized phone
     const nameValidation = validateName(name);
     if (!nameValidation.valid) {
-        showMessage(msgEl, `⚠️ ${nameValidation.message}`, 'error');
+        showMessage(msgEl, '⚠️ ' + nameValidation.message, 'error');
         resetSubmitState();
         return;
     }
 
     const phoneValidation = validatePhone(rawPhone);
     if (!phoneValidation.valid) {
-        showMessage(msgEl, `⚠️ ${phoneValidation.message}`, 'error');
+        showMessage(msgEl, '⚠️ ' + phoneValidation.message, 'error');
         resetSubmitState();
         return;
     }
 
     const emailValidation = validateEmailField(email);
     if (!emailValidation.valid) {
-        showMessage(msgEl, `⚠️ ${emailValidation.message}`, 'error');
+        showMessage(msgEl, '⚠️ ' + emailValidation.message, 'error');
         resetSubmitState();
         return;
     }
@@ -225,7 +215,7 @@ export async function submitSignup() {
     const now = Date.now();
     if (now - lastApiCall < CONFIG.API_COOLDOWN) {
         const waitTime = Math.ceil((CONFIG.API_COOLDOWN - (now - lastApiCall)) / 1000);
-        showMessage(msgEl, `⚠️ Please wait ${waitTime} seconds before submitting again.`, 'error');
+        showMessage(msgEl, '⚠️ Please wait ' + waitTime + ' seconds before submitting again.', 'error');
         resetSubmitState();
         return;
     }
@@ -233,12 +223,12 @@ export async function submitSignup() {
     showMessage(msgEl, '⏳ Processing your booking...', 'info', 0);
 
     try {
-        const slotIds = selectedSlots.map(s => s.id);
+        const slotIds = selectedSlots.map(function(s) { return s.id; });
 
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, phone, email, notes, category, slotIds })
+            body: JSON.stringify({ name: name, phone: phone, email: email, notes: notes, category: category, slotIds: slotIds })
         });
 
         updateLastApiCall(Date.now());
@@ -246,7 +236,9 @@ export async function submitSignup() {
 
         if (response.ok && data.ok) {
             // Invalidate cache and reset UI
-            API_CACHE.data = null;
+            if (typeof API_CACHE !== 'undefined') {
+                API_CACHE.data = null;
+            }
             updateSelectedSlots([]);
             resetSlotSelectionUI();
             
@@ -261,7 +253,6 @@ export async function submitSignup() {
             
             confirmationDetails.innerHTML = '';
             
-            // Build confirmation details
             const container = document.createElement('div');
             container.style.margin = '20px 0';
             
@@ -275,40 +266,39 @@ export async function submitSignup() {
             list.style.margin = '10px auto';
             list.style.paddingLeft = '20px';
             
-            const sortedSlots = [...selectedSlots].sort((a, b) => {
+            const sortedSlots = selectedSlots.slice().sort(function(a, b) {
                 const dateCompare = new Date(a.date) - new Date(b.date);
                 if (dateCompare !== 0) return dateCompare;
                 return a.label.localeCompare(b.label);
             });
             
-            sortedSlots.forEach(slot => {
+            sortedSlots.forEach(function(slot) {
                 const li = document.createElement('li');
                 li.style.marginBottom = '8px';
-                li.textContent = `📅 ${slot.date} at 🕰️ ${slot.label}`;
+                li.textContent = '📅 ' + slot.date + ' at 🕰️ ' + slot.label;
                 list.appendChild(li);
             });
             
             container.appendChild(list);
             confirmationDetails.appendChild(container);
 
-            // Category info
             const categoryInfo = document.createElement('p');
             categoryInfo.style.marginTop = '15px';
-            categoryInfo.innerHTML = `Selected category: <strong>${category}</strong>`;
+            categoryInfo.innerHTML = 'Selected category: <strong>' + category + '</strong>';
             confirmationDetails.appendChild(categoryInfo);
             
             if (email) {
                 const emailConfirmation = document.createElement('p');
                 emailConfirmation.style.marginTop = '10px';
-                emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${email}</strong>`;
+                emailConfirmation.innerHTML = 'A confirmation email will be sent to <strong>' + email + '</strong>';
                 confirmationDetails.appendChild(emailConfirmation);
             }
 
-            document.getElementById("signupSection")?.style.display = "none";
+            const signupSectionEl = document.getElementById("signupSection");
+            if (signupSectionEl) signupSectionEl.style.display = "none";
             successSection.style.display = "block";
             successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // Clear form completely
             resetSubmitState();
             
         } else {
@@ -320,10 +310,10 @@ export async function submitSignup() {
                 errorMsg += ' Too many requests. Please wait a minute and try again.';
             }
             
-            showMessage(msgEl, `❌ ${errorMsg}`, 'error');
+            showMessage(msgEl, '❌ ' + errorMsg, 'error');
             
             if (response.status === 409) {
-                setTimeout(() => {
+                setTimeout(function() {
                     backToSlotSelection();
                 }, 3000);
             }
@@ -334,7 +324,7 @@ export async function submitSignup() {
         const errorMsg = err.message === 'Failed to fetch' 
             ? 'Unable to connect to the server. Please check your internet connection.' 
             : 'An unexpected error occurred. Please try again.';
-        showMessage(msgEl, `❌ ${errorMsg}`, 'error');
+        showMessage(msgEl, '❌ ' + errorMsg, 'error');
     }
 }
 
@@ -348,9 +338,8 @@ function setupRealtimeValidation() {
         emailInput: document.getElementById("emailInput")
     };
     
-    // Name validation
     if (inputs.nameInput) {
-        inputs.nameInput.addEventListener('blur', () => {
+        inputs.nameInput.addEventListener('blur', function() {
             const value = sanitizeInput(inputs.nameInput.value, CONFIG.MAX_NAME_LENGTH);
             const validation = validateName(value);
             if (value && !validation.valid) {
@@ -362,15 +351,14 @@ function setupRealtimeValidation() {
             }
         });
         
-        inputs.nameInput.addEventListener('input', () => {
+        inputs.nameInput.addEventEventListener('input', function() {
             inputs.nameInput.style.borderColor = '';
             inputs.nameInput.removeAttribute('aria-invalid');
         });
     }
     
-    // Phone validation (with normalization feedback)
     if (inputs.phoneInput) {
-        inputs.phoneInput.addEventListener('blur', () => {
+        inputs.phoneInput.addEventListener('blur', function() {
             const value = inputs.phoneInput.value;
             const validation = validatePhone(value);
             if (value && !validation.valid) {
@@ -382,15 +370,14 @@ function setupRealtimeValidation() {
             }
         });
         
-        inputs.phoneInput.addEventListener('input', () => {
+        inputs.phoneInput.addEventListener('input', function() {
             inputs.phoneInput.style.borderColor = '';
             inputs.phoneInput.removeAttribute('aria-invalid');
         });
     }
     
-    // Email validation
     if (inputs.emailInput) {
-        inputs.emailInput.addEventListener('blur', () => {
+        inputs.emailInput.addEventListener('blur', function() {
             const value = sanitizeInput(inputs.emailInput.value, CONFIG.MAX_EMAIL_LENGTH);
             const validation = validateEmailField(value);
             if (value && !validation.valid) {
@@ -402,7 +389,7 @@ function setupRealtimeValidation() {
             }
         });
         
-        inputs.emailInput.addEventListener('input', () => {
+        inputs.emailInput.addEventListener('input', function() {
             inputs.emailInput.style.borderColor = '';
             inputs.emailInput.removeAttribute('aria-invalid');
         });
