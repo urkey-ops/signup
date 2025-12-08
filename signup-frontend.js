@@ -207,10 +207,11 @@ export async function submitSignup() {
         background: white; border-radius: 6px;
         border-left: 4px solid #3b82f6;
         color: #1f2937 !important; /* 🔥 DARK TEXT */
-    }
-`;
+    `;
+    document.head.appendChild(style);  // 🔥 ADD THIS LINE!
+}  // 🔥 ADD THIS CLOSING BRACE!
 
-
+`
     const rawPhone = document.getElementById("phoneInput")?.value || '';
     const name = sanitizeInput(document.getElementById("nameInput")?.value || '', CONFIG.MAX_NAME_LENGTH);
     const phone = normalizePhone(rawPhone);
@@ -369,7 +370,6 @@ export async function submitSignup() {
                     <button id="backToSlotsBtn" class="btn btn-outline">🔄 Back to Slots</button>
                 </div>
             `;
-            
             // ✅ SAFE EVENT HANDLERS (unique IDs + once: true)
             const bookBtn = document.getElementById('bookValidSlotsBtn');
             const removeBtn = document.getElementById('removeConflictsBtn');
