@@ -66,7 +66,7 @@ const cache = { slots: null, timestamp: 0, TTL: CONFIG.CACHE_TTL };
 const rateLimitMap = new Map();
 const activeBookingsMap = new Map();
 
-// ✅ NEW: Phone normalization (aligned with frontend)
+// ✅ Phone normalization (aligned with frontend)
 function normalizePhone(phone) {
     if (!phone || typeof phone !== 'string') return '';
     return phone.replace(/\D/g, '');
@@ -346,239 +346,264 @@ module.exports = async function handler(req, res) {
         }
 
         // POST: Create booking
-if (req.method === "POST") {
-    console.log('📝 POST booking');
-    const errors = validateBookingRequest(req.body);
-    if (errors.length) {
-        console.log('❌ Validation failed:', errors);
-        return res.status(400).json({ ok: false, error: errors.join('; ') });
-    }
+        if (req.method === "POST") {
+            console.log('📝 POST booking');
+            const errors = validateBookingRequest(req.body);
+            if (errors.length) {
+                console.log('❌ Validation failed:', errors);
+                return res.status(400).json({ ok: false, error: errors.join('; ') });
+            }
 
-    const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
-    const normalizedPhone = normalizePhone(req.body.phone);
-    const email = sanitizeInput(req.body.email || '', CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase();
-    const category = sanitizeInput(req.body.category, CONFIG.MAX_CATEGORY_LENGTH);
-    const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
-    const slotIds = req.body.slotIds;
+            const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
+            const normalizedPhone = normalizePhone(req.body.phone);
+            const email = sanitizeInput(req.body.email || '', CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase();
+            const category = sanitizeInput(req.body.category, CONFIG.MAX_CATEGORY_LENGTH);
+            const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
+            const slotIds = req.body.slotIds;
 
-    if (!checkConcurrentBookings(normalizedPhone)) {
-        return res.status(429).json({ ok: false, error: "Too many concurrent requests." });
-    }
+            if (!checkConcurrentBookings(normalizedPhone)) {
+                return res.status(429).json({ ok: false, error: "Too many concurrent requests." });
+            }
 
-    incrementActiveBookings(normalizedPhone);
-    try {
-        const sheetsData = await sheets.spreadsheets.values.batchGet({
-            spreadsheetId: SHEET_ID,
-            ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
-        });
-
-        const signupFetch = await sheets.spreadsheets.values.get({
-            spreadsheetId: SHEET_ID,
-            range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
-        });
-
-        const slotRanges = sheetsData.data.valueRanges;
-        const existing = signupFetch.data.values || [];
-        const nowStr = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
-
-        const signupRows = [];
-        const updateRequests = [];
-        const errorDetails = [];  // ✅ FIXED: OUTSIDE LOOP
-        // ✅ SINGLE PASS - NO NESTED LOOPS
-        for (let i = 0; i < slotIds.length; i++) {
-            const slotId = slotIds[i];
-            const row = slotRanges[i].values?.[0];
+            incrementActiveBookings(normalizedPhone);
             
-            if (!row) {
-                errorDetails.push(`Slot ID ${slotId}: Missing data`);
-                continue;
-            }
+            try {
+                const sheetsData = await sheets.spreadsheets.values.batchGet({
+                    spreadsheetId: SHEET_ID,
+                    ranges: slotIds.map(id => `${SHEETS.SLOTS.NAME}!A${id}:D${id}`)
+                });
 
-            const date = row[0];
-            const label = row[1];
-            const capacity = parseInt(row[2]) || 0;
-            const taken = parseInt(row[3]) || 0;
+                const signupFetch = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
+                });
 
-            // Check duplicate
-            const duplicate = existing.find(r =>
-                normalizePhone(r[5]) === normalizedPhone &&
-                parseInt(r[8]) === slotId &&
-                (r[9] || 'ACTIVE').startsWith('ACTIVE')
-            );
-            
-            if (duplicate) {
-                errorDetails.push(`You already booked this: ${label} on ${date}`);
-                continue;
-            }
+                const slotRanges = sheetsData.data.valueRanges;
+                const existing = signupFetch.data.values || [];
+                const nowStr = new Date().toLocaleString("en-US", { timeZone: TIMEZONE });
 
-            // Check capacity
-         if (taken >= capacity) {
-    errorDetails.push(`This slot is full: ${label} on ${date}`);
-    continue;
-}
-
-            // ✅ ALL GOOD - BOOK IT
-            signupRows.push([nowStr, date, label, name, email, normalizedPhone, category, notes, slotId, 'ACTIVE']);
-            updateRequests.push({
-                range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
-                values: [[taken + 1]]
-            });
-        }
-
-        // ✅ AFTER FULL SCAN - REPORT RESULTS
-        if (errorDetails.length > 0) {
-            console.log('⚠️ Conflicts found:', errorDetails);
-            decrementActiveBookings(normalizedPhone);
-            return res.status(409).json({ 
-    ok: false,
-    error: `Conflicts (${errorDetails.length}/${slotIds.length})`,
-    conflictedSlots: errorDetails.map(d => d.split(':')[0].trim()),
-    validSlots: signupRows.length,
-    slotStatus: slotIds.map((id, i) => ({     // ✅ NEW: Per-slot status
-        slotId: id,
-        date: slotRanges[i]?.values?.[0]?.[0] || 'Unknown',
-        label: slotRanges[i]?.values?.[0]?.[1] || 'Unknown',
-        status: errorDetails[i] ? 'conflict' : 'valid',
-        reason: errorDetails[i] || null
-    }))
-});
-
-        if (signupRows.length === 0) {
-            decrementActiveBookings(normalizedPhone);
-            return res.status(400).json({ ok: false, error: "No valid slots available." });
-        }
-
-        // ✅ ALL VALID - BATCH UPDATE
-        await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: SHEET_ID,
-            requestBody: {
-                requests: [
-                    {
-                        appendCells: {
-                            sheetId: SIGNUPS_GID,
-                            rows: signupRows.map(r => ({
-                                values: r.map(c => ({ userEnteredValue: { stringValue: String(c) } }))
-                            })),
-                            fields: 'userEnteredValue'
-                        }
-                    },
-                    ...updateRequests.map(u => ({
-                        updateCells: {
-                            range: {
-                                sheetId: SLOTS_GID,
-                                startRowIndex: parseInt(u.range.match(/\d+/)[0]) - 1,
-                                endRowIndex: parseInt(u.range.match(/\d+/)[0]),
-                                startColumnIndex: 3,
-                                endColumnIndex: 4
-                            },
-                            rows: [{ values: u.values.map(val => ({ userEnteredValue: { numberValue: parseInt(val[0]) } })) }],
-                            fields: 'userEnteredValue'
-                        }
-                    }))
-                ]
-            }
-        });
-
-        console.log(`✅ Booking successful for ${normalizedPhone}: ${signupRows.length}/${slotIds.length} slots`);
-        invalidateCache();
-        decrementActiveBookings(normalizedPhone);
-        return res.status(200).json({ ok: true, message: `Booked ${signupRows.length} slots successfully!` });
-        }
-    } catch (err) {
-        console.error('❌ Booking failed:', err.message);
-        decrementActiveBookings(normalizedPhone);
-        return res.status(500).json({ ok: false, error: "Booking failed. Please try again." });
-    }
-}  // ✅ POST handler ends HERE
-
-// ✅ PATCH: Cancel booking (column 8 - proper indentation)
-if (req.method === "PATCH") {
-    console.log('🗑️ PATCH cancel');
-    const { signupRowId, slotRowId, phone } = req.body;
-    
-    if (!signupRowId || !slotRowId || !phone) {
-        return res.status(400).json({ ok: false, error: "Missing signupRowId, slotRowId, or phone." });
-    }
-
-    const normalizedPhone = normalizePhone(phone);
-    if (!isValidPhone(phone)) {
-        return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
-    }
-
-    try {
-        const signupResp = await sheets.spreadsheets.values.get({
-            spreadsheetId: SHEET_ID,
-            range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
-        });
-        const row = signupResp.data.values?.[0];
-        if (!row) {
-            return res.status(404).json({ ok: false, error: "Booking not found." });
-        }
-        
-        // ✅ NORMALIZED PHONE COMPARISON
-        if (normalizePhone(row[5]) !== normalizedPhone) {
-            return res.status(403).json({ ok: false, error: "Phone mismatch. Cannot cancel." });
-        }
-
-        const slotResp = await sheets.spreadsheets.values.get({
-            spreadsheetId: SHEET_ID,
-            range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
-        });
-        const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
-        const newTaken = Math.max(0, currentTaken - 1);
-        const ts = new Date().toISOString();
-
-        await sheets.spreadsheets.batchUpdate({
-            spreadsheetId: SHEET_ID,
-            requestBody: {
-                requests: [
-                    {
-                        updateCells: {
-                            range: {
-                                sheetId: SIGNUPS_GID,
-                                startRowIndex: signupRowId - 1,
-                                endRowIndex: signupRowId,
-                                startColumnIndex: 9,
-                                endColumnIndex: 10
-                            },
-                            rows: [{ values: [{ userEnteredValue: { stringValue: `CANCELLED:${ts}` } }] }],
-                            fields: 'userEnteredValue'
-                        }
-                    },
-                    {
-                        updateCells: {
-                            range: {
-                                sheetId: SLOTS_GID,
-                                startRowIndex: slotRowId - 1,
-                                endRowIndex: slotRowId,
-                                startColumnIndex: 3,
-                                endColumnIndex: 4
-                            },
-                            rows: [{ values: [{ userEnteredValue: { numberValue: newTaken } }] }],
-                            fields: 'userEnteredValue'
-                        }
+                const signupRows = [];
+                const updateRequests = [];
+                
+                // ✅ FIXED: Track status per slot with Map
+                const slotStatusMap = new Map();
+                
+                for (let i = 0; i < slotIds.length; i++) {
+                    const slotId = slotIds[i];
+                    const row = slotRanges[i].values?.[0];
+                    
+                    if (!row) {
+                        slotStatusMap.set(slotId, {
+                            slotId,
+                            date: 'Unknown',
+                            label: 'Unknown',
+                            status: 'conflict',
+                            reason: 'Slot data missing'
+                        });
+                        continue;
                     }
-                ]
-            }
-        });
 
-        console.log(`✅ Cancellation successful: signupRow ${signupRowId}, slotRow ${slotRowId}`);
-        invalidateCache();
-        return res.status(200).json({ ok: true, message: "Cancelled successfully." });
+                    const date = row[0];
+                    const label = row[1];
+                    const capacity = parseInt(row[2]) || 0;
+                    const taken = parseInt(row[3]) || 0;
+
+                    // Check duplicate
+                    const duplicate = existing.find(r =>
+                        normalizePhone(r[5]) === normalizedPhone &&
+                        parseInt(r[8]) === slotId &&
+                        (r[9] || 'ACTIVE').startsWith('ACTIVE')
+                    );
+                    
+                    if (duplicate) {
+                        slotStatusMap.set(slotId, {
+                            slotId,
+                            date,
+                            label,
+                            status: 'conflict',
+                            reason: 'Already booked'
+                        });
+                        continue;
+                    }
+
+                    // Check capacity
+                    if (taken >= capacity) {
+                        slotStatusMap.set(slotId, {
+                            slotId,
+                            date,
+                            label,
+                            status: 'conflict',
+                            reason: 'Slot full'
+                        });
+                        continue;
+                    }
+
+                    // ✅ ALL GOOD - BOOK IT
+                    slotStatusMap.set(slotId, {
+                        slotId,
+                        date,
+                        label,
+                        status: 'valid',
+                        reason: null
+                    });
+                    
+                    signupRows.push([nowStr, date, label, name, email, normalizedPhone, category, notes, slotId, 'ACTIVE']);
+                    updateRequests.push({
+                        range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
+                        values: [[taken + 1]]
+                    });
+                }
+
+                // ✅ Convert Map to array for response
+                const slotStatus = Array.from(slotStatusMap.values());
+                const conflicts = slotStatus.filter(s => s.status === 'conflict');
+
+                // ✅ HANDLE CONFLICTS
+                if (conflicts.length > 0) {
+                    console.log(`⚠️ Conflicts found: ${conflicts.length}/${slotIds.length}`);
+                    decrementActiveBookings(normalizedPhone);
+                    return res.status(409).json({ 
+                        ok: false,
+                        error: `${conflicts.length} of ${slotIds.length} slots unavailable`,
+                        validSlots: signupRows.length,
+                        slotStatus
+                    });
+                }
+
+                if (signupRows.length === 0) {
+                    decrementActiveBookings(normalizedPhone);
+                    return res.status(400).json({ ok: false, error: "No valid slots available." });
+                }
+
+                // ✅ ALL VALID - BATCH UPDATE
+                await sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: SHEET_ID,
+                    requestBody: {
+                        requests: [
+                            {
+                                appendCells: {
+                                    sheetId: SIGNUPS_GID,
+                                    rows: signupRows.map(r => ({
+                                        values: r.map(c => ({ userEnteredValue: { stringValue: String(c) } }))
+                                    })),
+                                    fields: 'userEnteredValue'
+                                }
+                            },
+                            ...updateRequests.map(u => ({
+                                updateCells: {
+                                    range: {
+                                        sheetId: SLOTS_GID,
+                                        startRowIndex: parseInt(u.range.match(/\d+/)[0]) - 1,
+                                        endRowIndex: parseInt(u.range.match(/\d+/)[0]),
+                                        startColumnIndex: 3,
+                                        endColumnIndex: 4
+                                    },
+                                    rows: [{ values: u.values.map(val => ({ userEnteredValue: { numberValue: parseInt(val[0]) } })) }],
+                                    fields: 'userEnteredValue'
+                                }
+                            }))
+                        ]
+                    }
+                });
+
+                console.log(`✅ Booking successful for ${normalizedPhone}: ${signupRows.length}/${slotIds.length} slots`);
+                invalidateCache();
+                decrementActiveBookings(normalizedPhone);
+                return res.status(200).json({ ok: true, message: `Booked ${signupRows.length} slots successfully!` });
+                
+            } catch (err) {
+                console.error('❌ Booking failed:', err.message);
+                decrementActiveBookings(normalizedPhone);
+                return res.status(500).json({ ok: false, error: "Booking failed. Please try again." });
+            }
+        }
+
+        // PATCH: Cancel booking
+        if (req.method === "PATCH") {
+            console.log('🗑️ PATCH cancel');
+            const { signupRowId, slotRowId, phone } = req.body;
+            
+            if (!signupRowId || !slotRowId || !phone) {
+                return res.status(400).json({ ok: false, error: "Missing signupRowId, slotRowId, or phone." });
+            }
+
+            const normalizedPhone = normalizePhone(phone);
+            if (!isValidPhone(phone)) {
+                return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
+            }
+
+            try {
+                const signupResp = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
+                });
+                const row = signupResp.data.values?.[0];
+                if (!row) {
+                    return res.status(404).json({ ok: false, error: "Booking not found." });
+                }
+                
+                // ✅ NORMALIZED PHONE COMPARISON
+                if (normalizePhone(row[5]) !== normalizedPhone) {
+                    return res.status(403).json({ ok: false, error: "Phone mismatch. Cannot cancel." });
+                }
+
+                const slotResp = await sheets.spreadsheets.values.get({
+                    spreadsheetId: SHEET_ID,
+                    range: `${SHEETS.SLOTS.NAME}!D${slotRowId}`
+                });
+                const currentTaken = parseInt(slotResp.data.values?.[0]?.[0] || 0);
+                const newTaken = Math.max(0, currentTaken - 1);
+                const ts = new Date().toISOString();
+
+                await sheets.spreadsheets.batchUpdate({
+                    spreadsheetId: SHEET_ID,
+                    requestBody: {
+                        requests: [
+                            {
+                                updateCells: {
+                                    range: {
+                                        sheetId: SIGNUPS_GID,
+                                        startRowIndex: signupRowId - 1,
+                                        endRowIndex: signupRowId,
+                                        startColumnIndex: 9,
+                                        endColumnIndex: 10
+                                    },
+                                    rows: [{ values: [{ userEnteredValue: { stringValue: `CANCELLED:${ts}` } }] }],
+                                    fields: 'userEnteredValue'
+                                }
+                            },
+                            {
+                                updateCells: {
+                                    range: {
+                                        sheetId: SLOTS_GID,
+                                        startRowIndex: slotRowId - 1,
+                                        endRowIndex: slotRowId,
+                                        startColumnIndex: 3,
+                                        endColumnIndex: 4
+                                    },
+                                    rows: [{ values: [{ userEnteredValue: { numberValue: newTaken } }] }],
+                                    fields: 'userEnteredValue'
+                                }
+                            }
+                        ]
+                    }
+                });
+
+                console.log(`✅ Cancellation successful: signupRow ${signupRowId}, slotRow ${slotRowId}`);
+                invalidateCache();
+                return res.status(200).json({ ok: true, message: "Cancelled successfully." });
+                
+            } catch (err) {
+                console.error('❌ Cancel failed:', err.message);
+                return res.status(500).json({ ok: false, error: "Cancellation failed. Please try again." });
+            }
+        }
+
+        return res.status(405).json({ ok: false, error: "Method not allowed." });
         
     } catch (err) {
-        console.error('❌ Cancel failed:', err.message);
-        return res.status(500).json({ ok: false, error: "Cancellation failed. Please try again." });
+        console.error('❌ Unhandled error:', err.message);
+        console.error('Stack:', err.stack);
+        return res.status(500).json({ ok: false, error: "Internal server error." });
     }
-}
-
-return res.status(405).json({ ok: false, error: "Method not allowed." });
-        
-} catch (err) {
-    console.error('❌ Unhandled error:', err.message);
-    console.error('Stack:', err.stack);
-    return res.status(500).json({ ok: false, error: "Internal server error." });
-}
 };
-
-       
