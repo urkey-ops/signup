@@ -50,24 +50,25 @@ export function isValidEmail(email) {
     return emailRegex.test(email) && email.length <= 254;
 }
 
-// ✅ NEW: Normalize phone to digits-only (strips ALL formatting for storage)
+// Normalize phone to digits-only (strips ALL formatting for storage / comparison)
 export function normalizePhone(phone) {
     if (!phone || typeof phone !== 'string') return '';
-    // Remove ALL non-digits, then take exactly 10 digits
     const digits = phone.replace(/\D/g, '');
-    return digits.length === 10 ? digits : '';
+    return digits;
 }
 
-// ✅ UPDATED: Validate phone numbers (EXACTLY 10 digits, no formatting allowed)
+// Validate phone numbers (EXACTLY 10 digits after normalization)
 export function isValidPhone(phone) {
-    return normalizePhone(phone).length === 10;
+    const digits = normalizePhone(phone);
+    return digits.length === 10;
 }
 
 // ✅ FIX: Completely rewritten showMessage to support both signatures
-// Can be called as: showMessage('text', 'type') OR showMessage(element, 'text', 'type')
+// Can be called as: showMessage('text', 'type', duration)
+// OR: showMessage(element, 'text', 'type', duration)
 export function showMessage(arg1, arg2, arg3, arg4) {
     let container, message, type, duration;
-    
+
     // Detect which signature is being used
     if (typeof arg1 === 'string' && (typeof arg2 === 'string' || arg2 === undefined)) {
         // Called as: showMessage(message, type, duration)
@@ -101,13 +102,13 @@ export function showMessage(arg1, arg2, arg3, arg4) {
         type = arg3 || 'info';
         duration = typeof arg4 === 'number' ? arg4 : 4000;
     }
-    
+
     // Validate container is a DOM element
     if (!container || !(container instanceof Element)) {
         console.error('showMessage: Invalid container element');
         return;
     }
-    
+
     container.textContent = message;
     container.style.display = 'block';
     container.style.opacity = '1';
@@ -117,7 +118,7 @@ export function showMessage(arg1, arg2, arg3, arg4) {
     ['info', 'success', 'error', 'warning'].forEach(t => {
         if (t !== type) container.classList.remove(t);
     });
-    
+
     // Apply color based on type
     const colors = {
         success: { bg: '#10b981', text: 'white' },
@@ -125,18 +126,17 @@ export function showMessage(arg1, arg2, arg3, arg4) {
         warning: { bg: '#f59e0b', text: 'white' },
         info: { bg: '#3b82f6', text: 'white' }
     };
-    
+
     const color = colors[type] || colors.info;
     container.style.backgroundColor = color.bg;
     container.style.color = color.text;
 
-    // ✅ FIX: Clear previous timeout to prevent premature clearing
+    // Clear previous timeout to prevent premature clearing
     if (container._messageTimeout) {
         clearTimeout(container._messageTimeout);
     }
 
     if (duration > 0) {
-        // ✅ FIX: Store current message text for accurate comparison
         const currentMessage = message;
         container._messageTimeout = setTimeout(() => {
             // Only clear if the message hasn't changed
@@ -154,13 +154,13 @@ export function showMessage(arg1, arg2, arg3, arg4) {
     }
 }
 
-// ✅ FIX: Improved parseTimeForSorting with better range handling
+// Improved parseTimeForSorting with better range handling
 export function parseTimeForSorting(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return 0;
 
     // Normalize spaces around dash: "10am - 12pm" or "10am-12pm" -> consistent format
     const normalized = timeStr.replace(/\s*-\s*/g, '-').trim();
-    
+
     // Take the first part before any dash, e.g. "10am-12pm" -> "10am"
     const firstPart = normalized.split('-')[0].trim().toLowerCase();
 
@@ -252,10 +252,10 @@ export function formatNumber(num) {
     return n.toLocaleString();
 }
 
-// ✅ FIX: Improved date validation with better error handling
+// Improved date validation with better error handling
 export function isValidDate(dateStr) {
     if (!dateStr) return false;
-    
+
     try {
         const d = new Date(dateStr);
         if (isNaN(d.getTime())) return false;
@@ -266,11 +266,13 @@ export function isValidDate(dateStr) {
             const y = Number(isoMatch[1]);
             const m = Number(isoMatch[2]);
             const day = Number(isoMatch[3]);
-            
+
             // Validate month and day ranges
             if (m < 1 || m > 12 || day < 1 || day > 31) return false;
-            
-            return d.getUTCFullYear() === y && (d.getUTCMonth() + 1) === m && d.getUTCDate() === day;
+
+            return d.getUTCFullYear() === y &&
+                   (d.getUTCMonth() + 1) === m &&
+                   d.getUTCDate() === day;
         }
 
         return true;
@@ -284,7 +286,7 @@ export function generateRandomId(prefix = 'id') {
     return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
 }
 
-// ✅ NEW: Helper to safely get element by ID with error logging
+// Helper to safely get element by ID with error logging
 export function getElementByIdSafe(id) {
     const el = document.getElementById(id);
     if (!el) {
