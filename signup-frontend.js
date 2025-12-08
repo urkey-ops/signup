@@ -455,10 +455,3 @@ document.addEventListener('DOMContentLoaded', () => {
     
     console.log('✅ Signup module initialized');
 });
-
-
-    
-    setupRealtimeValidation();
-    
-    console.log('✅ Signup module initialized');
-});
