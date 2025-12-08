@@ -1,5 +1,5 @@
 // ================================================================================================
-// UTILS.JS - HELPER FUNCTIONS (UPDATED FOR SAFE SANITIZATION + IMPROVEMENTS)
+// UTILS.JS - HELPER FUNCTIONS (BUG-FREE VERSION)
 // ================================================================================================
 
 // Escape HTML so it's safe to insert via innerHTML
@@ -63,14 +63,25 @@ export function isValidPhone(phone) {
     return digits.length === 10;
 }
 
-// ✅ FIX: Completely rewritten showMessage to support both signatures
-// Can be called as: showMessage('text', 'type', duration)
-// OR: showMessage(element, 'text', 'type', duration)
+// ================================================================================================
+// SHOW MESSAGE - UNIFIED FUNCTION WITH TWO SIGNATURES
+// ================================================================================================
+/**
+ * Display a message to the user
+ * Can be called two ways:
+ * 1. showMessage(message, type, duration) - creates/uses global container
+ * 2. showMessage(containerElement, message, type, duration) - uses specific container
+ * 
+ * @param {string|Element} arg1 - Message text OR container element
+ * @param {string} arg2 - Type (if arg1 is message) OR message text (if arg1 is container)
+ * @param {string} arg3 - Duration (if arg1 is message) OR type (if arg1 is container)
+ * @param {number} arg4 - Duration (if arg1 is container)
+ */
 export function showMessage(arg1, arg2, arg3, arg4) {
     let container, message, type, duration;
 
     // Detect which signature is being used
-    if (typeof arg1 === 'string' && (typeof arg2 === 'string' || arg2 === undefined)) {
+    if (typeof arg1 === 'string') {
         // Called as: showMessage(message, type, duration)
         // Auto-create or find a global message container
         container = document.getElementById('globalMessageContainer');
@@ -95,17 +106,26 @@ export function showMessage(arg1, arg2, arg3, arg4) {
         message = arg1;
         type = arg2 || 'info';
         duration = typeof arg3 === 'number' ? arg3 : 4000;
-    } else {
+    } else if (arg1 instanceof Element) {
         // Called as: showMessage(container, message, type, duration)
         container = arg1;
         message = arg2;
         type = arg3 || 'info';
         duration = typeof arg4 === 'number' ? arg4 : 4000;
+    } else {
+        console.error('showMessage: Invalid first argument - must be string or DOM element');
+        return;
     }
 
     // Validate container is a DOM element
     if (!container || !(container instanceof Element)) {
         console.error('showMessage: Invalid container element');
+        return;
+    }
+
+    // Validate message
+    if (!message || typeof message !== 'string') {
+        console.error('showMessage: Message must be a non-empty string');
         return;
     }
 
@@ -134,8 +154,10 @@ export function showMessage(arg1, arg2, arg3, arg4) {
     // Clear previous timeout to prevent premature clearing
     if (container._messageTimeout) {
         clearTimeout(container._messageTimeout);
+        container._messageTimeout = null;
     }
 
+    // Auto-hide after duration (if duration > 0)
     if (duration > 0) {
         const currentMessage = message;
         container._messageTimeout = setTimeout(() => {
