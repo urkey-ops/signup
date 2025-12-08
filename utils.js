@@ -50,6 +50,19 @@ export function isValidEmail(email) {
     return emailRegex.test(email) && email.length <= 254;
 }
 
+// ✅ NEW: Normalize phone to digits-only (strips ALL formatting for storage)
+export function normalizePhone(phone) {
+    if (!phone || typeof phone !== 'string') return '';
+    // Remove ALL non-digits, then take exactly 10 digits
+    const digits = phone.replace(/\D/g, '');
+    return digits.length === 10 ? digits : '';
+}
+
+// ✅ UPDATED: Validate phone numbers (EXACTLY 10 digits, no formatting allowed)
+export function isValidPhone(phone) {
+    return normalizePhone(phone).length === 10;
+}
+
 // ✅ FIX: Completely rewritten showMessage to support both signatures
 // Can be called as: showMessage('text', 'type') OR showMessage(element, 'text', 'type')
 export function showMessage(arg1, arg2, arg3, arg4) {
@@ -278,13 +291,4 @@ export function getElementByIdSafe(id) {
         console.warn(`Element with ID "${id}" not found in DOM`);
     }
     return el;
-}
-
-// ✅ NEW: Helper to validate phone numbers (10-15 digits after cleaning, matches backend)
-export function isValidPhone(phone) {
-    if (!phone || typeof phone !== 'string') return false;
-    // Remove common formatting characters
-    const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
-    // Check if it's 10-15 digits (matches backend expectation more closely)
-    return /^\+?\d{10,15}$/.test(cleaned);
 }
