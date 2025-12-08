@@ -1,816 +1,975 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5">
-    <meta name="description" content="Book your time slots easily - Fast mobile booking">
-    <meta name="theme-color" content="#10b981">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+/* ============================================================ */
+/* MOBILE-FIRST BOOKING SYSTEM - OPTIMIZED FOR iPHONE         */
+/* Lightning-fast, touch-optimized, iOS-perfect design         */
+/* ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    /* ===== COLOR SYSTEM - VIBRANT & MODERN ===== */
+    --primary-color: #10b981;           /* Emerald Green */
+    --primary-hover: #059669;
+    --primary-light: #d1fae5;
+    --primary-dark: #047857;
     
-    <title>Book a Slot</title>
+    --secondary-color: #3b82f6;         /* Bright Blue */
+    --secondary-hover: #2563eb;
+    --secondary-light: #dbeafe;
     
-    <style>
-        /* ==================== MOBILE-FIRST DESIGN SYSTEM ==================== */
-        /* Optimized for iPhone & fast performance */
-        
-        :root {
-            /* Color System - Vibrant & Modern */
-            --primary: #10b981;
-            --primary-dark: #059669;
-            --primary-light: #d1fae5;
-            --accent: #3b82f6;
-            --accent-dark: #2563eb;
-            --danger: #ef4444;
-            --danger-light: #fee2e2;
-            --warning: #f59e0b;
-            --bg: #f8fafc;
-            --surface: #ffffff;
-            --border: #e2e8f0;
-            --text: #0f172a;
-            --text-light: #64748b;
-            --text-muted: #94a3b8;
-            
-            /* Spacing - Touch-optimized */
-            --s1: 0.25rem;
-            --s2: 0.5rem;
-            --s3: 0.75rem;
-            --s4: 1rem;
-            --s5: 1.25rem;
-            --s6: 1.5rem;
-            --s8: 2rem;
-            
-            /* iOS Safe Areas */
-            --safe-top: env(safe-area-inset-top);
-            --safe-bottom: env(safe-area-inset-bottom);
-            --safe-left: env(safe-area-inset-left);
-            --safe-right: env(safe-area-inset-right);
-            
-            /* Shadows - Subtle depth */
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-            --shadow: 0 2px 8px rgba(0,0,0,0.08);
-            --shadow-lg: 0 4px 16px rgba(0,0,0,0.12);
-            
-            /* Radius */
-            --r-sm: 8px;
-            --r-md: 12px;
-            --r-lg: 16px;
-            --r-full: 9999px;
-            
-            /* Touch targets */
-            --touch-min: 44px;
-        }
-        
-        /* ==================== BASE RESET ==================== */
-        *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-        html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
-        body{
-            font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',sans-serif;
-            background:var(--bg);
-            color:var(--text);
-            line-height:1.5;
-            -webkit-font-smoothing:antialiased;
-            overflow-x:hidden;
-        }
-        
-        /* ==================== TYPOGRAPHY ==================== */
-        h1{
-            font-size:clamp(1.5rem,5vw,2rem);
-            font-weight:700;
-            letter-spacing:-0.02em;
-            line-height:1.2;
-            margin-bottom:var(--s2);
-        }
-        h2{
-            font-size:clamp(1.25rem,4vw,1.5rem);
-            font-weight:600;
-            letter-spacing:-0.01em;
-            margin-bottom:var(--s4);
-        }
-        h3{
-            font-size:1.125rem;
-            font-weight:600;
-            margin-bottom:var(--s3);
-        }
-        
-        /* ==================== LAYOUT ==================== */
-        .container{
-            max-width:800px;
-            margin:0 auto;
-            padding:var(--s4);
-            padding-bottom:calc(100px + var(--safe-bottom));
-        }
-        
-        header{
-            position:sticky;
-            top:0;
-            z-index:100;
-            background:rgba(255,255,255,0.9);
-            backdrop-filter:blur(12px);
-            padding:var(--s4) 0;
-            margin:0 calc(-1 * var(--s4));
-            padding-left:calc(var(--s4) + var(--safe-left));
-            padding-right:calc(var(--s4) + var(--safe-right));
-            border-bottom:1px solid var(--border);
-            margin-bottom:var(--s5);
-        }
-        
-        /* ==================== CARDS ==================== */
-        .card{
-            background:var(--surface);
-            border-radius:var(--r-lg);
-            padding:var(--s5);
-            margin-bottom:var(--s5);
-            border:1px solid var(--border);
-            box-shadow:var(--shadow-sm);
-        }
-        
-        .card-compact{
-            padding:var(--s4);
-        }
-        
-        /* ==================== BUTTONS - TOUCH OPTIMIZED ==================== */
-        .btn{
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            gap:var(--s2);
-            width:100%;
-            min-height:var(--touch-min);
-            padding:var(--s3) var(--s5);
-            border:none;
-            border-radius:var(--r-md);
-            font:inherit;
-            font-size:1rem;
-            font-weight:600;
-            cursor:pointer;
-            transition:all 0.2s cubic-bezier(0.4,0,0.2,1);
-            position:relative;
-            overflow:hidden;
-            -webkit-user-select:none;
-            user-select:none;
-        }
-        
-        .btn::before{
-            content:'';
-            position:absolute;
-            inset:0;
-            background:rgba(255,255,255,0.2);
-            transform:translateX(-100%);
-            transition:transform 0.3s ease;
-        }
-        
-        .btn:active::before{
-            transform:translateX(0);
-        }
-        
-        .btn-primary{
-            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
-            color:white;
-            box-shadow:0 2px 8px rgba(16,185,129,0.25);
-        }
-        
-        .btn-primary:active{
-            transform:scale(0.98);
-            box-shadow:0 1px 4px rgba(16,185,129,0.2);
-        }
-        
-        .btn-secondary{
-            background:var(--accent);
-            color:white;
-            box-shadow:0 2px 8px rgba(59,130,246,0.2);
-        }
-        
-        .btn-secondary:active{
-            transform:scale(0.98);
-        }
-        
-        .btn-danger{
-            background:var(--danger);
-            color:white;
-        }
-        
-        .btn:disabled{
-            opacity:0.5;
-            cursor:not-allowed;
-            transform:none!important;
-        }
-        
-        /* ==================== INPUTS - iOS OPTIMIZED ==================== */
-        .input,.select{
-            width:100%;
-            min-height:var(--touch-min);
-            padding:var(--s3) var(--s4);
-            margin:var(--s2) 0;
-            border:2px solid var(--border);
-            border-radius:var(--r-md);
-            font:inherit;
-            font-size:16px; /* Prevents iOS zoom */
-            background:var(--surface);
-            transition:border-color 0.2s ease;
-        }
-        
-        .input:focus,.select:focus{
-            outline:none;
-            border-color:var(--primary);
-            box-shadow:0 0 0 4px var(--primary-light);
-        }
-        
-        .input::placeholder{
-            color:var(--text-muted);
-        }
-        
-        textarea.input{
-            resize:vertical;
-            min-height:88px;
-        }
-        
-        .select{
-            appearance:none;
-            background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%2364748b' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-            background-repeat:no-repeat;
-            background-position:right 12px center;
-            background-size:20px;
-            padding-right:40px;
-        }
-        
-        /* ==================== SLOT GRID - MOBILE OPTIMIZED ==================== */
-        .slots-grid{
-            display:grid;
-            grid-template-columns:repeat(2,1fr);
-            gap:var(--s3);
-        }
-        
-        .slot{
-            position:relative;
-            display:flex;
-            flex-direction:column;
-            align-items:center;
-            justify-content:center;
-            min-height:72px;
-            padding:var(--s3);
-            background:var(--surface);
-            border:2px solid var(--border);
-            border-radius:var(--r-md);
-            cursor:pointer;
-            transition:all 0.2s ease;
-            -webkit-user-select:none;
-            user-select:none;
-            -webkit-tap-highlight-color:transparent;
-        }
-        
-        .slot:active:not(.disabled){
-            transform:scale(0.96);
-        }
-        
-        .slot-time{
-            font-size:1rem;
-            font-weight:600;
-            color:var(--text);
-        }
-        
-        .slot-info{
-            font-size:0.75rem;
-            color:var(--text-light);
-            margin-top:var(--s1);
-        }
-        
-        .slot.selected{
-            background:linear-gradient(135deg,var(--primary),var(--primary-dark));
-            border-color:var(--primary-dark);
-            color:white;
-            box-shadow:0 4px 12px rgba(16,185,129,0.3);
-        }
-        
-        .slot.selected .slot-time,
-        .slot.selected .slot-info{
-            color:white;
-        }
-        
-        .slot.disabled{
-            opacity:0.4;
-            cursor:not-allowed;
-            background:var(--bg);
-        }
-        
-        /* ==================== CHIPS - COMPACT MOBILE DESIGN ==================== */
-        .chips{
-            display:flex;
-            flex-wrap:wrap;
-            gap:var(--s2);
-            margin-top:var(--s3);
-        }
-        
-        .chip{
-            display:inline-flex;
-            align-items:center;
-            gap:var(--s2);
-            padding:var(--s2) var(--s2) var(--s2) var(--s3);
-            background:white;
-            border:2px solid var(--primary);
-            border-radius:var(--r-full);
-            font-size:0.875rem;
-            box-shadow:var(--shadow-sm);
-            animation:slideIn 0.2s ease;
-        }
-        
-        @keyframes slideIn{
-            from{opacity:0;transform:scale(0.9)}
-            to{opacity:1;transform:scale(1)}
-        }
-        
-        .chip-date{
-            font-weight:600;
-            color:var(--text);
-        }
-        
-        .chip-time{
-            color:var(--primary);
-            font-weight:600;
-        }
-        
-        .chip-remove{
-            width:28px;
-            height:28px;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            background:var(--danger-light);
-            color:var(--danger);
-            border:none;
-            border-radius:50%;
-            font-size:1.1rem;
-            font-weight:700;
-            cursor:pointer;
-            transition:all 0.2s ease;
-            flex-shrink:0;
-        }
-        
-        .chip-remove:active{
-            transform:scale(0.9);
-            background:var(--danger);
-            color:white;
-        }
-        
-        /* ==================== FLOATING BUTTON ==================== */
-        .floating-bar{
-            position:fixed;
-            bottom:0;
-            left:0;
-            right:0;
-            z-index:200;
-            padding:var(--s3);
-            padding-bottom:calc(var(--s3) + var(--safe-bottom));
-            padding-left:calc(var(--s3) + var(--safe-left));
-            padding-right:calc(var(--s3) + var(--safe-right));
-            background:rgba(255,255,255,0.95);
-            backdrop-filter:blur(16px);
-            border-top:1px solid var(--border);
-            box-shadow:0 -4px 16px rgba(0,0,0,0.08);
-            animation:slideUp 0.3s ease;
-        }
-        
-        @keyframes slideUp{
-            from{transform:translateY(100%)}
-            to{transform:translateY(0)}
-        }
-        
-        .floating-bar .btn{
-            font-size:1.0625rem;
-            min-height:52px;
-        }
-        
-        /* ==================== DATE CARDS ==================== */
-        .date-card{
-            background:var(--surface);
-            border:1px solid var(--border);
-            border-radius:var(--r-lg);
-            padding:var(--s4);
-            margin-bottom:var(--s4);
-        }
-        
-        .date-card h3{
-            color:var(--accent);
-            font-size:1.0625rem;
-            margin-bottom:var(--s4);
-            padding-bottom:var(--s3);
-            border-bottom:2px solid var(--border);
-        }
-        
-        /* ==================== MESSAGES ==================== */
-        .msg{
-            padding:var(--s4);
-            border-radius:var(--r-md);
-            margin:var(--s4) 0;
-            font-weight:500;
-            animation:fadeIn 0.3s ease;
-        }
-        
-        @keyframes fadeIn{
-            from{opacity:0;transform:translateY(-10px)}
-            to{opacity:1;transform:translateY(0)}
-        }
-        
-        .msg-success{
-            background:var(--primary-light);
-            color:#065f46;
-            border:2px solid var(--primary);
-        }
-        
-        .msg-error{
-            background:var(--danger-light);
-            color:#991b1b;
-            border:2px solid var(--danger);
-        }
-        
-        .msg-info{
-            background:#dbeafe;
-            color:#1e40af;
-            border:2px solid var(--accent);
-        }
-        
-        /* ==================== LOOKUP SECTION ==================== */
-        .lookup-box{
-            background:linear-gradient(135deg,#f0f9ff,#e0f2fe);
-            border:2px solid var(--accent);
-        }
-        
-        .lookup-controls{
-            display:flex;
-            gap:var(--s2);
-            margin-top:var(--s4);
-        }
-        
-        .lookup-controls .input{
-            flex:1;
-            margin:0;
-        }
-        
-        .lookup-controls .btn{
-            width:auto;
-            min-width:100px;
-            margin:0;
-        }
-        
-        /* ==================== BOOKING ITEMS ==================== */
-        .booking-item{
-            background:white;
-            border:2px solid var(--border);
-            border-radius:var(--r-md);
-            padding:var(--s4);
-            margin:var(--s3) 0;
-            box-shadow:var(--shadow);
-        }
-        
-        .booking-item strong{
-            display:block;
-            margin-bottom:var(--s2);
-            color:var(--text);
-        }
-        
-        .booking-item small{
-            display:block;
-            color:var(--text-light);
-            margin-bottom:var(--s1);
-        }
-        
-        /* ==================== LOADING ==================== */
-        .spinner{
-            width:20px;
-            height:20px;
-            border:3px solid var(--border);
-            border-top-color:var(--primary);
-            border-radius:50%;
-            animation:spin 0.8s linear infinite;
-        }
-        
-        @keyframes spin{
-            to{transform:rotate(360deg)}
-        }
-        
-        /* ==================== UTILITIES ==================== */
-        .hidden{display:none!important}
-        .text-center{text-align:center}
-        .text-muted{color:var(--text-light)}
-        .mb-0{margin-bottom:0}
-        .mt-4{margin-top:var(--s4)}
-        
-        /* ==================== TABLET & DESKTOP ==================== */
-        @media(min-width:640px){
-            .container{padding:var(--s6)}
-            .slots-grid{grid-template-columns:repeat(3,1fr);gap:var(--s4)}
-            .lookup-controls{flex-direction:row}
-            .chip{font-size:0.9375rem}
-        }
-        
-        @media(min-width:768px){
-            .slots-grid{grid-template-columns:repeat(4,1fr)}
-        }
-        
-        /* ==================== ACCESSIBILITY ==================== */
-        .visually-hidden{
-            position:absolute;
-            width:1px;
-            height:1px;
-            padding:0;
-            margin:-1px;
-            overflow:hidden;
-            clip:rect(0,0,0,0);
-            white-space:nowrap;
-            border:0;
-        }
-        
-        *:focus-visible{
-            outline:3px solid var(--primary);
-            outline-offset:2px;
-        }
-        
-        @media(prefers-reduced-motion:reduce){
-            *,*::before,*::after{
-                animation-duration:0.01ms!important;
-                transition-duration:0.01ms!important;
-            }
-        }
-        
-        /* ==================== PERFORMANCE ==================== */
-        .card,.slot,.chip{
-            will-change:transform;
-            transform:translateZ(0);
-            backface-visibility:hidden;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>📅 Book Your Slot</h1>
-        </header>
-        
-        <main>
-            <!-- Lookup Section -->
-            <section class="card card-compact lookup-box">
-                <button id="lookupToggle" class="btn btn-secondary" type="button">
-                    🔍 Look Up / Cancel Booking
-                </button>
-                <div id="lookupContent" class="hidden">
-                    <div class="lookup-controls">
-                        <input type="tel" id="lookupPhone" class="input" placeholder="Phone number" maxlength="20" inputmode="tel">
-                        <button id="lookupBtn" class="btn btn-secondary" type="button">Search</button>
-                    </div>
-                </div>
-                <div id="bookingsDisplay"></div>
-            </section>
-            
-            <!-- Loading -->
-            <div id="loading" class="text-center" style="padding:40px 0">
-                <div class="spinner" style="display:inline-block"></div>
-                <p class="text-muted mt-4">Loading slots...</p>
-            </div>
-            
-            <!-- Slots Display -->
-            <div id="slotsContainer" class="hidden">
-                <p class="text-muted" style="margin-bottom:var(--s5)">
-                    Select time slots. Multiple selections allowed. <strong>Times in ET</strong>.
-                </p>
-                <div id="slotsGrid"></div>
-            </div>
-            
-            <!-- Floating Continue Button -->
-            <div id="floatingBar" class="floating-bar hidden">
-                <button id="continueBtn" class="btn btn-primary" type="button">
-                    Continue (0 Selected)
-                </button>
-            </div>
-            
-            <!-- Signup Form -->
-            <section id="signupSection" class="card hidden">
-                <h2>✍️ Your Details</h2>
-                <div id="selectedSummary" class="msg msg-success"></div>
-                
-                <form id="signupForm">
-                    <input type="text" id="nameInput" class="input" placeholder="Full Name *" required maxlength="100" autocomplete="name">
-                    <input type="tel" id="phoneInput" class="input" placeholder="Phone Number *" required maxlength="20" inputmode="tel" autocomplete="tel">
-                    <input type="email" id="emailInput" class="input" placeholder="Email (optional)" maxlength="254" inputmode="email" autocomplete="email">
-                    
-                    <select id="categorySelect" class="select" required>
-                        <option value="" disabled selected>-- Select Category * --</option>
-                        <option value="Bal">Bal</option>
-                        <option value="Balika">Balika</option>
-                        <option value="Kishore">Kishore</option>
-                        <option value="Kishori">Kishori</option>
-                        <option value="Yuvak">Yuvak</option>
-                        <option value="Yuvati">Yuvati</option>
-                        <option value="Premvati">Premvati</option>
-                        <option value="Sanyukta">Sanyukta</option>
-                    </select>
-                    
-                    <textarea id="notesInput" class="input" placeholder="Notes (optional)" rows="3" maxlength="500"></textarea>
-                    
-                    <div id="signupMsg"></div>
-                    
-                    <button type="submit" class="btn btn-primary">Submit Booking</button>
-                    <button type="button" id="backBtn" class="btn btn-secondary">← Back</button>
-                </form>
-            </section>
-            
-            <!-- Success -->
-            <section id="successSection" class="card hidden">
-                <h2>🎉 Confirmed!</h2>
-                <div id="confirmationDetails" class="msg msg-success"></div>
-                <button id="resetBtn" class="btn btn-primary" type="button">Book Another</button>
-            </section>
-        </main>
-    </div>
+    --accent-color: #8b5cf6;            /* Purple */
+    --accent-light: #f3e8ff;
     
-    <script>
-        // Demo implementation - Replace with your actual logic
-        const state = {
-            selectedSlots: [],
-            allSlots: []
-        };
-        
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            loadDemoSlots();
-            attachEventListeners();
-        });
-        
-        function loadDemoSlots() {
-            // Demo data
-            const dates = ['Dec 15', 'Dec 16', 'Dec 17'];
-            const times = ['9:00 AM', '10:30 AM', '2:00 PM', '4:30 PM'];
-            
-            dates.forEach(date => {
-                const card = document.createElement('div');
-                card.className = 'date-card';
-                card.innerHTML = `<h3>${date} (Sunday)</h3><div class="slots-grid"></div>`;
-                
-                const grid = card.querySelector('.slots-grid');
-                times.forEach((time, idx) => {
-                    const slot = document.createElement('div');
-                    slot.className = 'slot';
-                    slot.innerHTML = `
-                        <div class="slot-time">${time}</div>
-                        <div class="slot-info">10 left</div>
-                    `;
-                    slot.dataset.date = date;
-                    slot.dataset.time = time;
-                    slot.onclick = () => toggleSlot(slot);
-                    grid.appendChild(slot);
-                });
-                
-                document.getElementById('slotsGrid').appendChild(card);
-            });
-            
-            document.getElementById('loading').classList.add('hidden');
-            document.getElementById('slotsContainer').classList.remove('hidden');
-        }
-        
-        function toggleSlot(slot) {
-            if (slot.classList.contains('disabled')) return;
-            
-            const slotData = {
-                date: slot.dataset.date,
-                time: slot.dataset.time
-            };
-            
-            const idx = state.selectedSlots.findIndex(s => 
-                s.date === slotData.date && s.time === slotData.time
-            );
-            
-            if (idx > -1) {
-                state.selectedSlots.splice(idx, 1);
-                slot.classList.remove('selected');
-            } else {
-                state.selectedSlots.push(slotData);
-                slot.classList.add('selected');
-            }
-            
-            updateFloatingButton();
-        }
-        
-        function updateFloatingButton() {
-            const bar = document.getElementById('floatingBar');
-            const btn = document.getElementById('continueBtn');
-            const count = state.selectedSlots.length;
-            
-            if (count > 0) {
-                bar.classList.remove('hidden');
-                btn.textContent = `Continue (${count} Selected)`;
-            } else {
-                bar.classList.add('hidden');
-            }
-        }
-        
-        function attachEventListeners() {
-            // Lookup toggle
-            document.getElementById('lookupToggle').onclick = () => {
-                const content = document.getElementById('lookupContent');
-                content.classList.toggle('hidden');
-            };
-            
-            // Continue to form
-            document.getElementById('continueBtn').onclick = () => {
-                showSignupForm();
-            };
-            
-            // Back button
-            document.getElementById('backBtn').onclick = () => {
-                document.getElementById('signupSection').classList.add('hidden');
-                document.getElementById('slotsContainer').classList.remove('hidden');
-                document.getElementById('floatingBar').classList.remove('hidden');
-            };
-            
-            // Form submit
-            document.getElementById('signupForm').onsubmit = (e) => {
-                e.preventDefault();
-                handleSubmit();
-            };
-            
-            // Reset
-            document.getElementById('resetBtn').onclick = () => {
-                location.reload();
-            };
-            
-            // Lookup
-            document.getElementById('lookupBtn').onclick = () => {
-                const phone = document.getElementById('lookupPhone').value;
-                if (phone) {
-                    showMessage(document.getElementById('bookingsDisplay'), 
-                        'No bookings found for this number.', 'info');
-                }
-            };
-        }
-        
-        function showSignupForm() {
-            document.getElementById('floatingBar').classList.add('hidden');
-            document.getElementById('slotsContainer').classList.add('hidden');
-            
-            const summary = document.getElementById('selectedSummary');
-            summary.innerHTML = `
-                <strong style="display:block;margin-bottom:8px">Selected Slots:</strong>
-                <div class="chips">
-                    ${state.selectedSlots.map((s, i) => `
-                        <div class="chip">
-                            <span class="chip-date">${s.date}</span>
-                            <span class="chip-time">${s.time}</span>
-                            <button type="button" class="chip-remove" onclick="removeSlotFromForm(${i})">×</button>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            document.getElementById('signupSection').classList.remove('hidden');
-            document.getElementById('nameInput').focus();
-        }
-        
-        window.removeSlotFromForm = (idx) => {
-            state.selectedSlots.splice(idx, 1);
-            if (state.selectedSlots.length === 0) {
-                document.getElementById('signupSection').classList.add('hidden');
-                document.getElementById('slotsContainer').classList.remove('hidden');
-            } else {
-                showSignupForm();
-            }
-        };
-        
-        function handleSubmit() {
-            const name = document.getElementById('nameInput').value.trim();
-            const phone = document.getElementById('phoneInput').value.trim();
-            const category = document.getElementById('categorySelect').value;
-            
-            if (!name || !phone || !category) {
-                showMessage(document.getElementById('signupMsg'), 
-                    'Please fill all required fields', 'error');
-                return;
-            }
-            
-            // Show success
-            document.getElementById('signupSection').classList.add('hidden');
-            
-            const details = document.getElementById('confirmationDetails');
-            details.innerHTML = `
-                <strong style="display:block;margin-bottom:12px">Booking confirmed for ${name}</strong>
-                <div class="chips">
-                    ${state.selectedSlots.map(s => `
-                        <div class="chip">
-                            <span class="chip-date">${s.date}</span>
-                            <span class="chip-time">${s.time}</span>
-                        </div>
-                    `).join('')}
-                </div>
-                <p style="margin-top:16px;color:var(--text-light)">
-                    Confirmation sent to ${phone}
-                </p>
-            `;
-            
-            document.getElementById('successSection').classList.remove('hidden');
-        }
-        
-        function showMessage(container, text, type) {
-            container.innerHTML = `<div class="msg msg-${type}">${text}</div>`;
-            setTimeout(() => container.innerHTML = '', 5000);
-        }
-    </script>
-</body>
-</html>
+    --success-color: #10b981;
+    --success-hover: #059669;
+    --success-light: #d1fae5;
+    
+    --danger-color: #ef4444;
+    --danger-hover: #dc2626;
+    --danger-light: #fee2e2;
+    
+    --warning-color: #f59e0b;
+    --warning-light: #fef3c7;
+    
+    --info-color: #3b82f6;
+    --info-light: #dbeafe;
+    
+    /* ===== NEUTRALS ===== */
+    --background: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --border-light: #f1f5f9;
+    --text-primary: #0f172a;
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    
+    /* ===== SPACING - MOBILE-OPTIMIZED ===== */
+    --space-xs: 0.25rem;    /* 4px */
+    --space-sm: 0.5rem;     /* 8px */
+    --space-md: 0.75rem;    /* 12px */
+    --space-base: 1rem;     /* 16px */
+    --space-lg: 1.25rem;    /* 20px */
+    --space-xl: 1.5rem;     /* 24px */
+    --space-2xl: 2rem;      /* 32px */
+    
+    /* ===== iOS SAFE AREAS ===== */
+    --safe-top: env(safe-area-inset-top);
+    --safe-bottom: env(safe-area-inset-bottom);
+    --safe-left: env(safe-area-inset-left);
+    --safe-right: env(safe-area-inset-right);
+    
+    /* ===== BORDER RADIUS ===== */
+    --radius-sm: 0.5rem;    /* 8px */
+    --radius-md: 0.75rem;   /* 12px */
+    --radius-lg: 1rem;      /* 16px */
+    --radius-xl: 1.25rem;   /* 20px */
+    --radius-full: 9999px;
+    
+    /* ===== SHADOWS - SUBTLE DEPTH ===== */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
+    --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.12);
+    
+    /* ===== TYPOGRAPHY ===== */
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    
+    /* ===== TOUCH TARGETS ===== */
+    --touch-min: 44px;      /* Apple's minimum touch target */
+    
+    /* ===== TRANSITIONS ===== */
+    --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* ===== WEEKEND COLORS ===== */
+    --weekend-primary: #8b5cf6;
+    --weekend-light: #f3e8ff;
+    --weekend-border: #c084fc;
+}
+
+/* ============================================================ */
+/* BASE RESET - MOBILE FIRST                                   */
+/* ============================================================ */
+*, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: var(--font-family);
+    background: var(--background);
+    color: var(--text-primary);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
+}
+
+/* ============================================================ */
+/* TYPOGRAPHY - FLUID & RESPONSIVE                             */
+/* ============================================================ */
+h1 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+}
+
+h2 {
+    font-size: clamp(1.25rem, 4vw, 1.5rem);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-base);
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+}
+
+h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: var(--space-md);
+    line-height: 1.4;
+}
+
+.description {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    margin-bottom: var(--space-xl);
+}
+
+/* ============================================================ */
+/* LAYOUT - MOBILE FIRST                                       */
+/* ============================================================ */
+.container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: var(--space-base);
+    padding-left: max(var(--space-base), var(--safe-left));
+    padding-right: max(var(--space-base), var(--safe-right));
+    padding-bottom: calc(120px + var(--safe-bottom));
+}
+
+header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: var(--space-base) 0;
+    margin: 0 calc(-1 * var(--space-base));
+    margin-left: max(calc(-1 * var(--space-base)), calc(-1 * var(--safe-left)));
+    margin-right: max(calc(-1 * var(--space-base)), calc(-1 * var(--safe-right)));
+    padding-left: max(var(--space-base), var(--safe-left));
+    padding-right: max(var(--space-base), var(--safe-right));
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--space-lg);
+}
+
+/* ============================================================ */
+/* CARDS - MOBILE OPTIMIZED                                    */
+/* ============================================================ */
+.card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin-bottom: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+    border: 1px solid var(--border);
+    transition: box-shadow var(--transition-normal);
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+.card:active {
+    box-shadow: var(--shadow-xs);
+}
+
+.card-compact {
+    padding: var(--space-base);
+    margin-bottom: var(--space-lg);
+}
+
+.card-compact.lookup-section {
+    padding-bottom: 0 !important;
+}
+
+/* ============================================================ */
+/* BUTTONS - TOUCH OPTIMIZED FOR iPHONE                        */
+/* ============================================================ */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    width: 100%;
+    min-height: var(--touch-min);
+    padding: var(--space-md) var(--space-lg);
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    outline: none;
+    text-decoration: none;
+    position: relative;
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+/* Ripple effect */
+.btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translateX(-100%);
+    transition: transform var(--transition-slow);
+    pointer-events: none;
+}
+
+.btn:active::before {
+    transform: translateX(0);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.primary-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.primary-btn:active {
+    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
+}
+
+.secondary-btn {
+    background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.secondary-btn:active {
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+}
+
+/* ============================================================ */
+/* FORM INPUTS - iOS OPTIMIZED (16px prevents zoom)            */
+/* ============================================================ */
+.form-input {
+    width: 100%;
+    min-height: var(--touch-min);
+    padding: var(--space-md) var(--space-base);
+    margin: var(--space-sm) 0;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    font-size: 16px; /* Critical: prevents iOS zoom */
+    font-family: inherit;
+    color: var(--text-primary);
+    background: var(--surface);
+    transition: all var(--transition-normal);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px var(--primary-light);
+}
+
+.form-input::placeholder {
+    color: var(--text-muted);
+}
+
+.form-input[aria-invalid="true"] {
+    border-color: var(--danger-color);
+}
+
+.form-input[aria-invalid="true"]:focus {
+    box-shadow: 0 0 0 4px var(--danger-light);
+}
+
+textarea.form-input {
+    resize: vertical;
+    min-height: 88px;
+    line-height: 1.5;
+}
+
+select.form-input {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%2364748b' viewBox='0 0 24 24'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 20px;
+    padding-right: 40px;
+}
+
+/* ============================================================ */
+/* FLOATING BUTTON - BOTTOM ANCHORED FOR THUMB REACH          */
+/* ============================================================ */
+#floatingSignupBtnContainer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    padding: var(--space-md);
+    padding-bottom: max(var(--space-md), var(--safe-bottom));
+    padding-left: max(var(--space-md), var(--safe-left));
+    padding-right: max(var(--space-md), var(--safe-right));
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+    border-top: 1px solid var(--border);
+    animation: slideUp var(--transition-slow);
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+#floatingSignupBtn {
+    max-width: 500px;
+    margin: 0 auto;
+    font-size: 1.0625rem;
+    padding: var(--space-base) var(--space-xl);
+    min-height: 52px;
+    font-weight: 600;
+}
+
+/* ============================================================ */
+/* SLOT SELECTION GRID - MOBILE FIRST (2 COLUMNS)             */
+/* ============================================================ */
+.date-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: var(--space-base);
+    margin-bottom: var(--space-base);
+    box-shadow: var(--shadow-xs);
+}
+
+.date-card h3 {
+    color: var(--secondary-color);
+    font-size: 1.0625rem;
+    font-weight: 600;
+    margin-bottom: var(--space-base);
+    padding-bottom: var(--space-md);
+    border-bottom: 2px solid var(--border-light);
+}
+
+.slots-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-md);
+}
+
+.slot {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 72px;
+    padding: var(--space-md);
+    background: var(--surface);
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    font-weight: 500;
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+.slot:active:not(.disabled) {
+    transform: scale(0.96);
+}
+
+.slot.selected {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    border-color: var(--primary-dark);
+    color: white;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    transform: scale(1.02);
+}
+
+.slot.selected:active {
+    transform: scale(0.98);
+}
+
+.slot.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: var(--background);
+    border-style: dashed;
+}
+
+.slot input[type="checkbox"] {
+    display: none;
+}
+
+.slot small {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    margin-top: var(--space-xs);
+}
+
+.slot.selected small {
+    opacity: 1;
+}
+
+.slot:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+    z-index: 1;
+}
+
+/* ============================================================ */
+/* BOOKING SUMMARY - COMPACT CHIPS                             */
+/* ============================================================ */
+.selected-slots-summary {
+    background: linear-gradient(135deg, var(--success-light), #a7f3d0);
+    border: 2px solid var(--success-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-lg);
+    margin: var(--space-lg) 0;
+}
+
+.chips-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-sm);
+    margin-top: var(--space-md);
+}
+
+.slot-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+    background: white;
+    border: 2px solid var(--success-color);
+    border-radius: var(--radius-full);
+    padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-sm);
+    max-width: 100%;
+    animation: chipSlideIn var(--transition-slow) ease;
+    will-change: transform;
+    transform: translateZ(0);
+}
+
+@keyframes chipSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.slot-chip:active {
+    transform: scale(0.98);
+}
+
+.slot-chip.removing {
+    animation: chipSlideOut var(--transition-slow) ease forwards;
+}
+
+@keyframes chipSlideOut {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(0.8) translateX(20px);
+    }
+}
+
+.chip-content {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    font-size: 0.875rem;
+    line-height: 1.2;
+    flex: 1;
+    min-width: 0;
+}
+
+.chip-date {
+    color: var(--text-primary);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chip-time {
+    color: var(--success-color);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.chip-remove-btn {
+    background: var(--danger-light);
+    border: none;
+    color: var(--danger-hover);
+    font-size: 1.1rem;
+    font-weight: 700;
+    cursor: pointer;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    min-height: 30px;
+    padding: 0;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--transition-normal);
+    line-height: 1;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.chip-remove-btn:active {
+    transform: scale(0.9);
+    background: var(--danger-color);
+    color: white;
+}
+
+/* ============================================================ */
+/* LOOKUP SECTION                                              */
+/* ============================================================ */
+.lookup-section {
+    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
+    border: 2px solid var(--secondary-light);
+}
+
+.lookup-controls {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-top: var(--space-base);
+}
+
+.lookup-input {
+    flex: 1;
+    margin: 0;
+}
+
+.lookup-controls .secondary-btn {
+    width: 100%;
+    margin: 0;
+}
+
+/* ============================================================ */
+/* BOOKINGS DISPLAY                                            */
+/* ============================================================ */
+.bookings-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+}
+
+.booking-item {
+    background: white;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: var(--space-base);
+    margin: var(--space-md) 0;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--transition-normal);
+}
+
+.booking-item:active {
+    transform: scale(0.99);
+    box-shadow: var(--shadow-xs);
+}
+
+.booking-item strong {
+    display: block;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    font-weight: 600;
+}
+
+.booking-item small {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: var(--space-xs);
+}
+
+.booking-item .btn {
+    margin-top: var(--space-md);
+    background: var(--danger-color);
+    width: 100%;
+}
+
+.booking-item .btn:active {
+    background: var(--danger-hover);
+}
+
+/* ============================================================ */
+/* MESSAGE BOXES                                               */
+/* ============================================================ */
+.msg-box {
+    padding: var(--space-base);
+    margin-top: var(--space-base);
+    border-radius: var(--radius-md);
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.5;
+    animation: msgFadeIn var(--transition-slow) ease;
+}
+
+@keyframes msgFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.msg-box.error {
+    color: #991b1b;
+    background: var(--danger-light);
+    border: 2px solid var(--danger-color);
+}
+
+.msg-box.success {
+    color: #065f46;
+    background: var(--success-light);
+    border: 2px solid var(--success-color);
+}
+
+.msg-box.warning {
+    color: #92400e;
+    background: var(--warning-light);
+    border: 2px solid var(--warning-color);
+}
+
+.msg-box.info {
+    color: #1e40af;
+    background: var(--info-light);
+    border: 2px solid var(--info-color);
+}
+
+/* ============================================================ */
+/* WEEKEND HIGHLIGHTING                                        */
+/* ============================================================ */
+.weekend-selector {
+    background: linear-gradient(135deg, var(--weekend-light), #e9d5ff);
+    border: 2px solid var(--weekend-border);
+}
+
+.weekend-selector h3 {
+    color: var(--weekend-primary);
+}
+
+.date-chip.weekend-chip,
+.date-chip.weekend-highlight {
+    background: linear-gradient(135deg, var(--weekend-primary), #a78bfa) !important;
+    border-color: var(--weekend-border) !important;
+    color: white !important;
+}
+
+.date-weekday.weekend {
+    color: var(--weekend-primary) !important;
+    font-weight: 700 !important;
+}
+
+/* ============================================================ */
+/* LOADING STATES                                              */
+/* ============================================================ */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    vertical-align: middle;
+    margin-right: var(--space-sm);
+}
+
+/* ============================================================ */
+/* UTILITY CLASSES                                             */
+/* ============================================================ */
+.hidden {
+    display: none !important;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.text-muted {
+    color: var(--text-secondary);
+}
+
+.mt-0 { margin-top: 0; }
+.mt-1 { margin-top: var(--space-sm); }
+.mt-2 { margin-top: var(--space-base); }
+.mt-3 { margin-top: var(--space-lg); }
+.mt-4 { margin-top: var(--space-xl); }
+
+.mb-0 { margin-bottom: 0; }
+.mb-1 { margin-bottom: var(--space-sm); }
+.mb-2 { margin-bottom: var(--space-base); }
+.mb-3 { margin-bottom: var(--space-lg); }
+
+.full-width-mobile {
+    width: 100%;
+    text-align: center;
+    padding: var(--space-md) var(--space-lg);
+    margin-bottom: var(--space-base);
+}
+
+.date-chip.disabled {
+    opacity: 0.5;
+    cursor: not-allowed !important;
+}
+
+.exists-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: var(--success-color);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ============================================================ */
+/* RESPONSIVE - TABLET (640px+)                                */
+/* ============================================================ */
+@media (min-width: 640px) {
+    .container {
+        padding: var(--space-xl);
+        padding-bottom: calc(120px + var(--safe-bottom));
+    }
+    
+    .card {
+        padding: var(--space-xl);
+    }
+    
+    .slots-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-base);
+    }
+    
+    .slot {
+        min-height: 76px;
+    }
+    
+    .lookup-controls {
+        flex-direction: row;
+        align-items: center;
+    }
+    
+    .lookup-controls .secondary-btn {
+        width: auto;
+        min-width: 100px;
+    }
+    
+    .chip-content {
+        font-size: 0.9375rem;
+    }
+    
+    .chip-remove-btn {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        min-height: 32px;
+    }
+}
+
+/* ============================================================ */
+/* RESPONSIVE - DESKTOP (768px+)                               */
+/* ============================================================ */
+@media (min-width: 768px) {
+    .slots-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+    
+    .date-card {
+        padding: var(--space-xl);
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* ============================================================ */
+/* RESPONSIVE - SMALL MOBILE (< 380px)                         */
+/* ============================================================ */
+@media (max-width: 380px) {
+    .chip-content {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+    }
+    
+    .slot-chip {
+        padding: var(--space-sm);
+    }
+    
+    .slot {
+        padding: var(--space-sm) var(--space-xs);
+        font-size: 0.8125rem;
+        min-height: 68px;
+    }
+    
+    .chip-remove-btn {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        min-height: 28px;
+        font-size: 1rem;
+    }
+}
+
+/* ============================================================ */
+/* ACCESSIBILITY                                               */
+/* ============================================================ */
+*:focus-visible {
+    outline: 3px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+skip-to-main {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--primary-color);
+    color: white;
+    padding: 8px;
+    text-decoration: none;
+    z-index: 10000;
+}
+
+.skip-to-main:focus {
+    top: 0;
+}
+
+small {
+    color: var(--text-secondary);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --border: #000000;
+        --text-secondary: #000000;
+    }
+    
+    .slot {
+        border-width: 3px;
+    }
+}
+
+/* Reduced motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* Print styles */
+@media print {
+    .btn,
+    #floatingSignupBtnContainer,
+    .lookup-section {
+        display: none;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+}
