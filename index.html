@@ -8,12 +8,13 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     
+    <!-- ✅ FIXED: Valid CSP syntax for internal use -->
     <meta http-equiv="Content-Security-Policy" 
           content="default-src 'self'; 
-                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; 
-                   font-src 'self' https://fonts.gstatic.com; 
-                   script-src 'self' 'unsafe-inline'; 
-                   connect-src *;">
+                   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+                   font-src 'self' https://fonts.gstatic.com;
+                   script-src 'self' 'unsafe-inline';
+                   connect-src 'self';">
     
     <title>Book a Slot - Online Booking System</title>
 
@@ -156,6 +157,7 @@
             <div style="height: 100px;" aria-hidden="true"></div> 
         </div>
         
+        <!-- Floating Signup Button -->
         <div id="floatingSignupBtnContainer" style="display:none;" role="region" aria-live="polite">
             <button id="floatingSignupBtn" 
                     class="btn primary-btn" 
@@ -174,7 +176,6 @@
                  aria-label="Selected slots summary">
             </div>
             <form id="signupForm" novalidate>
-
                 <label for="nameInput" class="visually-hidden">Your Full Name (Required)</label>
                 <input type="text" 
                        id="nameInput" 
@@ -268,10 +269,10 @@
             const loadingMsg = document.getElementById('loadingMsg');
             if (loadingMsg) {
                 loadingMsg.innerHTML = `
-                    <div class="msg-box error" role="alert">
+                    <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
                         ⚠️ Failed to load application. Please refresh the page.
                         <br><br>
-                        <button onclick="location.reload()" class="btn secondary-btn">
+                        <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
                             🔄 Refresh Page
                         </button>
                     </div>
@@ -281,7 +282,7 @@
     }, true);
 </script>
 
-<!-- Load modules -->
+<!-- Load modules in dependency order -->
 <script type="module" src="config.js"></script>
 <script type="module" src="utils.js"></script>
 <script type="module" src="slots.js"></script>
@@ -290,26 +291,22 @@
 
 <!-- Initialize app -->
 <script type="module">
-import { loadSlots } from './slots.js';
-import { lookupBookings } from './lookup.js';
-import { getStateSnapshot } from './config.js';
+    import { loadSlots } from './slots.js';
+    import { getStateSnapshot } from './config.js';
 
-// Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('🚀 App initializing...');
-    
-    // Expose debug helpers
-    if (typeof window !== 'undefined') {
+    // Wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('🚀 App initializing...');
+        
+        // Expose debug helpers
         window.__APP__ = {
             loadSlots,
-            lookupBookings,
             getState: getStateSnapshot
         };
         console.log('💡 Debug helpers available at window.__APP__');
-    }
-    
-    console.log('✅ App initialized');
-});
+        
+        console.log('✅ App initialized');
+    });
 </script>
 
 <!-- No-JavaScript Fallback -->
@@ -319,6 +316,5 @@ document.addEventListener('DOMContentLoaded', () => {
         <p>This booking system requires JavaScript to function. Please enable JavaScript in your browser settings.</p>
     </div>
 </noscript>
-
 </body>
 </html>
