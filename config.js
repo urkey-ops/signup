@@ -1,5 +1,5 @@
 // ================================================================================================
-// CONFIG.JS - APPLICATION CONFIGURATION (UPDATED FOR PHONE-BASED SIGNUP + FIXES)
+// CONFIG.JS - APPLICATION CONFIGURATION (UPDATED FOR PHONE NORMALIZATION + STATE SAFETY)
 // ================================================================================================
 
 export const API_URL = "/api/signup";
@@ -10,7 +10,7 @@ export const CONFIG = {
     MAX_EMAIL_LENGTH: 254,
     MAX_PHONE_LENGTH: 20,
     MAX_NOTES_LENGTH: 500,
-    MAX_CATEGORY_LENGTH: 50,   // ✅ FIX: Increased from 20 to 50 to match signup.js
+    MAX_CATEGORY_LENGTH: 50,
     API_COOLDOWN: 5000,        // 5 seconds - prevents rapid repeat submissions
     RETRY_DELAY: 3000,         // 3 seconds - delay before retry
     CLIENT_CACHE_TTL: 30000,   // 30 seconds - cache duration for slot data
@@ -18,7 +18,7 @@ export const CONFIG = {
     SUCCESS_REDIRECT_DELAY: 1500, // 1.5 seconds - delay before redirecting after success
 };
 
-// ✅ FIX: Validate configuration on load
+// ✅ Validate configuration on load
 (function validateConfig() {
     const requiredNumbers = [
         'MAX_SLOTS_PER_BOOKING',
@@ -66,6 +66,12 @@ export const API_CACHE = {
     TTL: CONFIG.CLIENT_CACHE_TTL
 };
 
+// ✅ NEW: Phone normalization helper (aligned with utils.js)
+export function normalizePhone(phone) {
+    if (!phone || typeof phone !== 'string') return '';
+    return phone.replace(/\D/g, '');
+}
+
 // ================================================================================================
 // STATE UPDATE FUNCTIONS (WITH VALIDATION)
 // ================================================================================================
@@ -75,13 +81,13 @@ export const API_CACHE = {
  * @param {Array} newSlots - Array of slot objects with {id, date, label}
  */
 export function updateSelectedSlots(newSlots) {
-    // ✅ FIX: Validate input
+    // Validate input
     if (!Array.isArray(newSlots)) {
         console.error('updateSelectedSlots: newSlots must be an array');
         return;
     }
     
-    // ✅ FIX: Validate slot objects
+    // Validate slot objects
     const validSlots = newSlots.filter(slot => {
         if (!slot || typeof slot !== 'object') return false;
         if (!slot.id || !slot.date || !slot.label) {
@@ -91,7 +97,7 @@ export function updateSelectedSlots(newSlots) {
         return true;
     });
     
-    // ✅ FIX: Enforce max slots limit
+    // Enforce max slots limit
     if (validSlots.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
         console.warn(`Too many slots (${validSlots.length}). Limiting to ${CONFIG.MAX_SLOTS_PER_BOOKING}`);
         validSlots.splice(CONFIG.MAX_SLOTS_PER_BOOKING);
@@ -101,7 +107,7 @@ export function updateSelectedSlots(newSlots) {
     selectedSlots.length = 0;
     selectedSlots.push(...validSlots);
     
-    // ✅ NEW: Trigger custom event for reactive updates
+    // Trigger custom event for reactive updates
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('slotsUpdated', { 
             detail: { slots: [...selectedSlots] } 
@@ -116,7 +122,6 @@ export function updateSelectedSlots(newSlots) {
  * @param {number} timestamp - Unix timestamp in milliseconds
  */
 export function updateLastApiCall(timestamp) {
-    // ✅ FIX: Validate timestamp
     if (typeof timestamp !== 'number' || timestamp < 0) {
         console.error('updateLastApiCall: Invalid timestamp');
         return;
@@ -130,7 +135,6 @@ export function updateLastApiCall(timestamp) {
  * @param {boolean} status - True if submitting, false otherwise
  */
 export function updateIsSubmitting(status) {
-    // ✅ FIX: Validate boolean
     if (typeof status !== 'boolean') {
         console.error('updateIsSubmitting: Status must be boolean');
         return;
@@ -138,7 +142,7 @@ export function updateIsSubmitting(status) {
     
     isSubmitting = status;
     
-    // ✅ NEW: Dispatch event for UI updates
+    // Dispatch event for UI updates
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('submittingStateChanged', { 
             detail: { isSubmitting: status } 
@@ -166,8 +170,7 @@ export function invalidateCache() {
 export function isCacheValid() {
     if (!API_CACHE.data) return false;
     const now = Date.now();
-    const isValid = (now - API_CACHE.timestamp) < API_CACHE.TTL;
-    return isValid;
+    return (now - API_CACHE.timestamp) < API_CACHE.TTL;
 }
 
 /**
@@ -251,46 +254,15 @@ export function canSubmit() {
 // ================================================================================================
 
 if (typeof window !== 'undefined') {
-    // ✅ NEW: Expose debug helpers in development
     window.__APP_DEBUG__ = {
         getState: getStateSnapshot,
         resetState: resetAppState,
         invalidateCache,
         isCacheValid,
+        normalizePhone,
         selectedSlots: () => [...selectedSlots],
         config: CONFIG
     };
     
     console.log('💡 Debug helpers available at window.__APP_DEBUG__');
 }
-
-// ================================================================================================
-// EXPORTS SUMMARY
-// ================================================================================================
-/*
-Configuration:
-- API_URL: API endpoint
-- CONFIG: Application configuration object
-
-State:
-- selectedSlots: Array of selected slot objects
-- lastApiCall: Timestamp of last API call
-- isSubmitting: Boolean submission state
-- API_CACHE: Cache object with data, timestamp, and TTL
-
-State Updates:
-- updateSelectedSlots(newSlots): Update selected slots
-- updateLastApiCall(timestamp): Update last API call time
-- updateIsSubmitting(status): Update submission state
-
-Cache Management:
-- invalidateCache(): Clear cache
-- isCacheValid(): Check if cache is valid
-- updateCache(data): Update cache with new data
-- getCachedData(): Get cached data if valid
-
-Utilities:
-- resetAppState(): Reset all state
-- getStateSnapshot(): Get current state for debugging
-- canSubmit(): Check if user can submit based on cooldown
-*/
