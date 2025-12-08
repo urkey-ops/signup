@@ -483,7 +483,7 @@ if (req.method === "POST") {
         invalidateCache();
         decrementActiveBookings(normalizedPhone);
         return res.status(200).json({ ok: true, message: `Booked ${signupRows.length} slots successfully!` });
-        
+        }
     } catch (err) {
         console.error('❌ Booking failed:', err.message);
         decrementActiveBookings(normalizedPhone);
