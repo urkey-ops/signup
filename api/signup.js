@@ -66,6 +66,12 @@ const cache = { slots: null, timestamp: 0, TTL: CONFIG.CACHE_TTL };
 const rateLimitMap = new Map();
 const activeBookingsMap = new Map();
 
+// ✅ NEW: Phone normalization (aligned with frontend)
+function normalizePhone(phone) {
+    if (!phone || typeof phone !== 'string') return '';
+    return phone.replace(/\D/g, '');
+}
+
 function getCachedSlots() {
     const now = Date.now();
     if (cache.slots && (now - cache.timestamp) < cache.TTL) {
@@ -116,17 +122,17 @@ function decrementActiveBookings(phone) {
     if (count > 0) activeBookingsMap.set(phone, count - 1);
 }
 
+// Cleanup intervals
 setInterval(() => {
     const now = Date.now();
     for (const [key, timestamps] of rateLimitMap.entries()) {
         const valid = timestamps.filter(t => now - t < CONFIG.RATE_LIMIT_WINDOW);
         valid.length ? rateLimitMap.set(key, valid) : rateLimitMap.delete(key);
     }
-    activeBookingsMap.clear();
 }, 300000);
 
 // ================================================================================================
-// VALIDATION
+// VALIDATION (PHONE NORMALIZATION)
 // ================================================================================================
 
 function sanitizeInput(str, maxLength) {
@@ -140,17 +146,21 @@ function isValidEmail(email) {
 }
 
 function isValidPhone(phone) {
-    if (!phone) return false;
-    return /^[\d\s\-\+\(\)]{8,20}$/.test(phone);
+    const normalized = normalizePhone(phone);
+    return normalized.length === 10;
 }
 
 function validateBookingRequest(body) {
     const errors = [];
-    if (!body.name?.trim() || body.name.length > CONFIG.MAX_NAME_LENGTH) {
-        errors.push(`Name is required (max ${CONFIG.MAX_NAME_LENGTH} characters).`);
+    
+    const name = sanitizeInput(body.name, CONFIG.MAX_NAME_LENGTH);
+    const normalizedPhone = normalizePhone(body.phone);
+    
+    if (!name || name.length < 2) {
+        errors.push(`Name is required (min 2, max ${CONFIG.MAX_NAME_LENGTH} characters).`);
     }
-    if (!body.phone?.trim() || !isValidPhone(body.phone)) {
-        errors.push(`Valid phone number is required.`);
+    if (!body.phone || !isValidPhone(body.phone)) {
+        errors.push(`Valid 10-digit phone number is required.`);
     }
     if (body.email && !isValidEmail(body.email)) {
         errors.push(`Invalid email address.`);
@@ -189,13 +199,6 @@ async function getSheets() {
     console.log('🔐 Initializing new Google Sheets client...');
     const { GOOGLE_SERVICE_ACCOUNT_EMAIL, GOOGLE_PRIVATE_KEY } = process.env;
     
-    console.log('🔐 Auth check:', {
-        hasEmail: !!GOOGLE_SERVICE_ACCOUNT_EMAIL,
-        hasKey: !!GOOGLE_PRIVATE_KEY,
-        emailPrefix: GOOGLE_SERVICE_ACCOUNT_EMAIL?.substring(0, 20) + '...',
-        keyLength: GOOGLE_PRIVATE_KEY?.length
-    });
-    
     if (!GOOGLE_SERVICE_ACCOUNT_EMAIL || !GOOGLE_PRIVATE_KEY) {
         console.error('❌ Missing Google credentials');
         throw new Error("Missing Google service account env variables");
@@ -215,7 +218,6 @@ async function getSheets() {
     } catch (error) {
         console.error('❌ FATAL: Failed to initialize Google Sheets');
         console.error('Error:', error.message);
-        console.error('Stack:', error.stack);
         throw error;
     }
 }
@@ -241,11 +243,11 @@ module.exports = async function handler(req, res) {
     }
 
     try {
-        const clientIP = req.headers['x-forwarded-for']?.split(',')[0] || 'unknown';
+        const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
         console.log(`👤 Client: ${clientIP}`);
         
         if (!checkRateLimit(clientIP)) {
-            return res.status(429).json({ ok: false, error: "Too many requests." });
+            return res.status(429).json({ ok: false, error: "Too many requests. Please wait." });
         }
 
         console.log('🔧 Initializing Sheets...');
@@ -257,10 +259,12 @@ module.exports = async function handler(req, res) {
             console.log('📥 GET request');
             
             if (req.query.phone) {
-                console.log('📞 Phone lookup:', req.query.phone);
-                const lookupPhone = sanitizeInput(req.query.phone, CONFIG.MAX_PHONE_LENGTH);
-                if (!isValidPhone(lookupPhone)) {
-                    return res.status(400).json({ ok: false, error: "Invalid phone." });
+                console.log('📞 Phone lookup');
+                const rawPhone = req.query.phone;
+                const normalizedPhone = normalizePhone(rawPhone);
+                
+                if (!isValidPhone(rawPhone)) {
+                    return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
                 }
 
                 try {
@@ -271,18 +275,24 @@ module.exports = async function handler(req, res) {
                     const rows = response.data.values || [];
                     console.log(`📞 Found ${rows.length} total signups`);
                     
+                    // ✅ USE NORMALIZED PHONE FOR COMPARISON
                     const userBookings = rows
                         .map((row, idx) => ({
                             signupRowId: idx + 2,
-                            timestamp: row[0], date: row[1], slotLabel: row[2],
-                            name: row[3], email: row[4], phone: row[5],
-                            category: row[6], notes: row[7],
+                            timestamp: row[0], 
+                            date: row[1], 
+                            slotLabel: row[2],
+                            name: row[3], 
+                            email: row[4], 
+                            phone: row[5],
+                            category: row[6], 
+                            notes: row[7],
                             slotRowId: parseInt(row[8]) || null,
                             status: row[9] || 'ACTIVE'
                         }))
-                        .filter(b => b.phone?.trim() === lookupPhone && b.status === 'ACTIVE');
+                        .filter(b => normalizePhone(b.phone) === normalizedPhone && b.status === 'ACTIVE');
 
-                    console.log(`✅ Found ${userBookings.length} bookings`);
+                    console.log(`✅ Found ${userBookings.length} active bookings for ${normalizedPhone}`);
                     return res.status(200).json({ ok: true, bookings: userBookings });
                 } catch (err) {
                     console.error('❌ Phone lookup failed:', err.message);
@@ -296,7 +306,6 @@ module.exports = async function handler(req, res) {
                 const cached = getCachedSlots();
                 if (cached) return res.status(200).json(cached);
 
-                console.log('📊 Fetching from Sheets:', SHEET_ID);
                 const response = await sheets.spreadsheets.values.get({
                     spreadsheetId: SHEET_ID,
                     range: `${SHEETS.SLOTS.NAME}!${SHEETS.SLOTS.RANGE}`,
@@ -314,11 +323,13 @@ module.exports = async function handler(req, res) {
                     available: Math.max(0, (parseInt(row[2]) || 0) - (parseInt(row[3]) || 0))
                 }));
 
-                const today = new Date(); today.setHours(0, 0, 0, 0);
+                const today = new Date(); 
+                today.setHours(0, 0, 0, 0);
                 const grouped = {};
+                
                 slots.forEach(slot => {
                     const slotDate = new Date(slot.date);
-                    if (slotDate >= today && slot.capacity > 0) {
+                    if (slotDate >= today && slot.capacity > 0 && slot.available > 0) {
                         if (!grouped[slot.date]) grouped[slot.date] = [];
                         grouped[slot.date].push(slot);
                     }
@@ -330,11 +341,6 @@ module.exports = async function handler(req, res) {
                 return res.status(200).json(result);
             } catch (err) {
                 console.error('❌ Slots fetch failed:', err.message);
-                console.error('Error code:', err.code);
-                if (err.response) {
-                    console.error('API status:', err.response.status);
-                    console.error('API data:', err.response.data);
-                }
                 return res.status(500).json({ ok: false, error: "Slots not available." });
             }
         }
@@ -349,17 +355,17 @@ module.exports = async function handler(req, res) {
             }
 
             const name = sanitizeInput(req.body.name, CONFIG.MAX_NAME_LENGTH);
-            const phone = sanitizeInput(req.body.phone, CONFIG.MAX_PHONE_LENGTH);
-            const email = sanitizeInput(req.body.email, CONFIG.MAX_EMAIL_LENGTH).toLowerCase();
+            const normalizedPhone = normalizePhone(req.body.phone);  // ✅ NORMALIZED
+            const email = sanitizeInput(req.body.email, CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase();
             const category = sanitizeInput(req.body.category, CONFIG.MAX_CATEGORY_LENGTH);
             const notes = sanitizeInput(req.body.notes, CONFIG.MAX_NOTES_LENGTH);
             const slotIds = req.body.slotIds;
 
-            if (!checkConcurrentBookings(phone)) {
+            if (!checkConcurrentBookings(normalizedPhone)) {
                 return res.status(429).json({ ok: false, error: "Too many concurrent requests." });
             }
 
-            incrementActiveBookings(phone);
+            incrementActiveBookings(normalizedPhone);
             try {
                 const sheetsData = await sheets.spreadsheets.values.batchGet({
                     spreadsheetId: SHEET_ID,
@@ -382,7 +388,7 @@ module.exports = async function handler(req, res) {
                     const slotId = slotIds[i];
                     const row = slotRanges[i].values?.[0];
                     if (!row) {
-                        decrementActiveBookings(phone);
+                        decrementActiveBookings(normalizedPhone);
                         return res.status(400).json({ ok: false, error: "Slot data missing." });
                     }
 
@@ -391,22 +397,25 @@ module.exports = async function handler(req, res) {
                     const capacity = parseInt(row[2]) || 0;
                     const taken = parseInt(row[3]) || 0;
 
+                    // ✅ CHECK DUPLICATES WITH NORMALIZED PHONE
                     const duplicate = existing.find(r =>
-                        r[5]?.trim() === phone &&
+                        normalizePhone(r[5]) === normalizedPhone &&
                         parseInt(r[8]) === slotId &&
                         (r[9] || 'ACTIVE').startsWith('ACTIVE')
                     );
+                    
                     if (duplicate) {
-                        decrementActiveBookings(phone);
+                        decrementActiveBookings(normalizedPhone);
                         return res.status(409).json({ ok: false, error: `Already booked ${label} on ${date}.` });
                     }
 
                     if (taken >= capacity) {
-                        decrementActiveBookings(phone);
+                        decrementActiveBookings(normalizedPhone);
                         return res.status(409).json({ ok: false, error: `Slot ${label} on ${date} is full.` });
                     }
 
-                    signupRows.push([nowStr, date, label, name, email, phone, category, notes, slotId, 'ACTIVE']);
+                    // ✅ STORE NORMALIZED PHONE
+                    signupRows.push([nowStr, date, label, name, email, normalizedPhone, category, notes, slotId, 'ACTIVE']);
                     updateRequests.push({
                         range: `${SHEETS.SLOTS.NAME}!D${slotId}`,
                         values: [[taken + 1]]
@@ -443,14 +452,15 @@ module.exports = async function handler(req, res) {
                     }
                 });
 
-                console.log('✅ Booking successful');
+                console.log(`✅ Booking successful for ${normalizedPhone}: ${slotIds.length} slots`);
                 invalidateCache();
-                decrementActiveBookings(phone);
+                decrementActiveBookings(normalizedPhone);
                 return res.status(200).json({ ok: true, message: "Booking successful!" });
+                
             } catch (err) {
                 console.error('❌ Booking failed:', err.message);
-                decrementActiveBookings(phone);
-                return res.status(500).json({ ok: false, error: "Booking failed." });
+                decrementActiveBookings(normalizedPhone);
+                return res.status(500).json({ ok: false, error: "Booking failed. Please try again." });
             }
         }
 
@@ -458,8 +468,14 @@ module.exports = async function handler(req, res) {
         if (req.method === "PATCH") {
             console.log('🗑️ PATCH cancel');
             const { signupRowId, slotRowId, phone } = req.body;
+            
             if (!signupRowId || !slotRowId || !phone) {
-                return res.status(400).json({ ok: false, error: "Missing parameters." });
+                return res.status(400).json({ ok: false, error: "Missing signupRowId, slotRowId, or phone." });
+            }
+
+            const normalizedPhone = normalizePhone(phone);
+            if (!isValidPhone(phone)) {
+                return res.status(400).json({ ok: false, error: "Invalid 10-digit phone number." });
             }
 
             try {
@@ -468,9 +484,13 @@ module.exports = async function handler(req, res) {
                     range: `${SHEETS.SIGNUPS.NAME}!A${signupRowId}:J${signupRowId}`,
                 });
                 const row = signupResp.data.values?.[0];
-                if (!row) return res.status(404).json({ ok: false, error: "Booking not found." });
-                if (row[5]?.trim() !== phone) {
-                    return res.status(403).json({ ok: false, error: "Phone mismatch." });
+                if (!row) {
+                    return res.status(404).json({ ok: false, error: "Booking not found." });
+                }
+                
+                // ✅ NORMALIZED PHONE COMPARISON
+                if (normalizePhone(row[5]) !== normalizedPhone) {
+                    return res.status(403).json({ ok: false, error: "Phone mismatch. Cannot cancel." });
                 }
 
                 const slotResp = await sheets.spreadsheets.values.get({
@@ -515,19 +535,21 @@ module.exports = async function handler(req, res) {
                     }
                 });
 
-                console.log('✅ Cancellation successful');
+                console.log(`✅ Cancellation successful: signupRow ${signupRowId}, slotRow ${slotRowId}`);
                 invalidateCache();
                 return res.status(200).json({ ok: true, message: "Cancelled successfully." });
+                
             } catch (err) {
                 console.error('❌ Cancel failed:', err.message);
-                return res.status(500).json({ ok: false, error: "Cancellation failed." });
+                return res.status(500).json({ ok: false, error: "Cancellation failed. Please try again." });
             }
         }
 
         return res.status(405).json({ ok: false, error: "Method not allowed." });
+        
     } catch (err) {
         console.error('❌ Unhandled error:', err.message);
         console.error('Stack:', err.stack);
-        return res.status(500).json({ ok: false, error: "Server error." });
+        return res.status(500).json({ ok: false, error: "Internal server error." });
     }
 };
