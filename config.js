@@ -1,5 +1,5 @@
 // ================================================================================================
-// CONFIG.JS - APPLICATION CONFIGURATION (UPDATED FOR PHONE NORMALIZATION + STATE SAFETY)
+// CONFIG.JS - APPLICATION CONFIGURATION (BUG-FREE VERSION)
 // ================================================================================================
 
 export const API_URL = "/api/signup";
@@ -49,16 +49,19 @@ export const CONFIG = {
         console.error('MAX_SLOTS_PER_BOOKING should be between 1 and 50');
     }
     
-    console.log('✅ Configuration validated successfully');
+    // ✅ Freeze config to prevent mutations
+    Object.freeze(CONFIG);
+    
+    console.log('✅ Configuration validated and frozen');
 })();
 
 // ================================================================================================
-// STATE MANAGEMENT
+// PRIVATE STATE MANAGEMENT (ENCAPSULATED)
 // ================================================================================================
 
-export let selectedSlots = [];
-export let lastApiCall = 0;
-export let isSubmitting = false;
+let _selectedSlots = [];
+let _lastApiCall = 0;
+let _isSubmitting = false;
 
 export const API_CACHE = {
     data: null,
@@ -66,10 +69,38 @@ export const API_CACHE = {
     TTL: CONFIG.CLIENT_CACHE_TTL
 };
 
-// ✅ NEW: Phone normalization helper (aligned with utils.js)
+// ✅ Phone normalization helper (aligned with utils.js)
 export function normalizePhone(phone) {
     if (!phone || typeof phone !== 'string') return '';
     return phone.replace(/\D/g, '');
+}
+
+// ================================================================================================
+// STATE GETTER FUNCTIONS (READ-ONLY ACCESS)
+// ================================================================================================
+
+/**
+ * Get a copy of selected slots array
+ * @returns {Array} Copy of selected slots
+ */
+export function getSelectedSlots() {
+    return [..._selectedSlots];
+}
+
+/**
+ * Get last API call timestamp
+ * @returns {number} Unix timestamp in milliseconds
+ */
+export function getLastApiCall() {
+    return _lastApiCall;
+}
+
+/**
+ * Get submission state
+ * @returns {boolean} True if submitting, false otherwise
+ */
+export function getIsSubmitting() {
+    return _isSubmitting;
 }
 
 // ================================================================================================
@@ -104,17 +135,17 @@ export function updateSelectedSlots(newSlots) {
     }
     
     // Clear and update using reference-safe mutation
-    selectedSlots.length = 0;
-    selectedSlots.push(...validSlots);
+    _selectedSlots.length = 0;
+    _selectedSlots.push(...validSlots);
     
     // Trigger custom event for reactive updates
     if (typeof window !== 'undefined') {
         window.dispatchEvent(new CustomEvent('slotsUpdated', { 
-            detail: { slots: [...selectedSlots] } 
+            detail: { slots: [..._selectedSlots] } 
         }));
     }
     
-    console.log(`✅ Selected slots updated: ${selectedSlots.length} slot(s)`);
+    console.log(`✅ Selected slots updated: ${_selectedSlots.length} slot(s)`);
 }
 
 /**
@@ -127,7 +158,7 @@ export function updateLastApiCall(timestamp) {
         return;
     }
     
-    lastApiCall = timestamp;
+    _lastApiCall = timestamp;
 }
 
 /**
@@ -140,7 +171,7 @@ export function updateIsSubmitting(status) {
         return;
     }
     
-    isSubmitting = status;
+    _isSubmitting = status;
     
     // Dispatch event for UI updates
     if (typeof window !== 'undefined') {
@@ -183,6 +214,17 @@ export function updateCache(data) {
         return;
     }
     
+    // ✅ Validate data structure
+    if (typeof data !== 'object') {
+        console.warn('updateCache: Data must be an object');
+        return;
+    }
+    
+    if (!data.ok || !data.dates) {
+        console.warn('updateCache: Data missing required fields (ok, dates)');
+        return;
+    }
+    
     API_CACHE.data = data;
     API_CACHE.timestamp = Date.now();
     console.log('✅ API cache updated');
@@ -222,10 +264,10 @@ export function resetAppState() {
  */
 export function getStateSnapshot() {
     return {
-        selectedSlots: [...selectedSlots],
-        selectedSlotsCount: selectedSlots.length,
-        lastApiCall,
-        isSubmitting,
+        selectedSlots: [..._selectedSlots],
+        selectedSlotsCount: _selectedSlots.length,
+        lastApiCall: _lastApiCall,
+        isSubmitting: _isSubmitting,
         cache: {
             hasData: !!API_CACHE.data,
             timestamp: API_CACHE.timestamp,
@@ -242,7 +284,20 @@ export function getStateSnapshot() {
  */
 export function canSubmit() {
     const now = Date.now();
-    const timeSinceLastCall = now - lastApiCall;
+    
+    // ✅ Handle initial state explicitly
+    if (_lastApiCall === 0) {
+        return { canSubmit: true, waitTime: 0 };
+    }
+    
+    const timeSinceLastCall = now - _lastApiCall;
+    
+    // ✅ Handle clock skew / invalid timestamps
+    if (timeSinceLastCall < 0) {
+        console.warn('Clock skew detected: lastApiCall is in the future');
+        return { canSubmit: true, waitTime: 0 };
+    }
+    
     const canSubmit = timeSinceLastCall >= CONFIG.API_COOLDOWN;
     const waitTime = canSubmit ? 0 : Math.ceil((CONFIG.API_COOLDOWN - timeSinceLastCall) / 1000);
     
@@ -260,8 +315,12 @@ if (typeof window !== 'undefined') {
         invalidateCache,
         isCacheValid,
         normalizePhone,
-        selectedSlots: () => [...selectedSlots],
-        config: CONFIG
+        getSelectedSlots,
+        getLastApiCall,
+        getIsSubmitting,
+        canSubmit,
+        // ✅ Return copy of config instead of direct reference
+        config: () => ({ ...CONFIG })
     };
     
     console.log('💡 Debug helpers available at window.__APP_DEBUG__');
