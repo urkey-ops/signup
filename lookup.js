@@ -1,12 +1,13 @@
 // ================================================================================================
-// LOOKUP.JS (UPDATED FOR PHONE NORMALIZATION + DEFENSIVE DOM CHECKS)
+// LOOKUP.JS (BUG-FREE VERSION)
 // ================================================================================================
 
 import { 
     API_URL, 
     CONFIG, 
     API_CACHE,
-    normalizePhone 
+    normalizePhone,
+    invalidateCache
 } from './config.js';
 import { 
     sanitizeInput, 
@@ -21,6 +22,13 @@ import {
 // ================================================================================================
 let isSearching = false;
 let isCancelling = false;
+
+// Module-level button text storage (safer than DOM properties)
+let originalSearchBtnText = null;
+let originalCancelBtnText = null;
+
+// Error recovery timeout management
+let errorRecoveryTimeout = null;
 
 // ================================================================================================
 // HELPER FUNCTIONS
@@ -69,11 +77,6 @@ function showSuccess(displayEl, message) {
 // LOOKUP BOOKINGS BY PHONE NUMBER (PHONE NORMALIZATION FIXED)
 // ================================================================================================
 export async function lookupBookings() {
-    if (isSearching) {
-        console.warn('Search already in progress');
-        return;
-    }
-
     const phoneInput = document.getElementById("lookupPhone");
     const displayEl = document.getElementById("userBookingsDisplay");
     const searchBtn = document.getElementById("lookupSearchBtn");
@@ -86,6 +89,7 @@ export async function lookupBookings() {
     const rawPhone = phoneInput.value.trim();
     const normalizedPhone = normalizePhone(rawPhone);
 
+    // ✅ VALIDATE BEFORE SETTING STATE FLAG
     if (!rawPhone) {
         showError(displayEl, 'Please enter your phone number.');
         phoneInput.focus();
@@ -98,12 +102,18 @@ export async function lookupBookings() {
         return;
     }
 
+    // ✅ NOW check and set state flag AFTER validation
+    if (isSearching) {
+        console.warn('Search already in progress');
+        return;
+    }
+
     isSearching = true;
+
     if (searchBtn) {
         searchBtn.disabled = true;
-        const originalBtnText = searchBtn.textContent;
+        originalSearchBtnText = searchBtn.textContent;
         searchBtn.textContent = '🔍 Searching...';
-        searchBtn._originalText = originalBtnText;
     }
     
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
@@ -237,25 +247,18 @@ export async function lookupBookings() {
         showError(displayEl, errorMsg);
     } finally {
         isSearching = false;
-        if (searchBtn && searchBtn._originalText) {
+        if (searchBtn && originalSearchBtnText) {
             searchBtn.disabled = false;
-            searchBtn.textContent = searchBtn._originalText;
+            searchBtn.textContent = originalSearchBtnText;
+            originalSearchBtnText = null;
         }
     }
 }
-
-// Debounced version for keypress events
-export const lookupBookingsDebounced = debounce(lookupBookings, 500);
 
 // ================================================================================================
 // CANCEL BOOKING BY PHONE (NORMALIZED PHONE)
 // ================================================================================================
 export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, buttonElement) {
-    if (isCancelling) {
-        console.warn('Cancellation already in progress');
-        return;
-    }
-
     const phoneInput = document.getElementById("lookupPhone");
     const displayEl = document.getElementById("userBookingsDisplay");
 
@@ -267,6 +270,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
     const rawPhone = phoneInput.value.trim();
     const normalizedPhone = normalizePhone(rawPhone);
 
+    // ✅ VALIDATE BEFORE SETTING STATE FLAG
     if (!rawPhone || !isValidPhone(rawPhone)) {
         alert('❌ Error: Valid phone number is required for cancellation.');
         phoneInput.focus();
@@ -277,16 +281,21 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         return;
     }
 
+    // ✅ NOW check and set state flag AFTER validation and confirmation
+    if (isCancelling) {
+        console.warn('Cancellation already in progress');
+        return;
+    }
+
+    isCancelling = true;
+
     const originalHTML = displayEl.innerHTML;
     
     if (buttonElement) {
         buttonElement.disabled = true;
-        const originalText = buttonElement.textContent;
+        originalCancelBtnText = buttonElement.textContent;
         buttonElement.textContent = '⏳ Cancelling...';
-        buttonElement._originalText = originalText;
     }
-
-    isCancelling = true;
 
     try {
         showLoadingState(displayEl, '⏳ Cancelling your booking...');
@@ -306,22 +315,31 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         if (res.ok && data.ok) {
             showSuccess(displayEl, data.message || "Booking cancelled successfully!");
             
-            // Invalidate cache
-            API_CACHE.data = null;
-            API_CACHE.timestamp = 0;
+            // ✅ Use invalidateCache helper instead of manual invalidation
+            invalidateCache();
             
-            // Refresh bookings after success
-            setTimeout(() => {
-                lookupBookings();
+            // ✅ Refresh bookings after success with state check
+            errorRecoveryTimeout = setTimeout(() => {
+                if (!isSearching) {
+                    lookupBookings();
+                }
+                errorRecoveryTimeout = null;
             }, 1500);
             
         } else {
             const errorMsg = data.error || getErrorMessage(res.status, "Failed to cancel booking.");
             showError(displayEl, errorMsg);
             
-            // Restore original list after error
-            setTimeout(() => {
-                displayEl.innerHTML = originalHTML;
+            // ✅ Restore original list after error with timeout management
+            if (errorRecoveryTimeout) {
+                clearTimeout(errorRecoveryTimeout);
+            }
+            
+            errorRecoveryTimeout = setTimeout(() => {
+                if (displayEl) {
+                    displayEl.innerHTML = originalHTML;
+                }
+                errorRecoveryTimeout = null;
             }, 3000);
         }
 
@@ -332,16 +350,26 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
             : 'An unexpected error occurred. Please try again.';
         
         showError(displayEl, errorMsg);
-        setTimeout(() => {
-            displayEl.innerHTML = originalHTML;
+        
+        // ✅ Restore original list after error with timeout management
+        if (errorRecoveryTimeout) {
+            clearTimeout(errorRecoveryTimeout);
+        }
+        
+        errorRecoveryTimeout = setTimeout(() => {
+            if (displayEl) {
+                displayEl.innerHTML = originalHTML;
+            }
+            errorRecoveryTimeout = null;
         }, 3000);
         
     } finally {
         isCancelling = false;
         
-        if (buttonElement && buttonElement._originalText) {
+        if (buttonElement && originalCancelBtnText) {
             buttonElement.disabled = false;
-            buttonElement.textContent = buttonElement._originalText;
+            buttonElement.textContent = originalCancelBtnText;
+            originalCancelBtnText = null;
         }
     }
 }
@@ -375,9 +403,15 @@ export function toggleLookup() {
             content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
     } else {
-        // Clear everything when closing
+        // ✅ Clear everything when closing including timeouts
         if (phoneInput) phoneInput.value = '';
         if (displayEl) displayEl.innerHTML = '';
+        
+        // Clear any pending error recovery timeouts
+        if (errorRecoveryTimeout) {
+            clearTimeout(errorRecoveryTimeout);
+            errorRecoveryTimeout = null;
+        }
         
         isSearching = false;
         isCancelling = false;
