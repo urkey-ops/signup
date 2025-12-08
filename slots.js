@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS.JS (UPDATED TO USE NAVIGATION MODULE)
+// SLOTS.JS (UPDATED WITH UI RESET + DEFENSIVE DOM CHECKS)
 // ================================================================================================
 
 import { 
@@ -7,7 +7,9 @@ import {
     CONFIG, 
     selectedSlots, 
     API_CACHE, 
-    updateSelectedSlots 
+    updateSelectedSlots,
+    normalizePhone,
+    invalidateCache 
 } from './config.js';
 import { 
     sanitizeHTML, 
@@ -15,7 +17,7 @@ import {
     getErrorMessage, 
     parseTimeForSorting 
 } from './utils.js';
-import { goToSignupForm } from './signup-frontend.js';  // ✅ FIXED: Import from navigation module
+import { goToSignupForm } from './signup-frontend.js';
 
 // ================================================================================================
 // LOADING STATE MANAGEMENT
@@ -32,16 +34,52 @@ let isLoadingSlots = false;
             0% { background-position: -468px 0; }
             100% { background-position: 468px 0; }
         }
-        .skeleton-card { background: #f8f8f8; border: 1px solid #e0e0e0; border-radius: 12px; padding: 24px; margin-bottom: 24px; animation: fadeIn 0.3s ease; }
-        .skeleton-title { height: 24px; width: 150px; background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 4px; margin-bottom: 16px; }
-        .skeleton-slot { background: linear-gradient(90deg, #f8f8f8 25%, #f0f0f0 50%, #f8f8f8 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border: 1px solid #e0e0e0; pointer-events: none; min-height: 64px; border-radius: 8px; padding: 16px; }
-        .skeleton-text { height: 16px; background: #e0e0e0; border-radius: 4px; margin: 8px auto; width: 80%; }
-        .skeleton-text-small { height: 12px; background: #e8e8e8; border-radius: 4px; margin: 4px auto; width: 50%; }
+        .skeleton-card { 
+            background: #f8f8f8; 
+            border: 1px solid #e0e0e0; 
+            border-radius: 12px; 
+            padding: 24px; 
+            margin-bottom: 24px; 
+            animation: fadeIn 0.3s ease; 
+        }
+        .skeleton-title { 
+            height: 24px; 
+            width: 150px; 
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); 
+            background-size: 200% 100%; 
+            animation: shimmer 1.5s infinite; 
+            border-radius: 4px; 
+            margin-bottom: 16px; 
+        }
+        .skeleton-slot { 
+            background: linear-gradient(90deg, #f8f8f8 25%, #f0f0f0 50%, #f8f8f8 75%); 
+            background-size: 200% 100%; 
+            animation: shimmer 1.5s infinite; 
+            border: 1px solid #e0e0e0; 
+            pointer-events: none; 
+            min-height: 64px; 
+            border-radius: 8px; 
+            padding: 16px; 
+        }
+        .skeleton-text { 
+            height: 16px; 
+            background: #e0e0e0; 
+            border-radius: 4px; 
+            margin: 8px auto; 
+            width: 80%; 
+        }
+        .skeleton-text-small { 
+            height: 12px; 
+            background: #e8e8e8; 
+            border-radius: 4px; 
+            margin: 4px auto; 
+            width: 50%; 
+        }
         .fade-in { animation: fadeInUp 0.4s ease-out forwards; }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .date-chip.disabled { opacity: 0.5; cursor: not-allowed !important; }
-        .exists-badge { position: absolute; top: 2px; right: 2px; background: #10b981; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 12px; display: flex; align-items: center; justify-content: center; }
-        .slot-chip.removing { animation: slideOut 0.3s ease-out forwards; }
+        @keyframes fadeInUp { 
+            from { opacity: 0; transform: translateY(20px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
         @keyframes slideOut { 
             0% { opacity: 1; transform: scale(1); }
             100% { opacity: 0; transform: scale(0.8) translateX(20px); }
@@ -59,26 +97,41 @@ function formatDateWithDay(dateString) {
     return date.toLocaleDateString('en-US', options); 
 }
 
+// ✅ NEW: Reset all slot UI selection states (fixes "Book Another Slot" preselection)
+export function resetSlotSelectionUI() {
+    const slotButtons = document.querySelectorAll('.slot.selected');
+    slotButtons.forEach(slot => {
+        slot.classList.remove('selected');
+        slot.setAttribute('aria-pressed', 'false');
+    });
+    console.log('✅ Slot UI selection reset');
+}
+
 // Proper event listener management to prevent duplication
 function updateFloatingButton() {
     const btnContainer = document.getElementById("floatingSignupBtnContainer");
     const btn = document.getElementById("floatingSignupBtn");
+    
+    if (!btnContainer || !btn) {
+        console.warn('Floating button elements not found');
+        return;
+    }
+    
     const count = selectedSlots.length;
     
     if (count > 0) {
         btnContainer.style.display = "block";
         btn.textContent = `Continue to Sign Up (${count} Slot${count > 1 ? 's' : ''} Selected)`;
         
-        // ✅ FIX: More robust listener cleanup
+        // Clean up previous listener
         if (btn._listener) {
             btn.removeEventListener('click', btn._listener);
         }
         
-        // Create new listener function that uses navigation module
+        // Create new listener
         const newListener = (e) => {
             e.preventDefault();
             goToSignupForm();
-            // Trigger summary update from signup module
             window.dispatchEvent(new CustomEvent('showSignupForm'));
         };
         
@@ -86,8 +139,7 @@ function updateFloatingButton() {
         btn.addEventListener('click', newListener);
     } else {
         btnContainer.style.display = "none";
-        // Clean up listener when hiding
-        if (btn && btn._listener) {
+        if (btn._listener) {
             btn.removeEventListener('click', btn._listener);
             btn._listener = null;
         }
@@ -103,17 +155,21 @@ export function toggleSlot(date, slotLabel, rowId, element) {
     if (existingIndex > -1) {
         const newSlots = selectedSlots.filter(slot => slot.id !== rowId);
         updateSelectedSlots(newSlots);
-        element.classList.remove("selected");
-        element.setAttribute('aria-pressed', 'false');
+        if (element) {
+            element.classList.remove("selected");
+            element.setAttribute('aria-pressed', 'false');
+        }
     } else {
         if (selectedSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
-            alert(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`);
+            showMessage(`You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`, 'warning');
             return;
         }
         const newSlots = [...selectedSlots, { id: rowId, date: date, label: slotLabel }];
         updateSelectedSlots(newSlots);
-        element.classList.add("selected");
-        element.setAttribute('aria-pressed', 'true');
+        if (element) {
+            element.classList.add("selected");
+            element.setAttribute('aria-pressed', 'true');
+        }
     }
     
     updateFloatingButton();
@@ -126,6 +182,11 @@ function showSkeletonUI() {
     const datesContainer = document.getElementById("datesContainer");
     const slotsDisplay = document.getElementById("slotsDisplay");
     const loadingMsg = document.getElementById("loadingMsg");
+    
+    if (!datesContainer || !slotsDisplay || !loadingMsg) {
+        console.error('Required DOM elements for skeleton UI not found');
+        return;
+    }
     
     loadingMsg.style.display = "none";
     slotsDisplay.style.display = "block";
@@ -160,8 +221,13 @@ export async function loadSlots() {
     const slotsDisplay = document.getElementById("slotsDisplay");
     const signupSection = document.getElementById("signupSection");
     
+    if (!loadingMsg || !slotsDisplay) {
+        console.error('Required DOM elements for slots loading not found');
+        return;
+    }
+    
     showSkeletonUI();
-    signupSection.style.display = "none";
+    if (signupSection) signupSection.style.display = "none";
 
     const now = Date.now();
     if (API_CACHE.data && (now - API_CACHE.timestamp) < API_CACHE.TTL) {
@@ -208,6 +274,11 @@ export async function loadSlots() {
 // ================================================================================================
 function renderSlotsData(data) {
     const datesContainer = document.getElementById("datesContainer");
+    if (!datesContainer) {
+        console.error('datesContainer not found');
+        return;
+    }
+    
     const groupedSlotsByDate = data.dates || {};
     
     const today = new Date();
@@ -222,11 +293,12 @@ function renderSlotsData(data) {
         return;
     }
     
-    datesContainer.innerHTML = '';
+    // Clean up previous listeners
     if (datesContainer._slotListener) {
         datesContainer.removeEventListener('click', datesContainer._slotListener);
     }
     
+    datesContainer.innerHTML = '';
     const fragment = document.createDocumentFragment();
     
     futureDates.forEach(date => {
@@ -243,6 +315,7 @@ function renderSlotsData(data) {
     
     datesContainer.appendChild(fragment);
     
+    // Add click delegation
     const slotListener = (e) => {
         const slot = e.target.closest('.slot');
         if (!slot || slot.classList.contains('disabled')) return;
@@ -251,14 +324,19 @@ function renderSlotsData(data) {
         const date = slot.dataset.date;
         const label = slot.dataset.label;
         
-        toggleSlot(date, label, slotId, slot);
+        if (slotId && date && label) {
+            toggleSlot(date, label, slotId, slot);
+        }
     };
     
     datesContainer._slotListener = slotListener;
     datesContainer.addEventListener('click', slotListener);
     
-    document.getElementById("loadingMsg").style.display = "none";
-    document.getElementById("slotsDisplay").style.display = "block";
+    const loadingMsgEl = document.getElementById("loadingMsg");
+    const slotsDisplayEl = document.getElementById("slotsDisplay");
+    if (loadingMsgEl) loadingMsgEl.style.display = "none";
+    if (slotsDisplayEl) slotsDisplayEl.style.display = "block";
+    
     updateFloatingButton();
 }
 
@@ -313,6 +391,8 @@ function createSlotElement(slot) {
 // ================================================================================================
 function showNoSlotsMessage() {
     const datesContainer = document.getElementById("datesContainer");
+    if (!datesContainer) return;
+    
     datesContainer.innerHTML = '';
     
     const container = document.createElement('div');
@@ -341,13 +421,17 @@ function showNoSlotsMessage() {
     
     datesContainer.appendChild(container);
     
-    document.getElementById("loadingMsg").style.display = "none";
-    document.getElementById("slotsDisplay").style.display = "block";
+    const loadingMsgEl = document.getElementById("loadingMsg");
+    const slotsDisplayEl = document.getElementById("slotsDisplay");
+    if (loadingMsgEl) loadingMsgEl.style.display = "none";
+    if (slotsDisplayEl) slotsDisplayEl.style.display = "block";
 }
 
 function handleLoadError(status, message) {
     const loadingMsg = document.getElementById("loadingMsg");
     const datesContainer = document.getElementById("datesContainer");
+    
+    if (!loadingMsg || !datesContainer) return;
     
     datesContainer.innerHTML = '';
     loadingMsg.innerHTML = ''; 
@@ -371,42 +455,13 @@ function handleLoadError(status, message) {
     loadingMsg.appendChild(retryBtn);
     
     loadingMsg.style.display = "block";
-    document.getElementById("slotsDisplay").style.display = "none";
+    const slotsDisplayEl = document.getElementById("slotsDisplay");
+    if (slotsDisplayEl) slotsDisplayEl.style.display = "none";
 }
 
 // ================================================================================================
 // SUMMARY FUNCTIONS
 // ================================================================================================
-
-function removeSlotFromSummary(slotId) {
-    const chipElement = document.querySelector(`.slot-chip[data-slot-id="${slotId}"]`);
-    
-    if (chipElement) {
-        chipElement.classList.add('removing');
-        
-        setTimeout(() => {
-            const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
-            updateSelectedSlots(newSlots);
-            
-            const slotElement = document.getElementById(`slot-btn-${slotId}`);
-            if (slotElement) {
-                slotElement.classList.remove("selected");
-                slotElement.setAttribute('aria-pressed', 'false');
-            }
-            
-            updateSummaryDisplay();
-            updateFloatingButton();
-            
-            showMessage('Slot removed from selection', 'info');
-        }, 300);
-    } else {
-        const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
-        updateSelectedSlots(newSlots);
-        updateSummaryDisplay();
-        updateFloatingButton();
-    }
-}
-
 export function updateSummaryDisplay() {
     const summaryEl = document.getElementById('selectedSlotSummary');
     if (!summaryEl) return;
@@ -471,6 +526,35 @@ export function updateSummaryDisplay() {
     summaryEl.appendChild(chipsContainer);
 }
 
+function removeSlotFromSummary(slotId) {
+    const chipElement = document.querySelector(`.slot-chip[data-slot-id="${slotId}"]`);
+    
+    if (chipElement) {
+        chipElement.classList.add('removing');
+        
+        setTimeout(() => {
+            const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
+            updateSelectedSlots(newSlots);
+            
+            const slotElement = document.getElementById(`slot-btn-${slotId}`);
+            if (slotElement) {
+                slotElement.classList.remove("selected");
+                slotElement.setAttribute('aria-pressed', 'false');
+            }
+            
+            updateSummaryDisplay();
+            updateFloatingButton();
+            
+            showMessage('Slot removed from selection', 'info');
+        }, 300);
+    } else {
+        const newSlots = selectedSlots.filter(slot => slot.id !== slotId);
+        updateSelectedSlots(newSlots);
+        updateSummaryDisplay();
+        updateFloatingButton();
+    }
+}
+
 // ================================================================================================
 // INITIALIZATION
 // ================================================================================================
@@ -478,10 +562,21 @@ document.addEventListener('DOMContentLoaded', () => {
     loadSlots();
 });
 
+// Handle slots reload event (from "Book Another Slot")
+window.addEventListener('reloadSlots', () => {
+    invalidateCache();
+    loadSlots();
+});
+
 // Warn before unload if user selected slots but didn't finish booking
 window.addEventListener('beforeunload', (e) => {
-    const isOnSuccessPage = document.getElementById("successMessage").style.display === "block";
-    const isOnSignupForm = document.getElementById("signupSection").style.display === "block";
+    const successSection = document.getElementById("successMessage");
+    const signupSection = document.getElementById("signupSection");
+    
+    if (!successSection || !signupSection) return;
+    
+    const isOnSuccessPage = successSection.style.display === "block";
+    const isOnSignupForm = signupSection.style.display === "block";
     
     if (selectedSlots.length > 0 && !isOnSuccessPage && !isOnSignupForm) {
         e.preventDefault();
