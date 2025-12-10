@@ -25,7 +25,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 
-    <!-- Critical CSS -->
+    <!-- Critical CSS - PERFECT CENTERED LOGIN -->
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
@@ -81,7 +81,8 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        /* Login overlay styles */
+        
+        /* 🚀 PERFECT LOGIN OVERLAY - FULLSCREEN CENTERED */
         #loginSection {
             position: fixed;
             top: 0;
@@ -101,6 +102,8 @@
             border-radius: 16px;
             text-align: center;
             max-width: 420px;
+            width: 90vw;
+            max-width: 400px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
         #userPassword {
@@ -112,6 +115,11 @@
             font-size: 16px;
             box-sizing: border-box;
             font-family: monospace;
+            transition: border-color 0.2s;
+        }
+        #userPassword:focus {
+            outline: none;
+            border-color: #10b981;
         }
         #userLoginBtn {
             width: 100%;
@@ -123,6 +131,19 @@
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
+            transition: background 0.2s;
+        }
+        #userLoginBtn:hover:not(:disabled) {
+            background: #059669;
+        }
+        #userLoginBtn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+        #loginMsg {
+            margin-top: 1rem;
+            min-height: 24px;
+            font-size: 14px;
         }
         #logoutBtn {
             display: none;
@@ -142,20 +163,30 @@
             font-size: 18px;
             box-shadow: 0 4px 12px rgba(239,68,68,0.4);
         }
-        .msg-box.success { color: #059669; background: #d1fae5; }
-        .msg-box.error { color: #dc2626; background: #fee2e2; }
+        .msg-box.success { 
+            color: #059669; 
+            background: #d1fae5; 
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .msg-box.error { 
+            color: #dc2626; 
+            background: #fee2e2; 
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
     </style>
 </head>
 
 <body>
-    <!-- LOGIN OVERLAY -->
+    <!-- 🚀 SINGLE LOGIN OVERLAY - NO DUPLICATES -->
     <div id="loginSection">
         <div>
             <h2 style="color:#111; margin-bottom:1rem; font-size:1.8rem;">🔐 Enter Access Password</h2>
             <p style="color:#666; margin-bottom:1.5rem;">This site is password protected</p>
-            <input type="password" id="userPassword" placeholder="Enter password">
-            <button id="userLoginBtn" onclick="login()">Enter Site</button>
-            <div id="loginMsg" style="margin-top:1rem; min-height:24px; font-size:14px;"></div>
+            <input type="password" id="userPassword" placeholder="Enter password" autocomplete="off">
+            <button id="userLoginBtn">Enter Site</button>
+            <div id="loginMsg"></div>
         </div>
     </div>
 
@@ -332,12 +363,11 @@
         </main>
     </div>
 
-    <!-- LOAD USER AUTH FIRST -->
+    <!-- 🚀 LOAD SCRIPTS IN PERFECT ORDER -->
     <script type="module" src="user-auth/main.js"></script>
     
-    <!-- THEN ORIGINAL SCRIPTS (only load after auth) -->
     <script type="module">
-        // Wait for user-auth to initialize, then load app
+        // Wait for user-auth to initialize
         window.addEventListener('user-auth-ready', () => {
             import('./config.js');
             import('./utils.js');
@@ -349,6 +379,61 @@
             import('./slots.js').then(slots => {
                 slots.loadSlots();
             });
+        });
+    </script>
+
+    <!-- LOGIN HANDLER - SINGLE REQUEST -->
+    <script>
+        let loginPending = false;
+        
+        async function handleUserLogin() {
+            if (loginPending) return;
+            
+            const btn = document.getElementById('userLoginBtn');
+            const input = document.getElementById('userPassword');
+            const msg = document.getElementById('loginMsg');
+            
+            const password = input.value.trim();
+            if (!password) {
+                msg.textContent = 'Please enter password';
+                msg.className = 'msg-box error';
+                return;
+            }
+            
+            loginPending = true;
+            btn.disabled = true;
+            btn.textContent = 'Logging in...';
+            msg.textContent = '';
+            
+            try {
+                const result = await window.login(password);
+                if (result.ok) {
+                    msg.className = 'msg-box success';
+                    msg.textContent = 'Login successful! Loading...';
+                } else {
+                    throw new Error('Invalid password');
+                }
+            } catch (error) {
+                msg.className = 'msg-box error';
+                msg.textContent = '❌ Wrong password';
+                input.value = '';
+                input.focus();
+            } finally {
+                loginPending = false;
+                btn.disabled = false;
+                btn.textContent = 'Enter Site';
+            }
+        }
+        
+        // Attach login handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const loginBtn = document.getElementById('userLoginBtn');
+            const passwordInput = document.getElementById('userPassword');
+            
+            loginBtn.onclick = handleUserLogin;
+            passwordInput.onkeypress = (e) => {
+                if (e.key === 'Enter') handleUserLogin();
+            };
         });
     </script>
 
@@ -373,7 +458,7 @@
         }, true);
     </script>
 
-    <!-- No-JavaScript Fallback ---->
+    <!-- No-JavaScript Fallback -->
     <noscript>
         <div style="padding: 20px; text-align: center; background: #fee2e2; border: 2px solid #ef4444; margin: 20px; border-radius: 12px;">
             <h2>⚠️ JavaScript Required</h2>
