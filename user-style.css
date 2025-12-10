@@ -5,7 +5,27 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
+/* ============================================================ */
+/* MOVED FROM HTML - CRITICAL BASE STYLES (HIGHEST PRIORITY)   */
+/* ============================================================ */
 :root {
+    --color-primary: #10b981;
+    --color-primary-dark: #059669;
+    --color-error: #dc2626;
+    --color-error-bg: #fee2e2;
+    --color-success: #059669;
+    --color-success-bg: #d1fae5;
+    --color-warning: #d97706;
+    --color-warning-bg: #fef3c7;
+    --color-text: #0f172a;
+    --color-text-muted: #64748b;
+    --color-bg: #f8fafc;
+    --color-border: #e2e8f0;
+    --border-radius: 10px;
+    --border-radius-lg: 16px;
+    --transition-fast: 0.15s;
+    --transition-normal: 0.2s;
+    
     /* ===== COLOR SYSTEM - VIBRANT & MODERN ===== */
     --primary-color: #10b981;           /* Emerald Green */
     --primary-hover: #059669;
@@ -88,9 +108,6 @@
     --weekend-border: #c084fc;
 }
 
-/* ============================================================ */
-/* BASE RESET - MOBILE FIRST                                   */
-/* ============================================================ */
 *, *::before, *::after {
     box-sizing: border-box;
     margin: 0;
@@ -103,28 +120,47 @@ html {
     scroll-behavior: smooth;
 }
 
-body {
+body { 
     font-family: var(--font-family);
-    background: var(--background);
-    color: var(--text-primary);
+    margin: 0;
+    background: var(--color-bg);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
     overflow-x: hidden;
+    min-height: 100vh;
+    overflow-y: auto;
+}
+
+.container {
+    max-width: 800px; 
+    margin: 0 auto; 
+    padding: 1rem;
+    padding-bottom: calc(120px + env(safe-area-inset-bottom));
+    padding-left: max(var(--space-base), var(--safe-left));
+    padding-right: max(var(--space-base), var(--safe-right));
+}
+
+.container,
+#mainApp,
+.btn {
+    will-change: auto;
+    transform: translateZ(0);
+}
+
+h1 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    font-weight: 700;
+    color: var(--color-text);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
 }
 
 /* ============================================================ */
 /* TYPOGRAPHY - FLUID & RESPONSIVE                             */
 /* ============================================================ */
-h1 {
-    font-size: clamp(1.5rem, 5vw, 2rem);
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: var(--space-sm);
-    letter-spacing: -0.02em;
-    line-height: 1.2;
-}
-
 h2 {
     font-size: clamp(1.25rem, 4vw, 1.5rem);
     font-weight: 600;
@@ -152,15 +188,6 @@ h3 {
 /* ============================================================ */
 /* LAYOUT - MOBILE FIRST                                       */
 /* ============================================================ */
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: var(--space-base);
-    padding-left: max(var(--space-base), var(--safe-left));
-    padding-right: max(var(--space-base), var(--safe-right));
-    padding-bottom: calc(120px + var(--safe-bottom));
-}
-
 header {
     position: sticky;
     top: 0;
@@ -191,6 +218,7 @@ header {
     transition: box-shadow var(--transition-normal);
     will-change: transform;
     transform: translateZ(0);
+    contain: layout style paint;
 }
 
 .card:active {
@@ -335,11 +363,11 @@ select.form-input {
 /* FLOATING BUTTON - BOTTOM ANCHORED FOR THUMB REACH          */
 /* ============================================================ */
 #floatingSignupBtnContainer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000;
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 1000 !important;
     padding: var(--space-md);
     padding-bottom: max(var(--space-md), var(--safe-bottom));
     padding-left: max(var(--space-md), var(--safe-left));
@@ -350,6 +378,18 @@ select.form-input {
     box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
     border-top: 1px solid var(--border);
     animation: slideUp var(--transition-slow);
+    pointer-events: none;
+}
+
+#floatingSignupBtnContainer .btn {
+    pointer-events: auto;
+    max-width: 500px;
+    margin: 0 auto;
+    font-size: 1.0625rem;
+    padding: var(--space-base) var(--space-xl);
+    min-height: 52px;
+    font-weight: 600;
+    width: 100%;
 }
 
 @keyframes slideUp {
@@ -361,15 +401,6 @@ select.form-input {
         transform: translateY(0);
         opacity: 1;
     }
-}
-
-#floatingSignupBtn {
-    max-width: 500px;
-    margin: 0 auto;
-    font-size: 1.0625rem;
-    padding: var(--space-base) var(--space-xl);
-    min-height: 52px;
-    font-weight: 600;
 }
 
 /* ============================================================ */
@@ -661,6 +692,7 @@ select.form-input {
     font-weight: 500;
     line-height: 1.5;
     animation: msgFadeIn var(--transition-slow) ease;
+    display: none;
 }
 
 @keyframes msgFadeIn {
@@ -750,6 +782,7 @@ select.form-input {
 .mt-2 { margin-top: var(--space-base); }
 .mt-3 { margin-top: var(--space-lg); }
 .mt-4 { margin-top: var(--space-xl); }
+.mt-15 { margin-top: 15px; }
 
 .mb-0 { margin-bottom: 0; }
 .mb-1 { margin-bottom: var(--space-sm); }
@@ -762,6 +795,8 @@ select.form-input {
     padding: var(--space-md) var(--space-lg);
     margin-bottom: var(--space-base);
 }
+
+.h-100 { height: 100px; }
 
 .date-chip.disabled {
     opacity: 0.5;
@@ -925,23 +960,3 @@ small {
         border: 1px solid #000;
     }
 }
-
-/* ============================================================ */
-/* CUSTOM UTILITY CLASSES FOR INLINE STYLE REPLACEMENT        */
-/* ============================================================ */
-.mt-15 { margin-top: 15px; }
-.h-100 { height: 100px; }
-
-/* user-style.css - REQUIRED for layout */
-* { box-sizing: border-box; }
-body { margin: 0; padding: 0; min-height: 100vh; }
-.container { max-width: 800px; margin: 0 auto; padding: 1rem; }
-.card { background: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-.btn { padding: 12px 24px; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
-.primary-btn { background: #10b981; color: white; }
-.primary-btn:hover { background: #059669; }
-.secondary-btn { background: #f1f5f9; color: #475569; }
-.form-input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; margin-bottom: 1rem; }
-.form-input:focus { outline: none; border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,0.1); }
-.hidden { display: none !important; }
-.msg-box { padding: 12px; border-radius: 8px; margin: 1rem 0; }
