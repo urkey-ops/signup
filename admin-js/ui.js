@@ -192,15 +192,15 @@ export function renderSlots(slots) {
     });
 
     sortedDates.forEach(date => {
-        const dateObj = new Date(date.split('/').reverse().join('-'));
-        const dateStr = dateObj.toLocaleDateString('en-US', { 
-            weekday: 'short',
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
-        });
-        const isPast = isPastDate(date);
-        
+    // ✅ FIXED - Match original exactly
+    const [month, day, year] = date.split('/').map(Number);
+    const dateObj = new Date(year, month - 1, day);
+    
+    const dateStr = dateObj.toLocaleDateString('en-US', { 
+        weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' 
+    });
+    const isPast = isPastDate(date);
+      
         const dateGroup = document.createElement('div');
         dateGroup.className = `slot-date-group ${isPast ? 'past' : ''}`;
         
