@@ -15,28 +15,27 @@
     
     <title>Book a Slot - Online Booking System</title>
     
-    <!-- DNS Prefetch for faster external resource loading -->
+    <!-- DNS Prefetch -->
     <link rel="dns-prefetch" href="https://fonts.googleapis.com">
     <link rel="dns-prefetch" href="https://fonts.gstatic.com">
     
-    <!-- Preconnect for critical resources -->
+    <!-- Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Optimized favicon (inline SVG - no extra request) -->
+    <!-- Favicon -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
 
-    <!-- Critical CSS preload -->
+    <!-- CSS preload -->
     <link rel="preload" href="user-style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="user-style.css"></noscript>
     
-    <!-- Fonts with optimized loading -->
+    <!-- Fonts -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 
-    <!-- Critical Inline CSS - OPTIMIZED -->
+    <!-- Critical Inline CSS -->
     <style>
-        /* CSS Variables for better performance */
         :root {
             --color-primary: #10b981;
             --color-primary-dark: #059669;
@@ -56,7 +55,6 @@
             --transition-normal: 0.2s;
         }
         
-        /* Optimized reset */
         * {
             box-sizing: border-box;
         }
@@ -72,7 +70,6 @@
             overflow-x: hidden;
         }
         
-        /* GPU acceleration for smooth animations */
         .container,
         #loginSection,
         #mainApp,
@@ -119,7 +116,6 @@
             border: 0;
         }
         
-        /* Optimized spinner with GPU acceleration */
         .spinner {
             display: inline-block;
             width: 20px;
@@ -135,7 +131,7 @@
             to { transform: rotate(360deg); }
         }
         
-        /* 🔐 LOGIN OVERLAY - OPTIMIZED */
+        /* 🔐 LOGIN OVERLAY */
         #loginSection {
             position: fixed;
             top: 0;
@@ -185,7 +181,6 @@
             margin: 0 0 1.5rem 0;
         }
         
-        /* Optimized form inputs */
         #userPassword {
             width: 100%;
             padding: 14px 16px;
@@ -202,7 +197,6 @@
             border-color: var(--color-primary);
         }
         
-        /* Optimized button with GPU acceleration */
         #userLoginBtn {
             width: 100%;
             padding: 14px 20px;
@@ -238,7 +232,6 @@
             font-size: 14px;
         }
         
-        /* Optimized logout button */
         #logoutBtn {
             display: none;
             position: fixed;
@@ -269,7 +262,6 @@
             transform: scale(0.98);
         }
         
-        /* Optimized message boxes */
         .msg-box {
             padding: 12px 16px;
             border-radius: 8px;
@@ -304,7 +296,6 @@
             background: var(--color-warning-bg);
         }
         
-        /* Performance optimization for main app */
         #mainApp {
             opacity: 0;
             transition: opacity 0.3s ease-in;
@@ -314,7 +305,6 @@
             opacity: 1;
         }
         
-        /* Prevent layout shift during load */
         .card {
             contain: layout style paint;
         }
@@ -517,12 +507,10 @@
     
     <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY -->
     <script type="module">
-        // Wait for auth to be ready, then load everything else
         window.addEventListener('user-auth-ready', async () => {
             const mainApp = document.getElementById('mainApp');
             
             try {
-                // Import all modules (they will auto-initialize)
                 await Promise.all([
                     import('./config.js'),
                     import('./utils.js'),
@@ -531,11 +519,9 @@
                     import('./signup-frontend.js')
                 ]);
                 
-                // Load slots after modules are imported
                 const slotsModule = await import('./slots.js');
                 await slotsModule.loadSlots();
                 
-                // Add loaded class for smooth fade-in
                 mainApp.classList.add('loaded');
                 
                 console.log('✅ All modules loaded successfully');
@@ -564,7 +550,6 @@
         
         let loginPending = false;
         
-        // Cache DOM elements
         const loginBtn = document.getElementById('userLoginBtn');
         const passwordInput = document.getElementById('userPassword');
         const msgEl = document.getElementById('loginMsg');
@@ -622,7 +607,6 @@
             }
         };
         
-        // Attach event listeners
         if (loginBtn) loginBtn.onclick = handleUserLogin;
         if (passwordInput) {
             passwordInput.onkeydown = (e) => {
@@ -660,7 +644,6 @@
         });
     </script>
 
-    <!-- No-JavaScript Fallback -->
     <noscript>
         <div style="padding: 20px; text-align: center; background: #fee2e2; border: 2px solid #ef4444; margin: 20px; border-radius: 12px;">
             <h2>⚠️ JavaScript Required</h2>
