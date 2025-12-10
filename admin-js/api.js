@@ -6,6 +6,8 @@ import { API_URL, STATE, DEFAULT_SLOTS } from './config.js';
 import { displayMessage } from './utils.js';
 import { renderSlots, updateStats, createWeekendControls, updateDeleteButtonCount } from './ui.js';
 
+
+
 /**
  * Handle admin login
  */
