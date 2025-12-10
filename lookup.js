@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (COMPACT CHIP STYLE - FIXED ANIMATION + CHRONOLOGICAL SORT)
+// LOOKUP.JS (COMPACT CHIP STYLE - FIXED ANIMATION + PERFECT CHRONOLOGICAL SORT)
 // ================================================================================================
 
 import { 
@@ -16,6 +16,22 @@ import {
     isValidPhone,
     debounce
 } from './utils.js';
+
+// ================================================================================================
+// TIME PARSING HELPER
+// ================================================================================================
+function parseSlotTime(slotLabel) {
+    const timeMatch = slotLabel.match(/(\d+)(AM|PM)/i);
+    if (!timeMatch) return 0;
+    
+    let hour = parseInt(timeMatch[1]);
+    const ampm = timeMatch[2].toUpperCase();
+    
+    if (ampm === 'PM' && hour !== 12) hour += 12;
+    if (ampm === 'AM' && hour === 12) hour = 0;
+    
+    return hour;
+}
 
 // ================================================================================================
 // STATE MANAGEMENT
@@ -74,7 +90,7 @@ function showSuccess(displayEl, message) {
 }
 
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (CHRONOLOGICAL SORT + FIXED ANIMATION)
+// LOOKUP BOOKINGS BY PHONE NUMBER (PERFECT CHRONOLOGICAL SORT + FIXED ANIMATION)
 // ================================================================================================
 export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
@@ -142,13 +158,20 @@ export async function lookupBookings() {
             return;
         }
 
-        // ✅ CHRONOLOGICAL SORT: Date FIRST, then Time SECOND
+        // ✅ PERFECT CHRONOLOGICAL SORT: Date FIRST, then Time SECOND
         displayEl.innerHTML = '';
         const sortedBookings = [...bookings].sort((a, b) => {
-            // Parse full datetime for accurate chronological sorting
-            const dateA = new Date(`${a.date}T${a.slotLabel.split(' - ')[0]}`);
-            const dateB = new Date(`${b.date}T${b.slotLabel.split(' - ')[0]}`);
-            return dateA - dateB;
+            // 1. Compare dates first
+            const dateA = new Date(a.date);
+            const dateB = new Date(b.date);
+            if (dateA.getTime() !== dateB.getTime()) {
+                return dateA - dateB;
+            }
+            
+            // 2. Same date → compare times (convert "10AM" → 10, "4PM" → 16)
+            const timeA = parseSlotTime(a.slotLabel);
+            const timeB = parseSlotTime(b.slotLabel);
+            return timeA - timeB;
         });
         
         const chipList = document.createElement('div');
