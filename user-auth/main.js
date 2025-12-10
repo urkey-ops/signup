@@ -1,16 +1,23 @@
 import { login, logout, checkSession } from './api.js';
 
-let timeoutId;
-let sessionCheckInterval;
+// Configuration
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const SESSION_CHECK_INTERVAL = 60 * 1000; // Check every minute
-let isLoggingOut = false;
+const SESSION_CHECK_INTERVAL = 60 * 1000; // 1 minute
 
+// State
+let timeoutId = null;
+let sessionCheckInterval = null;
+let isLoggingOut = false;
+let lastActivity = Date.now();
+
+// Optimized auth ready dispatch
 function dispatchAuthReady() {
-    window.dispatchEvent(new CustomEvent('user-auth-ready'));
-    console.log('✅ user-auth-ready dispatched');
+    const event = new CustomEvent('user-auth-ready');
+    window.dispatchEvent(event);
+    console.log('✅ user-auth-ready');
 }
 
+// Fast session expiration handler
 function handleSessionExpired() {
     if (isLoggingOut) return;
     isLoggingOut = true;
@@ -18,83 +25,104 @@ function handleSessionExpired() {
     clearTimeout(timeoutId);
     clearInterval(sessionCheckInterval);
     
-    logout().then(() => {
-        alert('Your session has expired. Please log in again.');
-        location.reload();
-    }).catch(() => {
-        location.reload();
-    });
+    logout()
+        .catch(() => {}) // Ignore logout errors
+        .finally(() => {
+            alert('Your session has expired. Please log in again.');
+            location.reload();
+        });
 }
 
+// Optimized idle timer with debouncing
 function resetTimer() {
     if (isLoggingOut) return;
     
+    const now = Date.now();
+    
+    // Debounce: only reset if more than 1 second since last activity
+    if (now - lastActivity < 1000) return;
+    lastActivity = now;
+    
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-        handleSessionExpired();
-    }, IDLE_TIMEOUT);
+    timeoutId = setTimeout(handleSessionExpired, IDLE_TIMEOUT);
 }
 
+// Fast periodic session validation
 function startSessionValidation() {
-    // Periodic session check
     sessionCheckInterval = setInterval(async () => {
         if (isLoggingOut) return;
         
-        const result = await checkSession();
-        if (!result.ok) {
-            handleSessionExpired();
+        try {
+            const result = await checkSession();
+            if (!result.ok) {
+                handleSessionExpired();
+            }
+        } catch (error) {
+            console.error('Session check failed:', error);
         }
     }, SESSION_CHECK_INTERVAL);
 }
 
+// Fast session initialization
 async function initializeSession() {
     console.log('🔍 Checking session...');
+    
+    const loginSection = document.getElementById('loginSection');
+    const mainApp = document.getElementById('mainApp');
+    const logoutBtn = document.getElementById('logoutBtn');
     
     try {
         const data = await checkSession();
         
         if (data.ok) {
-            document.getElementById('loginSection').style.display = 'none';
-            document.getElementById('mainApp').style.display = 'block';
-            document.getElementById('logoutBtn').style.display = 'block';
+            // Logged in - show app
+            loginSection.style.display = 'none';
+            mainApp.style.display = 'block';
+            logoutBtn.style.display = 'block';
             
             resetTimer();
             startSessionValidation();
             dispatchAuthReady();
         } else {
-            document.getElementById('loginSection').style.display = 'flex';
-            document.getElementById('mainApp').style.display = 'none';
-            document.getElementById('logoutBtn').style.display = 'none';
+            // Not logged in - show login
+            loginSection.style.display = 'flex';
+            mainApp.style.display = 'none';
+            logoutBtn.style.display = 'none';
         }
     } catch (err) {
         console.error('Session check failed:', err);
-        document.getElementById('loginSection').style.display = 'flex';
-        document.getElementById('mainApp').style.display = 'none';
-        document.getElementById('logoutBtn').style.display = 'none';
+        loginSection.style.display = 'flex';
+        mainApp.style.display = 'none';
+        logoutBtn.style.display = 'none';
     }
 }
 
-// Activity listeners
-['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
-    document.addEventListener(event, resetTimer, { passive: true, capture: true });
-});
+// Optimized activity tracking with passive listeners
+const activityEvents = ['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart', 'click'];
+const listenerOptions = { passive: true, capture: true };
 
-// Expose globally
+for (const event of activityEvents) {
+    document.addEventListener(event, resetTimer, listenerOptions);
+}
+
+// Visibility change handler (tab switching)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !isLoggingOut) {
+        checkSession().then(result => {
+            if (!result.ok) handleSessionExpired();
+        });
+    }
+}, { passive: true });
+
+// Global API exposure
 window.login = login;
 window.logout = logout;
 window.checkSession = checkSession;
 window.resetUserTimer = resetTimer;
 
-// Initialize on page load
-window.addEventListener('load', initializeSession);
-
-// Handle visibility change (tab switching)
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && !isLoggingOut) {
-        checkSession().then(result => {
-            if (!result.ok) {
-                handleSessionExpired();
-            }
-        });
-    }
-});
+// Fast initialization
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeSession);
+} else {
+    initializeSession();
+}
