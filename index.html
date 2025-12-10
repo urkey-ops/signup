@@ -25,7 +25,7 @@
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 
-    <!-- Critical CSS - PERFECT CENTERED LOGIN -->
+    <!-- Critical CSS -->
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
@@ -82,7 +82,7 @@
             to { transform: rotate(360deg); }
         }
         
-        /* 🚀 PERFECT LOGIN OVERLAY - FULLSCREEN CENTERED */
+        /* 🔐 LOGIN OVERLAY */
         #loginSection {
             position: fixed;
             top: 0;
@@ -101,10 +101,18 @@
             padding: 2.5rem;
             border-radius: 16px;
             text-align: center;
-            max-width: 420px;
             width: 90vw;
             max-width: 400px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        #loginSection h2 {
+            color: #111;
+            margin-bottom: 0.5rem;
+            font-size: 1.8rem;
+        }
+        #loginSection p {
+            color: #666;
+            margin-bottom: 1.5rem;
         }
         #userPassword {
             width: 100%;
@@ -162,40 +170,56 @@
             cursor: pointer;
             font-size: 18px;
             box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+            transition: transform 0.2s;
+        }
+        #logoutBtn button:hover {
+            transform: scale(1.05);
+        }
+        .msg-box {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 1rem;
+            display: none;
         }
         .msg-box.success { 
             color: #059669; 
-            background: #d1fae5; 
-            padding: 8px 12px;
-            border-radius: 6px;
+            background: #d1fae5;
         }
         .msg-box.error { 
             color: #dc2626; 
-            background: #fee2e2; 
-            padding: 8px 12px;
-            border-radius: 6px;
+            background: #fee2e2;
+        }
+        .msg-box.warning {
+            color: #d97706;
+            background: #fef3c7;
         }
     </style>
 </head>
 
 <body>
-    <!-- 🚀 SINGLE LOGIN OVERLAY - NO DUPLICATES -->
+    <!-- 🔐 LOGIN OVERLAY -->
     <div id="loginSection">
         <div>
-            <h2 style="color:#111; margin-bottom:1rem; font-size:1.8rem;">🔐 Enter Access Password</h2>
-            <p style="color:#666; margin-bottom:1.5rem;">This site is password protected</p>
-            <input type="password" id="userPassword" placeholder="Enter password" autocomplete="off">
+            <h2>🔐 Enter Access Password</h2>
+            <p>This site is password protected</p>
+            <label for="userPassword" class="visually-hidden">Password</label>
+            <input type="password" 
+                   id="userPassword" 
+                   placeholder="Enter password" 
+                   autocomplete="off"
+                   aria-label="Password"
+                   aria-describedby="loginMsg">
             <button id="userLoginBtn">Enter Site</button>
-            <div id="loginMsg"></div>
+            <div id="loginMsg" class="msg-box" role="alert" aria-live="polite"></div>
         </div>
     </div>
 
-    <!-- LOGOUT BUTTON (hidden until login) -->
+    <!-- LOGOUT BUTTON -->
     <div id="logoutBtn">
-        <button onclick="logout()" title="Logout">🚪</button>
+        <button onclick="handleLogout()" title="Logout" aria-label="Logout">🚪</button>
     </div>
 
-    <!-- MAIN APP (hidden until login) -->
+    <!-- MAIN APP -->
     <div class="container" id="mainApp" style="display:none;">
         <header>
             <h1>📅 Book Your Slot</h1>
@@ -363,7 +387,7 @@
         </main>
     </div>
 
-    <!-- 🚀 LOAD SCRIPTS IN PERFECT ORDER -->
+    <!-- 🚀 LOAD SCRIPTS -->
     <script type="module" src="user-auth/main.js"></script>
     
     <script type="module">
@@ -382,8 +406,10 @@
         });
     </script>
 
-    <!-- LOGIN HANDLER - SINGLE REQUEST -->
-    <script>
+    <!-- LOGIN HANDLER -->
+    <script type="module">
+        import { displayMessage } from './user-auth/utils.js';
+        
         let loginPending = false;
         
         async function handleUserLogin() {
@@ -391,33 +417,44 @@
             
             const btn = document.getElementById('userLoginBtn');
             const input = document.getElementById('userPassword');
-            const msg = document.getElementById('loginMsg');
+            const msgEl = document.getElementById('loginMsg');
             
             const password = input.value.trim();
             if (!password) {
-                msg.textContent = 'Please enter password';
-                msg.className = 'msg-box error';
+                displayMessage('loginMsg', 'Please enter password', 'error');
                 return;
             }
             
             loginPending = true;
             btn.disabled = true;
             btn.textContent = 'Logging in...';
-            msg.textContent = '';
+            msgEl.style.display = 'none';
             
             try {
                 const result = await window.login(password);
+                
                 if (result.ok) {
-                    msg.className = 'msg-box success';
-                    msg.textContent = 'Login successful! Loading...';
+                    displayMessage('loginMsg', '✓ Login successful! Loading...', 'success');
+                    setTimeout(() => location.reload(), 500);
                 } else {
-                    throw new Error('Invalid password');
+                    let errorMsg = result.error || 'Invalid password';
+                    
+                    if (result.attemptsRemaining !== undefined && result.attemptsRemaining > 0) {
+                        errorMsg += ` (${result.attemptsRemaining} attempts remaining)`;
+                    }
+                    
+                    if (result.retryAfter) {
+                        const minutes = Math.ceil(result.retryAfter / 60);
+                        errorMsg = `Too many attempts. Try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`;
+                    }
+                    
+                    displayMessage('loginMsg', errorMsg, 'error');
+                    input.value = '';
+                    input.focus();
                 }
             } catch (error) {
-                msg.className = 'msg-box error';
-                msg.textContent = '❌ Wrong password';
-                input.value = '';
-                input.focus();
+                console.error('Login error:', error);
+                displayMessage('loginMsg', 'Network error. Please try again.', 'error');
             } finally {
                 loginPending = false;
                 btn.disabled = false;
@@ -425,15 +462,24 @@
             }
         }
         
+        window.handleLogout = async function() {
+            if (confirm('Are you sure you want to logout?')) {
+                await window.logout();
+                location.reload();
+            }
+        };
+        
         // Attach login handler
         document.addEventListener('DOMContentLoaded', () => {
             const loginBtn = document.getElementById('userLoginBtn');
             const passwordInput = document.getElementById('userPassword');
             
-            loginBtn.onclick = handleUserLogin;
-            passwordInput.onkeypress = (e) => {
-                if (e.key === 'Enter') handleUserLogin();
-            };
+            if (loginBtn) loginBtn.onclick = handleUserLogin;
+            if (passwordInput) {
+                passwordInput.onkeypress = (e) => {
+                    if (e.key === 'Enter') handleUserLogin();
+                };
+            }
         });
     </script>
 
