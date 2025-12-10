@@ -237,16 +237,32 @@ export function updateFloatingButton() {
             btn.removeEventListener('click', floatingButtonListener);
         }
         
-        // Create new listener
-        floatingButtonListener = (e) => {
+        // ✅ FIXED: Single reliable handler with loading state
+        floatingButtonListener = async (e) => {
             e.preventDefault();
             
-            // Use global function if available (from signup module)
-            if (typeof window.goToSignupForm === 'function') {
-                window.goToSignupForm();
-            }
+            // Prevent double-click spam
+            if (btn.disabled) return;
             
-            window.dispatchEvent(new CustomEvent('showSignupForm'));
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+            
+            try {
+                // Always dispatch - lazy loading handles the rest
+                window.dispatchEvent(new CustomEvent('showSignupForm'));
+                
+                // Small delay to ensure module loads before user expects response
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+            } catch (error) {
+                console.error('Signup transition error:', error);
+            } finally {
+                // Reset button after 500ms max (covers lazy load)
+                setTimeout(() => {
+                    btn.disabled = false;
+                    btn.textContent = `Continue to Sign Up (${count} Slot${count !== 1 ? 's' : ''} Selected)`;
+                }, 500);
+            }
         };
         
         btn.addEventListener('click', floatingButtonListener);
@@ -258,6 +274,7 @@ export function updateFloatingButton() {
         }
     }
 }
+
 
 /**
  * Clear all pending removal timeouts (cleanup)
