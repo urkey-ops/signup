@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (COMPACT CHIP STYLE - RACE CONDITION FIXED)
+// LOOKUP.JS (COMPACT CHIP STYLE - FIXED ANIMATION)
 // ================================================================================================
 
 import { 
@@ -74,7 +74,7 @@ function showSuccess(displayEl, message) {
 }
 
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (COMPACT CHIP STYLE)
+// LOOKUP BOOKINGS BY PHONE NUMBER (COMPACT CHIP STYLE - FIXED)
 // ================================================================================================
 export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
@@ -86,7 +86,7 @@ export async function lookupBookings() {
         return;
     }
 
-    // ✅ FIX: Check state flag FIRST before any validation
+    // ✅ Check state flag FIRST before any validation
     if (isSearching) {
         console.warn('Search already in progress');
         return;
@@ -142,7 +142,7 @@ export async function lookupBookings() {
             return;
         }
 
-        // ✅ COMPACT CHIP STYLE SUMMARY
+        // ✅ COMPACT CHIP STYLE SUMMARY (FIXED ANIMATION)
         displayEl.innerHTML = '';
         const sortedBookings = [...bookings].sort((a, b) => new Date(a.date) - new Date(b.date));
         
@@ -153,6 +153,12 @@ export async function lookupBookings() {
             const chip = document.createElement('div');
             chip.className = 'lookup-chip';
 
+            // Attach ALL metadata to CHIP for safety
+            chip.dataset.signup_row_id = booking.signupRowId;
+            chip.dataset.slot_row_id = booking.slotRowId;
+            chip.dataset.date = booking.date;
+            chip.dataset.slot_label = booking.slotLabel;
+
             const text = document.createElement('span');
             text.textContent = `📅 ${booking.date} — 🕰️ ${booking.slotLabel}`;
 
@@ -162,23 +168,42 @@ export async function lookupBookings() {
             cancelBtn.title = 'Cancel booking';
             cancelBtn.setAttribute('aria-label', `Cancel booking for ${booking.date} at ${booking.slotLabel}`);
             
-            // Attach cancellation metadata
+            // Duplicate metadata on button too
             cancelBtn.dataset.signup_row_id = booking.signupRowId;
             cancelBtn.dataset.slot_row_id = booking.slotRowId;
             cancelBtn.dataset.date = booking.date;
             cancelBtn.dataset.slot_label = booking.slotLabel;
 
-            cancelBtn.addEventListener('click', (ev) => {
-                // Animate removal
+            // ✅ FIXED: Proper animation + removal handling
+            const handleCancel = (ev) => {
+                ev.stopPropagation();
+                
+                // Disable button immediately
+                cancelBtn.disabled = true;
+                cancelBtn.textContent = '⏳';
+                
+                // Animate out
                 chip.classList.add('removing');
-                setTimeout(() => {
-                    const sId = Number(ev.currentTarget.dataset.signup_row_id);
-                    const slId = Number(ev.currentTarget.dataset.slot_row_id);
-                    const date = ev.currentTarget.dataset.date;
-                    const label = ev.currentTarget.dataset.slot_label;
-                    cancelBooking(sId, slId, date, label, ev.currentTarget);
-                }, 250);
-            });
+                
+                // Wait for animation to complete, THEN cancel + remove
+                const removeAfterAnimation = () => {
+                    const sId = Number(chip.dataset.signup_row_id);
+                    const slId = Number(chip.dataset.slot_row_id);
+                    const date = chip.dataset.date;
+                    const label = chip.dataset.slot_label;
+                    
+                    cancelBooking(sId, slId, date, label, cancelBtn);
+                    chip.remove();
+                };
+                
+                // Listen for animation end (most reliable)
+                chip.addEventListener('animationend', removeAfterAnimation, { once: true });
+                
+                // Fallback timeout (300ms = --transition-slow)
+                setTimeout(removeAfterAnimation, 300);
+            };
+
+            cancelBtn.addEventListener('click', handleCancel);
 
             chip.appendChild(text);
             chip.appendChild(cancelBtn);
@@ -215,7 +240,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         return;
     }
 
-    // ✅ FIX: Check state flag FIRST
+    // ✅ Check state flag FIRST
     if (isCancelling) {
         console.warn('Cancellation already in progress');
         return;
