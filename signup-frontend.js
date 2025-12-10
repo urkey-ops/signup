@@ -1,5 +1,5 @@
 // ============================================================================================
-// SIGNUP FRONTEND - MAIN ORCHESTRATOR (REFACTORED & MODULAR)
+// SIGNUP FRONTEND - MAIN ORCHESTRATOR (SUBMISSION BUG FIXED)
 // ================================================================================================
 
 import { 
@@ -52,22 +52,22 @@ import {
 injectSignupStyles();
 
 // ================================================================================================
-// MAIN SIGNUP SUBMISSION
+// MAIN SIGNUP SUBMISSION (FIXED)
 // ================================================================================================
 
 /**
  * Main signup submission handler
  * Validates form, sends API request, handles responses (200, 409, errors)
+ * ✅ FIX: Properly maintains submission state to prevent beforeunload interference
  */
 export async function submitSignup() {
-    // Get submit button and check state
     const submitBtn = document.getElementById("submitSignupBtn");
     if (!submitBtn) {
         console.error('Submit button not found');
         return;
     }
     
-    // Immediate DOM-level lock to prevent double-clicks
+    // Immediate DOM-level lock
     if (submitBtn.disabled) {
         console.warn('Button already disabled - submission in progress');
         return;
@@ -77,10 +77,13 @@ export async function submitSignup() {
     // Check module-level state
     if (getIsSubmitting()) {
         console.warn('Submission already in progress');
+        submitBtn.disabled = false;
         return;
     }
     
+    // ✅ FIX: Set submitting state IMMEDIATELY to prevent beforeunload
     updateIsSubmitting(true);
+    console.log('🔒 Submission started - beforeunload disabled');
     
     // Set loading state
     const originalBtnText = setButtonLoading(submitBtn);
@@ -99,13 +102,14 @@ export async function submitSignup() {
     // Helper to reset button state
     const resetSubmitState = () => {
         updateIsSubmitting(false);
+        console.log('🔓 Submission ended - beforeunload re-enabled');
         resetButtonState(submitBtn, originalBtnText);
     };
     
     // Validate form
     const validation = validateSignupForm({
         name: sanitizedData.name,
-        phone: formData.phone, // Use raw phone for validation
+        phone: formData.phone,
         email: sanitizedData.email,
         category: sanitizedData.category,
         notes: sanitizedData.notes,
@@ -132,6 +136,13 @@ export async function submitSignup() {
     try {
         const slotIds = sanitizedData.selectedSlots.map(s => s.id);
         
+        console.log('📤 Sending signup request...', {
+            name: sanitizedData.name,
+            phone: sanitizedData.phone,
+            category: sanitizedData.category,
+            slotCount: slotIds.length
+        });
+        
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -146,11 +157,15 @@ export async function submitSignup() {
         });
         
         updateLastApiCall(Date.now());
+        
+        console.log('📥 Response received:', response.status);
+        
         const data = await response.json();
+        console.log('📋 Response data:', data);
         
         // Handle success (200)
         if (response.ok && data.ok) {
-            console.log('✅ Booking successful');
+            console.log('✅ Booking successful!');
             
             // Invalidate cache
             if (API_CACHE) {
@@ -164,6 +179,9 @@ export async function submitSignup() {
             // Clear state
             updateSelectedSlots([]);
             
+            // ✅ KEEP submission state true during success display
+            // It will be reset when user clicks "Book Another Slot"
+            
             // Display success
             displayBookingSuccess(
                 bookedSlots,
@@ -171,6 +189,7 @@ export async function submitSignup() {
                 sanitizedData.email
             );
             
+            // ✅ Reset submission state AFTER success display
             resetSubmitState();
             return;
         }
@@ -212,6 +231,7 @@ export async function submitSignup() {
         }
         
         // Handle other errors (400, 429, 500)
+        console.error('❌ Booking failed:', response.status, data);
         let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
         if (response.status === 429) {
             errorMsg += ' Too many requests. Please wait a minute and try again.';
@@ -220,7 +240,7 @@ export async function submitSignup() {
         resetSubmitState();
         
     } catch (err) {
-        console.error('Signup error:', err);
+        console.error('❌ Signup error:', err);
         const errorMsg = err.message === 'Failed to fetch' 
             ? 'Unable to connect to the server. Please check your internet connection.' 
             : 'An unexpected error occurred. Please try again.';
@@ -276,7 +296,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup "Book Another Slot" button in success page
     const resetPageBtn = document.getElementById('resetPageBtn');
     if (resetPageBtn) {
-        resetPageBtn.addEventListener('click', backToSlotSelection);
+        resetPageBtn.addEventListener('click', () => {
+            // ✅ Ensure submission state is cleared when booking another slot
+            updateIsSubmitting(false);
+            backToSlotSelection();
+        });
         console.log('✅ Book Another Slot button initialized');
     }
     
