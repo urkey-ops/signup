@@ -925,3 +925,10 @@ small {
         border: 1px solid #000;
     }
 }
+
+/* ============================================================ */
+/* CUSTOM UTILITY CLASSES FOR INLINE STYLE REPLACEMENT        */
+/* ============================================================ */
+.mt-15 { margin-top: 15px; }
+.h-100 { height: 100px; }
+
