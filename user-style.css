@@ -796,3 +796,17 @@ small {
         border: 1px solid #000;
     }
 }
+
+.availability-none  { color: var(--error-color) !important; }
+.availability-low   { color: var(--warning-color) !important; }
+.availability-high  { color: var(--success-color) !important; }
+.empty-state-icon   { 
+    font-size: var(--font-size-h2); 
+    margin-bottom: var(--space-lg);
+    text-align: center;
+}
+.error-text         { 
+    color: var(--error-color) !important; 
+    margin-bottom: var(--space-md);
+}
+
