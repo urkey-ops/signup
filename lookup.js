@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (BUG-FREE VERSION)
+// LOOKUP.JS (RACE CONDITION FIXED)
 // ================================================================================================
 
 import { 
@@ -23,7 +23,7 @@ import {
 let isSearching = false;
 let isCancelling = false;
 
-// Module-level button text storage (safer than DOM properties)
+// Module-level button text storage
 let originalSearchBtnText = null;
 let originalCancelBtnText = null;
 
@@ -74,7 +74,7 @@ function showSuccess(displayEl, message) {
 }
 
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (PHONE NORMALIZATION FIXED)
+// LOOKUP BOOKINGS BY PHONE NUMBER (RACE CONDITION FIXED)
 // ================================================================================================
 export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
@@ -86,10 +86,16 @@ export async function lookupBookings() {
         return;
     }
 
+    // ✅ FIX: Check state flag FIRST before any validation
+    if (isSearching) {
+        console.warn('Search already in progress');
+        return;
+    }
+
     const rawPhone = phoneInput.value.trim();
     const normalizedPhone = normalizePhone(rawPhone);
 
-    // ✅ VALIDATE BEFORE SETTING STATE FLAG
+    // ✅ Validate AFTER state check
     if (!rawPhone) {
         showError(displayEl, 'Please enter your phone number.');
         phoneInput.focus();
@@ -102,12 +108,7 @@ export async function lookupBookings() {
         return;
     }
 
-    // ✅ NOW check and set state flag AFTER validation
-    if (isSearching) {
-        console.warn('Search already in progress');
-        return;
-    }
-
+    // ✅ NOW set state flag AFTER validation passes
     isSearching = true;
 
     if (searchBtn) {
@@ -119,7 +120,6 @@ export async function lookupBookings() {
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
 
     try {
-        // ✅ USE NORMALIZED PHONE for API lookup
         const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`);
         
         if (!res.ok) {
@@ -256,7 +256,7 @@ export async function lookupBookings() {
 }
 
 // ================================================================================================
-// CANCEL BOOKING BY PHONE (NORMALIZED PHONE)
+// CANCEL BOOKING BY PHONE (RACE CONDITION FIXED)
 // ================================================================================================
 export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, buttonElement) {
     const phoneInput = document.getElementById("lookupPhone");
@@ -267,10 +267,16 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         return;
     }
 
+    // ✅ FIX: Check state flag FIRST
+    if (isCancelling) {
+        console.warn('Cancellation already in progress');
+        return;
+    }
+
     const rawPhone = phoneInput.value.trim();
     const normalizedPhone = normalizePhone(rawPhone);
 
-    // ✅ VALIDATE BEFORE SETTING STATE FLAG
+    // ✅ Validate AFTER state check
     if (!rawPhone || !isValidPhone(rawPhone)) {
         alert('❌ Error: Valid phone number is required for cancellation.');
         phoneInput.focus();
@@ -281,12 +287,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         return;
     }
 
-    // ✅ NOW check and set state flag AFTER validation and confirmation
-    if (isCancelling) {
-        console.warn('Cancellation already in progress');
-        return;
-    }
-
+    // ✅ NOW set state flag AFTER validation and confirmation
     isCancelling = true;
 
     const originalHTML = displayEl.innerHTML;
@@ -306,7 +307,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
             body: JSON.stringify({ 
                 signupRowId, 
                 slotRowId,
-                phone: normalizedPhone  // ✅ SEND NORMALIZED PHONE
+                phone: normalizedPhone
             })
         });
 
@@ -315,10 +316,8 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         if (res.ok && data.ok) {
             showSuccess(displayEl, data.message || "Booking cancelled successfully!");
             
-            // ✅ Use invalidateCache helper instead of manual invalidation
             invalidateCache();
             
-            // ✅ Refresh bookings after success with state check
             errorRecoveryTimeout = setTimeout(() => {
                 if (!isSearching) {
                     lookupBookings();
@@ -330,7 +329,6 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
             const errorMsg = data.error || getErrorMessage(res.status, "Failed to cancel booking.");
             showError(displayEl, errorMsg);
             
-            // ✅ Restore original list after error with timeout management
             if (errorRecoveryTimeout) {
                 clearTimeout(errorRecoveryTimeout);
             }
@@ -351,7 +349,6 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         
         showError(displayEl, errorMsg);
         
-        // ✅ Restore original list after error with timeout management
         if (errorRecoveryTimeout) {
             clearTimeout(errorRecoveryTimeout);
         }
@@ -403,11 +400,9 @@ export function toggleLookup() {
             content.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 100);
     } else {
-        // ✅ Clear everything when closing including timeouts
         if (phoneInput) phoneInput.value = '';
         if (displayEl) displayEl.innerHTML = '';
         
-        // Clear any pending error recovery timeouts
         if (errorRecoveryTimeout) {
             clearTimeout(errorRecoveryTimeout);
             errorRecoveryTimeout = null;
@@ -419,7 +414,7 @@ export function toggleLookup() {
 }
 
 // ================================================================================================
-// INITIALIZATION - FIXED TO RUN IMMEDIATELY
+// INITIALIZATION
 // ================================================================================================
 function initializeLookup() {
     console.log('🔍 Initializing lookup module...');
@@ -464,12 +459,9 @@ function initializeLookup() {
     console.log('✅ Lookup module initialized');
 }
 
-// ✅ FIX: Run initialization immediately when module loads
-// DOMContentLoaded has already fired by the time this module is imported
+// Run initialization immediately when module loads
 if (document.readyState === 'loading') {
-    // Still loading, wait for DOMContentLoaded
     document.addEventListener('DOMContentLoaded', initializeLookup);
 } else {
-    // DOM is already ready, run immediately
     initializeLookup();
 }
