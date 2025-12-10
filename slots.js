@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS - MAIN ORCHESTRATOR (REFACTORED & MODULAR)
+// SLOTS - MAIN ORCHESTRATOR (INITIALIZATION FIXED)
 // ================================================================================================
 
 import { getSelectedSlots, invalidateCache } from './config.js';
@@ -199,28 +199,32 @@ export function cleanup() {
 }
 
 // ================================================================================================
-// INITIALIZATION
+// INITIALIZATION (FIXED)
 // ================================================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+// ✅ FIX: Run initialization immediately instead of waiting for DOMContentLoaded
+// Since this module is loaded AFTER auth via dynamic import, DOM is already ready
+function initialize() {
     console.log('📅 Slots module initializing...');
-    
-    // Load slots on page load
-    loadSlots();
     
     // Setup beforeunload warning
     setupBeforeUnloadWarning();
     
+    // Handle reload slots event
+    window.addEventListener('reloadSlots', () => {
+        console.log('🔄 Reload slots event triggered');
+        forceReloadSlots();
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('unload', cleanup);
+    
     console.log('✅ Slots module initialized');
-});
+}
 
-// Handle reload slots event
-window.addEventListener('reloadSlots', () => {
-    console.log('🔄 Reload slots event triggered');
-    forceReloadSlots();
-});
-
-// Cleanup on page unload (if needed)
-window.addEventListener('unload', () => {
-    cleanup();
-});
+// ✅ Run immediately if DOM is ready, otherwise wait
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initialize);
+} else {
+    initialize();
+}
