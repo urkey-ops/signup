@@ -62,3 +62,30 @@ window.addEventListener('beforeunload', () => {
         body: JSON.stringify({ action: 'logout' }) 
     });
 });
+
+// Add to end of main.js:
+document.addEventListener('DOMContentLoaded', () => {
+    const loginBtn = document.getElementById('userLoginBtn');
+    const passwordInput = document.getElementById('userPassword');
+    const loginMsg = document.getElementById('loginMsg');
+    
+    loginBtn.onclick = async () => {
+        const password = passwordInput.value;
+        try {
+            loginMsg.textContent = 'Logging in...';
+            const result = await window.login(password);
+            if (result.ok) {
+                loginMsg.className = 'msg-box success';
+                loginMsg.textContent = 'Login successful!';
+            } else {
+                loginMsg.className = 'msg-box error';
+                loginMsg.textContent = 'Wrong password';
+                passwordInput.value = '';
+            }
+        } catch {
+            loginMsg.className = 'msg-box error';
+            loginMsg.textContent = 'Login failed';
+        }
+    };
+});
+
