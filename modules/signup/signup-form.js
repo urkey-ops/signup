@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP FORM - UI MANAGEMENT & NAVIGATION
+// SIGNUP FORM - UI MANAGEMENT & NAVIGATION (CSS CONSISTENT)
 // ================================================================================================
 
 import { getSelectedSlots, updateSelectedSlots } from '../../config.js';
@@ -148,7 +148,7 @@ export function resetFormState() {
 }
 
 // ================================================================================================
-// SUCCESS DISPLAY
+// SUCCESS DISPLAY (CSS CONSISTENT + FIXED DATES)
 // ================================================================================================
 
 /**
@@ -170,40 +170,72 @@ export function displayBookingSuccess(bookedSlots, category, email) {
     // Clear previous content
     confirmationDetails.innerHTML = '';
     
-    // Create confirmation message
+    // Create confirmation container
     const container = document.createElement('div');
-    container.style.margin = '20px 0';
+    container.className = 'selected-slots-summary';
+    container.style.marginBottom = 'var(--space-xl)';
     
     // Heading
-    const heading = document.createElement('strong');
+    const heading = document.createElement('h3');
     heading.textContent = 'Your bookings:';
     container.appendChild(heading);
     
-    // Booking list
-    const list = document.createElement('ul');
-    list.style.textAlign = 'left';
-    list.style.display = 'inline-block';
-    list.style.margin = '10px auto';
-    list.style.paddingLeft = '20px';
+    // Booking chips (reuse slot chip system)
+    const chipsContainer = document.createElement('div');
+    chipsContainer.className = 'chips-container';
     
-    // Sort slots by date and time
+    // ✅ FIXED: Perfect chronological sort + readable dates
     const sortedSlots = [...bookedSlots].sort((a, b) => {
-        const dateCompare = new Date(a.date) - new Date(b.date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.label.localeCompare(b.label);
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+        
+        // Same date: sort by time
+        const timeA = a.label.match(/(\d+)(AM|PM)/i);
+        const timeB = b.label.match(/(\d+)(AM|PM)/i);
+        const hourA = timeA ? parseInt(timeA[1]) + (timeA[2].toUpperCase() === 'PM' ? 12 : 0) : 0;
+        const hourB = timeB ? parseInt(timeB[1]) + (timeB[2].toUpperCase() === 'PM' ? 12 : 0) : 0;
+        return hourA - hourB;
     });
     
     sortedSlots.forEach(slot => {
-        const li = document.createElement('li');
-        li.style.marginBottom = '8px';
-        li.textContent = `📅 ${slot.date} at 🕰️ ${slot.label}`;
-        list.appendChild(li);
+        const chip = document.createElement('div');
+        chip.className = 'slot-chip';
+        
+        // ✅ FIXED: Readable date format (Mon, Dec 15)
+        const readableDate = new Date(slot.date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+        
+        // Short time format
+        const shortTime = slot.label
+            .replace(/:\d{2}/g, '')
+            .replace(/\s*-\s*/g, '-')
+            .replace(/\s/g, '');
+        
+        const chipContent = document.createElement('span');
+        chipContent.className = 'chip-content';
+        
+        const chipDate = document.createElement('span');
+        chipDate.className = 'chip-date';
+        chipDate.textContent = readableDate;
+        
+        const chipTime = document.createElement('span');
+        chipTime.className = 'chip-time';
+        chipTime.textContent = shortTime;
+        
+        chipContent.appendChild(chipDate);
+        chipContent.appendChild(chipTime);
+        chip.appendChild(chipContent);
+        
+        chipsContainer.appendChild(chip);
     });
     
-    container.appendChild(list);
+    container.appendChild(chipsContainer);
     confirmationDetails.appendChild(container);
     
-      
     // Show success section
     if (signupSection) signupSection.style.display = "none";
     successSection.style.display = "block";
