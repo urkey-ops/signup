@@ -1,4 +1,4 @@
-import { USER_PASSWORD } from '../config.js';
+const USER_PASSWORD = process.env.USER_PASSWORD || 'test123';
 
 export default async function handler(req, res) {
     // CORS for fetch
