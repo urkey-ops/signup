@@ -54,3 +54,36 @@ export async function logout() {
     document.getElementById('mainApp').style.display = 'none';
     displayMessage('loginMsg', 'Logged out.', 'info');
 }
+
+let loginPending = false;
+
+export async function login(password) {
+    if (loginPending) return;  // STOP SPAM
+    
+    loginPending = true;
+    try {
+        const res = await fetch('/api/user-auth', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ action: 'login', password })
+        });
+        
+        const data = await res.json();
+        loginPending = false;
+        return data;
+    } catch {
+        loginPending = false;
+        throw new Error('Login failed');
+    }
+}
+
+export async function logout() {
+    await fetch('/api/user-auth', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' })
+    });
+}
+
