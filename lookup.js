@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (RACE CONDITION FIXED)
+// LOOKUP.JS (COMPACT CHIP STYLE - RACE CONDITION FIXED)
 // ================================================================================================
 
 import { 
@@ -74,7 +74,7 @@ function showSuccess(displayEl, message) {
 }
 
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (RACE CONDITION FIXED)
+// LOOKUP BOOKINGS BY PHONE NUMBER (COMPACT CHIP STYLE)
 // ================================================================================================
 export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
@@ -142,102 +142,50 @@ export async function lookupBookings() {
             return;
         }
 
-        // Build sorted booking list
+        // ✅ COMPACT CHIP STYLE SUMMARY
         displayEl.innerHTML = '';
-        const sortedBookings = [...bookings].sort((a, b) => {
-            return new Date(a.date) - new Date(b.date);
-        });
+        const sortedBookings = [...bookings].sort((a, b) => new Date(a.date) - new Date(b.date));
         
-        const listDiv = document.createElement('div');
-        listDiv.className = 'bookings-list';
+        const chipList = document.createElement('div');
+        chipList.className = 'lookup-chip-list';
 
         sortedBookings.forEach((booking) => {
-            const item = document.createElement('div');
-            item.className = 'booking-item';
+            const chip = document.createElement('div');
+            chip.className = 'lookup-chip';
 
-            // Date and time header
-            const title = document.createElement('div');
-            title.style.marginBottom = '10px';
-            title.style.fontSize = '1.05rem';
+            const text = document.createElement('span');
+            text.textContent = `📅 ${booking.date} — 🕰️ ${booking.slotLabel}`;
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'cancel-btn';
+            cancelBtn.textContent = '❌';
+            cancelBtn.title = 'Cancel booking';
+            cancelBtn.setAttribute('aria-label', `Cancel booking for ${booking.date} at ${booking.slotLabel}`);
             
-            const dateStrong = document.createElement('strong');
-            dateStrong.textContent = `📅 ${booking.date}`;
-            title.appendChild(dateStrong);
-            
-            title.appendChild(document.createTextNode(' at '));
-            
-            const timeStrong = document.createElement('strong');
-            timeStrong.textContent = `🕰️ ${booking.slotLabel}`;
-            title.appendChild(timeStrong);
-            
-            item.appendChild(title);
+            // Attach cancellation metadata
+            cancelBtn.dataset.signup_row_id = booking.signupRowId;
+            cancelBtn.dataset.slot_row_id = booking.slotRowId;
+            cancelBtn.dataset.date = booking.date;
+            cancelBtn.dataset.slot_label = booking.slotLabel;
 
-            // Details
-            const detailsDiv = document.createElement('div');
-            detailsDiv.style.marginBottom = '12px';
-            detailsDiv.style.color = '#64748b';
-
-            const nameDiv = document.createElement('div');
-            const nameSmall = document.createElement('small');
-            nameSmall.textContent = `Name: ${booking.name}`;
-            nameDiv.appendChild(nameSmall);
-            detailsDiv.appendChild(nameDiv);
-
-            if (booking.category) {
-                const catDiv = document.createElement('div');
-                const catSmall = document.createElement('small');
-                catSmall.textContent = `Category: ${booking.category}`;
-                catDiv.appendChild(catSmall);
-                detailsDiv.appendChild(catDiv);
-            }
-
-            if (booking.notes) {
-                const notesDiv = document.createElement('div');
-                const notesSmall = document.createElement('small');
-                notesSmall.textContent = `Notes: ${booking.notes}`;
-                notesDiv.appendChild(notesSmall);
-                detailsDiv.appendChild(notesDiv);
-            }
-
-            item.appendChild(detailsDiv);
-
-            // Cancel button
-            const btn = document.createElement('button');
-            btn.className = 'btn secondary-btn';
-            btn.style.marginTop = '8px';
-            btn.style.background = '#ef4444';
-            btn.style.color = 'white';
-            btn.style.border = 'none';
-            btn.style.cursor = 'pointer';
-            btn.textContent = '❌ Cancel This Booking';
-            btn.setAttribute('aria-label', `Cancel booking for ${booking.date} at ${booking.slotLabel}`);
-
-            btn.dataset.signup_row_id = booking.signupRowId;
-            btn.dataset.slot_row_id = booking.slotRowId;
-            btn.dataset.date = booking.date;
-            btn.dataset.slot_label = booking.slotLabel;
-
-            btn.addEventListener('click', (ev) => {
-                const sId = Number(ev.currentTarget.dataset.signup_row_id);
-                const slId = Number(ev.currentTarget.dataset.slot_row_id);
-                const date = ev.currentTarget.dataset.date;
-                const label = ev.currentTarget.dataset.slot_label;
-                cancelBooking(sId, slId, date, label, ev.currentTarget);
+            cancelBtn.addEventListener('click', (ev) => {
+                // Animate removal
+                chip.classList.add('removing');
+                setTimeout(() => {
+                    const sId = Number(ev.currentTarget.dataset.signup_row_id);
+                    const slId = Number(ev.currentTarget.dataset.slot_row_id);
+                    const date = ev.currentTarget.dataset.date;
+                    const label = ev.currentTarget.dataset.slot_label;
+                    cancelBooking(sId, slId, date, label, ev.currentTarget);
+                }, 250);
             });
 
-            // Hover effects
-            btn.addEventListener('mouseenter', () => {
-                btn.style.background = '#dc2626';
-            });
-            btn.addEventListener('mouseleave', () => {
-                btn.style.background = '#ef4444';
-            });
-
-            item.appendChild(btn);
-            listDiv.appendChild(item);
+            chip.appendChild(text);
+            chip.appendChild(cancelBtn);
+            chipList.appendChild(chip);
         });
 
-        displayEl.appendChild(listDiv);
+        displayEl.appendChild(chipList);
 
     } catch (err) {
         console.error("Lookup error:", err);
@@ -295,7 +243,8 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
     if (buttonElement) {
         buttonElement.disabled = true;
         originalCancelBtnText = buttonElement.textContent;
-        buttonElement.textContent = '⏳ Cancelling...';
+        buttonElement.textContent = '⏳';
+        buttonElement.style.color = '#6b7280';
     }
 
     try {
@@ -366,6 +315,7 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
         if (buttonElement && originalCancelBtnText) {
             buttonElement.disabled = false;
             buttonElement.textContent = originalCancelBtnText;
+            buttonElement.style.color = '';
             originalCancelBtnText = null;
         }
     }
