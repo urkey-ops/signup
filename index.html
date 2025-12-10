@@ -9,16 +9,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     
     <!-- ✅ OPTIMIZED CSP: Removed unsafe-inline, using nonces -->
-    <meta http-equiv="Content-Security-Policy" 
-          content="default-src 'self'; 
-                   style-src 'self' 'nonce-RANDOM_NONCE' https://fonts.googleapis.com;
-                   font-src 'self' https://fonts.gstatic.com;
-                   script-src 'self' 'nonce-RANDOM_NONCE';
-                   img-src 'self' data: blob:;
-                   connect-src 'self';
-                   base-uri 'self';
-                   form-action 'self';
-                   frame-ancestors 'none';">
+   
+    <meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline' https://vercel.live https://fonts.googleapis.com;
+  script-src-elem 'self' https://vercel.live https://fonts.googleapis.com;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src 'self' https://fonts.gstatic.com;
+  frame-ancestors 'none';
+  connect-src 'self';
+  img-src 'self' data:;
+">
     
     <title>Book a Slot - Online Booking System</title>
 
