@@ -419,13 +419,18 @@ export function toggleLookup() {
 }
 
 // ================================================================================================
-// INITIALIZATION
+// INITIALIZATION - FIXED TO RUN IMMEDIATELY
 // ================================================================================================
-document.addEventListener('DOMContentLoaded', () => {
+function initializeLookup() {
+    console.log('🔍 Initializing lookup module...');
+    
     const toggleBtn = document.getElementById("lookupToggle");
     if (toggleBtn) {
         toggleBtn.addEventListener('click', toggleLookup);
         toggleBtn.setAttribute('aria-expanded', 'false');
+        console.log('✅ Lookup toggle button attached');
+    } else {
+        console.error('❌ Lookup toggle button not found');
     }
 
     const searchBtn = document.getElementById('lookupSearchBtn');
@@ -434,6 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             lookupBookings();
         });
+        console.log('✅ Lookup search button attached');
+    } else {
+        console.error('❌ Lookup search button not found');
     }
 
     const lookupPhone = document.getElementById('lookupPhone');
@@ -448,5 +456,20 @@ document.addEventListener('DOMContentLoaded', () => {
         lookupPhone.addEventListener('input', () => {
             lookupPhone.style.borderColor = '';
         });
+        console.log('✅ Lookup phone input attached');
+    } else {
+        console.error('❌ Lookup phone input not found');
     }
-});
+    
+    console.log('✅ Lookup module initialized');
+}
+
+// ✅ FIX: Run initialization immediately when module loads
+// DOMContentLoaded has already fired by the time this module is imported
+if (document.readyState === 'loading') {
+    // Still loading, wait for DOMContentLoaded
+    document.addEventListener('DOMContentLoaded', initializeLookup);
+} else {
+    // DOM is already ready, run immediately
+    initializeLookup();
+}
