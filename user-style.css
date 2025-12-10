@@ -950,3 +950,56 @@ small {
         border: 1px solid #000;
     }
 }
+
+/* ============================================================ */
+/* LOOKUP COMPACT BOOKING CHIPS (uses same feel as slot chips) */
+/* ============================================================ */
+.lookup-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.lookup-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  background: white;
+  border: 2px solid var(--secondary-color);
+  border-radius: var(--radius-full);
+  padding: var(--space-sm) var(--space-sm) var(--space-sm) var(--space-md);
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-xs);
+  font-size: 0.875rem;
+}
+
+.lookup-chip span {
+  white-space: nowrap;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.lookup-chip .cancel-btn {
+  background: var(--danger-light);
+  border: none;
+  color: var(--danger-hover);
+  font-size: 1rem;
+  border-radius: 50%;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--transition-normal);
+}
+
+.lookup-chip .cancel-btn:hover {
+  background: var(--danger-color);
+  color: white;
+}
+
+.lookup-chip.removing {
+  animation: chipSlideOut var(--transition-slow) ease forwards;
+}
