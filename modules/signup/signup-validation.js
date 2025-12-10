@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP VALIDATION - ALL FORM VALIDATION LOGIC
+// SIGNUP VALIDATION - ALL FORM VALIDATION LOGIC (CSS CONSISTENT)
 // ================================================================================================
 
 import { CONFIG, normalizePhone } from '../../config.js';
@@ -103,18 +103,19 @@ export function validateNotes(notes) {
 }
 
 // ================================================================================================
-// REAL-TIME VALIDATION HELPERS
+// REAL-TIME VALIDATION HELPERS (CSS CONSISTENT)
 // ================================================================================================
 
 /**
- * Apply validation error styling to input
+ * Apply validation error styling to input (CSS CONSISTENT)
  * @param {HTMLElement} input - Input element
  * @param {string} message - Error message (optional)
  */
 export function markInputInvalid(input, message) {
     if (!input) return;
     
-    input.style.borderColor = '#ef4444';
+    // ✅ FIXED: Use CSS class instead of inline color
+    input.classList.add('input-invalid');
     input.setAttribute('aria-invalid', 'true');
     
     if (message) {
@@ -123,13 +124,14 @@ export function markInputInvalid(input, message) {
 }
 
 /**
- * Clear validation error styling from input
+ * Clear validation error styling from input (CSS CONSISTENT)
  * @param {HTMLElement} input - Input element
  */
 export function clearInputValidation(input) {
     if (!input) return;
     
-    input.style.borderColor = '';
+    // ✅ FIXED: Remove CSS class instead of inline style
+    input.classList.remove('input-invalid');
     input.removeAttribute('aria-invalid');
     input.removeAttribute('title');
 }
