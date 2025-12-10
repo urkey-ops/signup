@@ -1,91 +1,100 @@
-import { login, logout } from './api.js';
-import { displayMessage } from './utils.js';
+import { login, logout, checkSession } from './api.js';
 
 let timeoutId;
+let sessionCheckInterval;
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
-const MAX_SESSION = 2 * 60 * 60 * 1000; // 2 hours absolute
-let loginTime = 0;
+const SESSION_CHECK_INTERVAL = 60 * 1000; // Check every minute
 let isLoggingOut = false;
 
+function dispatchAuthReady() {
+    window.dispatchEvent(new CustomEvent('user-auth-ready'));
+    console.log('✅ user-auth-ready dispatched');
+}
+
+function handleSessionExpired() {
+    if (isLoggingOut) return;
+    isLoggingOut = true;
+    
+    clearTimeout(timeoutId);
+    clearInterval(sessionCheckInterval);
+    
+    logout().then(() => {
+        alert('Your session has expired. Please log in again.');
+        location.reload();
+    }).catch(() => {
+        location.reload();
+    });
+}
+
 function resetTimer() {
-    if (isLoggingOut) return;  // Prevent infinite loop
+    if (isLoggingOut) return;
     
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => {
-        isLoggingOut = true;
-        logout();
-        isLoggingOut = false;
+        handleSessionExpired();
     }, IDLE_TIMEOUT);
+}
+
+function startSessionValidation() {
+    // Periodic session check
+    sessionCheckInterval = setInterval(async () => {
+        if (isLoggingOut) return;
+        
+        const result = await checkSession();
+        if (!result.ok) {
+            handleSessionExpired();
+        }
+    }, SESSION_CHECK_INTERVAL);
+}
+
+async function initializeSession() {
+    console.log('🔍 Checking session...');
     
-    // Check absolute timeout
-    if (Date.now() - loginTime > MAX_SESSION) {
-        isLoggingOut = true;
-        logout();
-        isLoggingOut = false;
+    try {
+        const data = await checkSession();
+        
+        if (data.ok) {
+            document.getElementById('loginSection').style.display = 'none';
+            document.getElementById('mainApp').style.display = 'block';
+            document.getElementById('logoutBtn').style.display = 'block';
+            
+            resetTimer();
+            startSessionValidation();
+            dispatchAuthReady();
+        } else {
+            document.getElementById('loginSection').style.display = 'flex';
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('logoutBtn').style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Session check failed:', err);
+        document.getElementById('loginSection').style.display = 'flex';
+        document.getElementById('mainApp').style.display = 'none';
+        document.getElementById('logoutBtn').style.display = 'none';
     }
 }
 
-function checkSession() {
-    fetch('/api/user-auth', { credentials: 'include' })
-        .then(res => res.json())
-        .then(data => {
-            if (data.ok) {
-                document.getElementById('loginSection').style.display = 'none';
-                document.getElementById('mainApp').style.display = 'block';
-                loginTime = Date.now();
-                resetTimer();
-            }
-        }).catch(() => {
-            document.getElementById('loginSection').style.display = 'block';
-            document.getElementById('mainApp').style.display = 'none';
-        });
-}
-
 // Activity listeners
-['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart'].forEach(event => {
-    document.addEventListener(event, resetTimer, true);
+['mousemove', 'mousedown', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+    document.addEventListener(event, resetTimer, { passive: true, capture: true });
 });
 
 // Expose globally
 window.login = login;
 window.logout = logout;
+window.checkSession = checkSession;
 window.resetUserTimer = resetTimer;
 
-// Page load
-window.onload = checkSession;
+// Initialize on page load
+window.addEventListener('load', initializeSession);
 
-// Tab close cleanup
-window.addEventListener('beforeunload', () => {
-    fetch('/api/user-auth', { 
-        method: 'POST', 
-        credentials: 'include', 
-        body: JSON.stringify({ action: 'logout' }) 
-    });
-});
-
-// Add to end of main.js:
-document.addEventListener('DOMContentLoaded', () => {
-    const loginBtn = document.getElementById('userLoginBtn');
-    const passwordInput = document.getElementById('userPassword');
-    const loginMsg = document.getElementById('loginMsg');
-    
-    loginBtn.onclick = async () => {
-        const password = passwordInput.value;
-        try {
-            loginMsg.textContent = 'Logging in...';
-            const result = await window.login(password);
-            if (result.ok) {
-                loginMsg.className = 'msg-box success';
-                loginMsg.textContent = 'Login successful!';
-            } else {
-                loginMsg.className = 'msg-box error';
-                loginMsg.textContent = 'Wrong password';
-                passwordInput.value = '';
+// Handle visibility change (tab switching)
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !isLoggingOut) {
+        checkSession().then(result => {
+            if (!result.ok) {
+                handleSessionExpired();
             }
-        } catch {
-            loginMsg.className = 'msg-box error';
-            loginMsg.textContent = 'Login failed';
-        }
-    };
+        });
+    }
 });
-
