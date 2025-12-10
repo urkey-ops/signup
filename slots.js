@@ -1,8 +1,8 @@
 // ================================================================================================
-// SLOTS - MAIN ORCHESTRATOR (INITIALIZATION FIXED)
+// SLOTS - MAIN ORCHESTRATOR (BEFOREUNLOAD BUG FIXED)
 // ================================================================================================
 
-import { getSelectedSlots, invalidateCache } from './config.js';
+import { getSelectedSlots, invalidateCache, getIsSubmitting } from './config.js';
 import { injectSlotsStyles } from './modules/slots/slots-styles.js';
 import { 
     fetchSlots, 
@@ -156,23 +156,38 @@ export {
 };
 
 // ================================================================================================
-// BEFOREUNLOAD WARNING
+// BEFOREUNLOAD WARNING (FIXED TO NOT INTERFERE WITH SUBMISSION)
 // ================================================================================================
 
 /**
  * Warn user before leaving if they have unsaved selections
+ * ✅ FIX: Does NOT trigger during form submission
  */
 function setupBeforeUnloadWarning() {
     window.addEventListener('beforeunload', (e) => {
-        const successSection = document.getElementById("successMessage");
+        // ✅ FIX: Don't show warning if actively submitting
+        if (getIsSubmitting()) {
+            console.log('⏳ Submission in progress - allowing navigation');
+            return; // Allow navigation during submission
+        }
         
-        if (!successSection) return;
+        const successSection = document.getElementById("successMessage");
+        const signupSection = document.getElementById("signupSection");
+        
+        if (!successSection || !signupSection) return;
         
         const isOnSuccessPage = successSection.style.display === "block";
+        const isOnSignupPage = signupSection.style.display === "block";
+        
+        // ✅ FIX: Don't warn if on success page OR signup page (form is being filled)
+        if (isOnSuccessPage || isOnSignupPage) {
+            return;
+        }
+        
         const selectedSlots = getSelectedSlots();
         
-        // Warn if user has selected slots and hasn't completed booking
-        if (selectedSlots.length > 0 && !isOnSuccessPage) {
+        // Only warn if user has selected slots and is on the slot selection page
+        if (selectedSlots.length > 0) {
             e.preventDefault();
             e.returnValue = 'You have selected slots but have not completed your booking. Are you sure you want to leave?';
             return e.returnValue;
@@ -199,11 +214,9 @@ export function cleanup() {
 }
 
 // ================================================================================================
-// INITIALIZATION (FIXED)
+// INITIALIZATION
 // ================================================================================================
 
-// ✅ FIX: Run initialization immediately instead of waiting for DOMContentLoaded
-// Since this module is loaded AFTER auth via dynamic import, DOM is already ready
 function initialize() {
     console.log('📅 Slots module initializing...');
     
@@ -222,7 +235,7 @@ function initialize() {
     console.log('✅ Slots module initialized');
 }
 
-// ✅ Run immediately if DOM is ready, otherwise wait
+// Run immediately if DOM is ready, otherwise wait
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initialize);
 } else {
