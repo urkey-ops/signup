@@ -257,14 +257,28 @@
                 }, { once: true });
             }
             
-            // Lazy load signup when user selects a slot
+                       // ✅ FIXED: Lazy load + SHOW FORM
             window.addEventListener('showSignupForm', async () => {
+                console.log('📦 Lazy loading signup module...');
+                
                 if (!window.__signupLoaded) {
-                    console.log('📦 Lazy loading signup module...');
                     await import('./signup-frontend.js');
                     window.__signupLoaded = true;
+                    console.log('✅ Signup module loaded');
                 }
-            }, { once: true });
+                
+                // ✅ SHOW THE SIGNUP FORM
+                const signupSection = document.getElementById('signupSection');
+                const slotsDisplay = document.getElementById('slotsDisplay');
+                const floatingBtnContainer = document.getElementById('floatingSignupBtnContainer');
+                
+                if (signupSection) signupSection.style.display = 'block';
+                if (slotsDisplay) slotsDisplay.style.display = 'none';
+                if (floatingBtnContainer) floatingBtnContainer.style.display = 'none';
+                
+                console.log('✅ Signup form displayed');
+            }, { once: false });  // reusable
+
             
             // Expose debug helpers
             window.__APP__ = {
