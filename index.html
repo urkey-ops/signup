@@ -8,34 +8,22 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     
- <meta http-equiv="Content-Security-Policy" 
-      content="default-src 'self'; 
-               style-src 'self' 'unsafe-inline' [https://fonts.googleapis.com](https://fonts.googleapis.com);
-               font-src 'self' [https://fonts.gstatic.com](https://fonts.gstatic.com);
-               script-src 'self' 'unsafe-inline';
-               img-src 'self' data: blob:;
-               connect-src 'self';">
-    
     <title>Book a Slot - Online Booking System</title>
+    
+    <!-- 🚀 PERFECT PRELOADS -->
+    <link rel="preload" href="/api/slots" as="fetch" crossorigin>
+    <link rel="preload" href="user-style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>">
 
-    <!-- Preload critical resources -->
+    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    
-    <!-- Async load fonts -->
-    <link rel="preload" 
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
-          as="style" 
-          onload="this.onload=null;this.rel='stylesheet'">
-    <noscript>
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    </noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"></noscript>
 
-    <link rel="stylesheet" href="user-style.css">
-    <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-    <!-- Critical inline styles for instant render -->
+    <!-- Critical CSS -->
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
@@ -93,6 +81,7 @@
         }
     </style>
 </head>
+
 <body>
 <div class="container">
     <header>
