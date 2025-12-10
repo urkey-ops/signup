@@ -1,4 +1,3 @@
-
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
@@ -11,7 +10,7 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
-        // UPDATED: Added Content-Security-Policy header to enforce frame-ancestors correctly (resolves error 1)
+      
         {
           "key": "Content-Security-Policy",
           "value": "frame-ancestors 'none';"
