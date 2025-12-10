@@ -203,20 +203,7 @@ export function displayBookingSuccess(bookedSlots, category, email) {
     container.appendChild(list);
     confirmationDetails.appendChild(container);
     
-    // Category info
-    const categoryInfo = document.createElement('p');
-    categoryInfo.style.marginTop = '15px';
-    categoryInfo.innerHTML = `Selected category: <strong>${escapeHTML(category)}</strong>`;
-    confirmationDetails.appendChild(categoryInfo);
-    
-    // Email confirmation
-    if (email) {
-        const emailConfirmation = document.createElement('p');
-        emailConfirmation.style.marginTop = '10px';
-        emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${escapeHTML(email)}</strong>`;
-        confirmationDetails.appendChild(emailConfirmation);
-    }
-    
+      
     // Show success section
     if (signupSection) signupSection.style.display = "none";
     successSection.style.display = "block";
