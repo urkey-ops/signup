@@ -326,5 +326,3 @@ if (typeof window !== 'undefined') {
     console.log('💡 Debug helpers available at window.__APP_DEBUG__');
 }
 
-// Add to your existing config.js (bottom)
-export const USER_PASSWORD = process.env.USER_PASSWORD || 'changeme123';
