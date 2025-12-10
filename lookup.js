@@ -1,5 +1,5 @@
 // ================================================================================================
-// LOOKUP.JS (COMPACT CHIP STYLE - FIXED ANIMATION)
+// LOOKUP.JS (COMPACT CHIP STYLE - FIXED ANIMATION + CHRONOLOGICAL SORT)
 // ================================================================================================
 
 import { 
@@ -74,7 +74,7 @@ function showSuccess(displayEl, message) {
 }
 
 // ================================================================================================
-// LOOKUP BOOKINGS BY PHONE NUMBER (COMPACT CHIP STYLE - FIXED)
+// LOOKUP BOOKINGS BY PHONE NUMBER (CHRONOLOGICAL SORT + FIXED ANIMATION)
 // ================================================================================================
 export async function lookupBookings() {
     const phoneInput = document.getElementById("lookupPhone");
@@ -142,9 +142,14 @@ export async function lookupBookings() {
             return;
         }
 
-        // ✅ COMPACT CHIP STYLE SUMMARY (FIXED ANIMATION)
+        // ✅ CHRONOLOGICAL SORT: Date FIRST, then Time SECOND
         displayEl.innerHTML = '';
-        const sortedBookings = [...bookings].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const sortedBookings = [...bookings].sort((a, b) => {
+            // Parse full datetime for accurate chronological sorting
+            const dateA = new Date(`${a.date}T${a.slotLabel.split(' - ')[0]}`);
+            const dateB = new Date(`${b.date}T${b.slotLabel.split(' - ')[0]}`);
+            return dateA - dateB;
+        });
         
         const chipList = document.createElement('div');
         chipList.className = 'lookup-chip-list';
