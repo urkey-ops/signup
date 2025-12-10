@@ -1,3 +1,4 @@
+// FILE: vercel.json
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
@@ -10,10 +11,10 @@
         { "key": "X-Content-Type-Options", "value": "nosniff" },
         { "key": "X-Frame-Options", "value": "DENY" },
         { "key": "X-XSS-Protection", "value": "1; mode=block" },
-      
+        // UPDATED: Corrected CSP header value by removing the trailing semicolon (;) to fix Vercel syntax error.
         {
           "key": "Content-Security-Policy",
-          "value": "frame-ancestors 'none';"
+          "value": "frame-ancestors 'none'"
         },
         {
           "key": "Referrer-Policy",
