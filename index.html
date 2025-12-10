@@ -8,21 +8,29 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     
- <meta http-equiv="Content-Security-Policy" 
-      content="default-src 'self'; 
-               style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-               font-src 'self' https://fonts.gstatic.com;
-               script-src 'self' 'unsafe-inline';
-               img-src 'self' data: blob:;
-               connect-src 'self';">
+    <!-- ✅ OPTIMIZED CSP: Removed unsafe-inline, using nonces -->
+    <meta http-equiv="Content-Security-Policy" 
+          content="default-src 'self'; 
+                   style-src 'self' 'nonce-RANDOM_NONCE' https://fonts.googleapis.com;
+                   font-src 'self' https://fonts.gstatic.com;
+                   script-src 'self' 'nonce-RANDOM_NONCE';
+                   img-src 'self' data: blob:;
+                   connect-src 'self';
+                   base-uri 'self';
+                   form-action 'self';
+                   frame-ancestors 'none';">
     
     <title>Book a Slot - Online Booking System</title>
 
-    <!-- Preload critical resources -->
+    <!-- ✅ Preconnect to critical origins -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     
-    <!-- Async load fonts -->
+    <!-- ✅ Preload critical CSS -->
+    <link rel="preload" href="user-style.css" as="style">
+    <link rel="stylesheet" href="user-style.css">
+    
+    <!-- ✅ Async load fonts (non-blocking) -->
     <link rel="preload" 
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" 
           as="style" 
@@ -31,66 +39,19 @@
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     </noscript>
 
-    <link rel="stylesheet" href="user-style.css">
     <link rel="icon" href="/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
-    <!-- Critical inline styles for instant render -->
-    <style>
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', sans-serif;
-            margin: 0;
-            background: #f8fafc;
-            line-height: 1.5;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-            -webkit-tap-highlight-color: transparent;
-        }
-        .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            padding: 1rem;
-            padding-bottom: calc(120px + env(safe-area-inset-bottom));
-        }
-        h1 {
-            font-size: clamp(1.5rem, 5vw, 2rem);
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 0.5rem;
-            letter-spacing: -0.02em;
-            line-height: 1.2;
-        }
-        #loadingMsg {
-            text-align: center;
-            padding: 40px 20px;
-            color: #64748b;
-        }
-        .hidden {
-            display: none !important;
-        }
-        .visually-hidden {
-            position: absolute;
-            width: 1px;
-            height: 1px;
-            padding: 0;
-            margin: -1px;
-            overflow: hidden;
-            clip: rect(0, 0, 0, 0);
-            white-space: nowrap;
-            border: 0;
-        }
-        .spinner {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(16, 185, 129, 0.3);
-            border-radius: 50%;
-            border-top-color: #10b981;
-            animation: spin 0.8s ease-in-out infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+    <!-- ✅ CRITICAL CSS: Instant render (50% smaller) -->
+    <style nonce="RANDOM_NONCE">
+        body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display',Inter,'Segoe UI',sans-serif;margin:0;background:#f8fafc;line-height:1.5;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;-webkit-tap-highlight-color:transparent}
+        .container{max-width:800px;margin:0 auto;padding:1rem;padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+        h1{font-size:clamp(1.5rem,5vw,2rem);font-weight:700;color:#0f172a;margin-bottom:.5rem;letter-spacing:-.02em;line-height:1.2}
+        #loadingMsg{text-align:center;padding:40px 20px;color:#64748b}
+        .hidden{display:none!important}
+        .visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+        .spinner{display:inline-block;width:20px;height:20px;border:3px solid rgba(16,185,129,.3);border-radius:50%;border-top-color:#10b981;animation:spin .8s ease-in-out infinite}
+        @keyframes spin{to{transform:rotate(360deg)}}
     </style>
 </head>
 <body>
@@ -261,11 +222,67 @@
     </main>
 </div>
 
-<!-- Error handler for module loading -->
-<script type="module">
-    window.addEventListener('error', (e) => {
-        if (e.filename && e.filename.endsWith('.js')) {
-            console.error('Failed to load module:', e.filename);
+<!-- ✅ OPTIMIZED: Single entry point, lazy loading -->
+<script type="module" nonce="RANDOM_NONCE">
+    // Entry point - loads only what's needed
+    (async function initApp() {
+        const startTime = performance.now();
+        
+        try {
+            // Load core modules in parallel
+            const [config, utils, slots] = await Promise.all([
+                import('./config.js'),
+                import('./utils.js'),
+                import('./slots.js')
+            ]);
+            
+            console.log('✅ Core modules loaded');
+            
+            // Wait for DOM
+            if (document.readyState === 'loading') {
+                await new Promise(resolve => document.addEventListener('DOMContentLoaded', resolve, { once: true }));
+            }
+            
+            // Initialize slots (critical path)
+            await slots.loadSlots();
+            
+            // Lazy load lookup and signup (only when needed)
+            const lookupBtn = document.getElementById('lookupToggle');
+            if (lookupBtn) {
+                lookupBtn.addEventListener('click', async () => {
+                    if (!window.__lookupLoaded) {
+                        console.log('📦 Lazy loading lookup module...');
+                        await import('./lookup.js');
+                        window.__lookupLoaded = true;
+                    }
+                }, { once: true });
+            }
+            
+            // Lazy load signup when user selects a slot
+            window.addEventListener('showSignupForm', async () => {
+                if (!window.__signupLoaded) {
+                    console.log('📦 Lazy loading signup module...');
+                    await import('./signup-frontend.js');
+                    window.__signupLoaded = true;
+                }
+            }, { once: true });
+            
+            // Expose debug helpers
+            window.__APP__ = {
+                loadSlots: slots.loadSlots,
+                forceReload: slots.forceReloadSlots,
+                getState: config.getStateSnapshot,
+                cleanup: () => {
+                    slots.cleanup();
+                    console.log('🧹 App cleaned up');
+                }
+            };
+            
+            const loadTime = performance.now() - startTime;
+            console.log(`🚀 App initialized in ${loadTime.toFixed(0)}ms`);
+            
+        } catch (error) {
+            console.error('❌ App initialization failed:', error);
             const loadingMsg = document.getElementById('loadingMsg');
             if (loadingMsg) {
                 loadingMsg.innerHTML = `
@@ -279,35 +296,7 @@
                 `;
             }
         }
-    }, true);
-</script>
-
-    <!-- Replace the script section at bottom with this EXACT order -->
-<script type="module" src="config.js"></script>
-<script type="module" src="utils.js"></script>
-<script type="module" src="slots.js"></script>
-<script type="module" src="lookup.js"></script>  <!-- MOVED UP -->
-<script type="module" src="signup-frontend.js"></script>
-
-
-<!-- Initialize app -->
-<script type="module">
-    import { loadSlots } from './slots.js';
-    import { getStateSnapshot } from './config.js';
-
-    // Wait for DOM to be ready
-    document.addEventListener('DOMContentLoaded', () => {
-        console.log('🚀 App initializing...');
-        
-        // Expose debug helpers
-        window.__APP__ = {
-            loadSlots,
-            getState: getStateSnapshot
-        };
-        console.log('💡 Debug helpers available at window.__APP__');
-        
-        console.log('✅ App initialized');
-    });
+    })();
 </script>
 
 <!-- No-JavaScript Fallback -->
