@@ -46,6 +46,18 @@ window.resetUserTimer = resetTimer;
 // Page load
 window.onload = checkSession;
 
+let isLoggingOut = false;
+
+function resetTimer() {
+    if (isLoggingOut) return;  // STOP INFINITE LOOP
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => {
+        isLoggingOut = true;
+        logout();
+        isLoggingOut = false;
+    }, IDLE_TIMEOUT);
+}
+
 // Tab close cleanup
 window.addEventListener('beforeunload', () => {
     fetch('/api/user-auth', { 
