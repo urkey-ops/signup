@@ -1,9 +1,12 @@
 // ================================================================================================
 // UI RENDERING MODULE
 // ================================================================================================
+// ui.js LINE 4 - ADD THIS:
 
 import { STATE, DEFAULT_SLOTS } from './config.js';
-import { formatDate, isPastDate, isWeekend, displayMessage } from './utils.js';
+// ui.js LINE 4 - ADD THIS:
+import { formatDate, isPastDate, isWeekend, displayMessage, getNextSixtyDays } from './utils.js';
+
 
 /**
  * Clear all selected dates
