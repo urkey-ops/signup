@@ -512,25 +512,18 @@
         </main>
     </div>
 
-    <!-- 🚀 OPTIMIZED SCRIPT LOADING -->
-    <!-- Load auth first (critical path) -->
+    <!-- 🚀 LOAD AUTH FIRST -->
     <script type="module" src="user-auth/main.js"></script>
     
-    <!-- Preload other modules for faster loading -->
-    <link rel="modulepreload" href="./config.js">
-    <link rel="modulepreload" href="./utils.js">
-    <link rel="modulepreload" href="./slots.js">
-    <link rel="modulepreload" href="./lookup.js">
-    <link rel="modulepreload" href="./signup-frontend.js">
-    
+    <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY -->
     <script type="module">
-        // Optimized module loading with error boundaries
+        // Wait for auth to be ready, then load everything else
         window.addEventListener('user-auth-ready', async () => {
             const mainApp = document.getElementById('mainApp');
             
             try {
-                // Load all modules in parallel for speed
-                const [config, utils, slots, lookup, signupFrontend] = await Promise.all([
+                // Import all modules (they will auto-initialize)
+                await Promise.all([
                     import('./config.js'),
                     import('./utils.js'),
                     import('./slots.js'),
@@ -538,14 +531,17 @@
                     import('./signup-frontend.js')
                 ]);
                 
-                // Initialize slots (main functionality)
-                await slots.loadSlots();
+                // Load slots after modules are imported
+                const slotsModule = await import('./slots.js');
+                await slotsModule.loadSlots();
                 
                 // Add loaded class for smooth fade-in
                 mainApp.classList.add('loaded');
                 
+                console.log('✅ All modules loaded successfully');
+                
             } catch (error) {
-                console.error('Failed to load modules:', error);
+                console.error('❌ Failed to load modules:', error);
                 const loadingMsg = document.getElementById('loadingMsg');
                 if (loadingMsg) {
                     loadingMsg.innerHTML = `
@@ -559,16 +555,16 @@
                     `;
                 }
             }
-        }, { once: true }); // Fire only once for performance
+        }, { once: true });
     </script>
 
-    <!-- OPTIMIZED LOGIN HANDLER -->
+    <!-- LOGIN HANDLER -->
     <script type="module">
         import { displayMessage } from './user-auth/utils.js';
         
         let loginPending = false;
         
-        // Cache DOM elements for performance
+        // Cache DOM elements
         const loginBtn = document.getElementById('userLoginBtn');
         const passwordInput = document.getElementById('userPassword');
         const msgEl = document.getElementById('loginMsg');
@@ -592,7 +588,6 @@
                 
                 if (result.ok) {
                     displayMessage('loginMsg', '✓ Login successful! Loading...', 'success');
-                    // Small delay for user feedback, then reload
                     setTimeout(() => location.reload(), 400);
                 } else {
                     let errorMsg = result.error || 'Invalid password';
@@ -627,7 +622,7 @@
             }
         };
         
-        // Optimized event attachment
+        // Attach event listeners
         if (loginBtn) loginBtn.onclick = handleUserLogin;
         if (passwordInput) {
             passwordInput.onkeydown = (e) => {
@@ -639,9 +634,8 @@
         }
     </script>
 
-    <!-- OPTIMIZED ERROR HANDLER -->
+    <!-- ERROR HANDLER -->
     <script>
-        // Global error handler with better UX
         window.addEventListener('error', (e) => {
             if (e.filename && e.filename.endsWith('.js')) {
                 console.error('Module load failed:', e.filename);
@@ -660,10 +654,9 @@
             }
         }, true);
         
-        // Prevent unhandled promise rejections from crashing the app
         window.addEventListener('unhandledrejection', (e) => {
             console.error('Unhandled promise rejection:', e.reason);
-            e.preventDefault(); // Prevent console error spam
+            e.preventDefault();
         });
     </script>
 
