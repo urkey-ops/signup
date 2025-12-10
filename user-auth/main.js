@@ -5,14 +5,23 @@ let timeoutId;
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const MAX_SESSION = 2 * 60 * 60 * 1000; // 2 hours absolute
 let loginTime = 0;
+let isLoggingOut = false;
 
 function resetTimer() {
+    if (isLoggingOut) return;  // Prevent infinite loop
+    
     clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => logout(), IDLE_TIMEOUT);
+    timeoutId = setTimeout(() => {
+        isLoggingOut = true;
+        logout();
+        isLoggingOut = false;
+    }, IDLE_TIMEOUT);
     
     // Check absolute timeout
     if (Date.now() - loginTime > MAX_SESSION) {
+        isLoggingOut = true;
         logout();
+        isLoggingOut = false;
     }
 }
 
@@ -27,7 +36,6 @@ function checkSession() {
                 resetTimer();
             }
         }).catch(() => {
-            // Show login
             document.getElementById('loginSection').style.display = 'block';
             document.getElementById('mainApp').style.display = 'none';
         });
@@ -45,18 +53,6 @@ window.resetUserTimer = resetTimer;
 
 // Page load
 window.onload = checkSession;
-
-let isLoggingOut = false;
-
-function resetTimer() {
-    if (isLoggingOut) return;  // STOP INFINITE LOOP
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => {
-        isLoggingOut = true;
-        logout();
-        isLoggingOut = false;
-    }, IDLE_TIMEOUT);
-}
 
 // Tab close cleanup
 window.addEventListener('beforeunload', () => {
