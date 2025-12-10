@@ -577,7 +577,8 @@ function renderSlots(slots) {
     });
 
     sortedDates.forEach(date => {
-        const dateObj = new Date(date.split('/').reverse().join('-'));
+        const [month, day, year] = date.split('/').map(Number);
+const dateObj = new Date(year, month - 1, day);
         const dateStr = dateObj.toLocaleDateString('en-US', { 
             weekday: 'short',
             day: 'numeric', 
