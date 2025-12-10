@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP STYLES - CSS-IN-JS FOR SIGNUP MODULE
+// SIGNUP STYLES - CSS-IN-JS FOR SIGNUP MODULE (COLORS MATCHED TO MAIN CSS)
 // ================================================================================================
 
 /**
@@ -16,49 +16,75 @@ export function injectSignupStyles() {
     style.id = 'signup-styles';
     style.textContent = `
 /* ================================================================================================
-   SIGNUP MODULE STYLES (UNIQUE ADDITIONS ONLY)
-   Main styles are in styles.css - these are signup-specific enhancements
+   SIGNUP MODULE STYLES (MATCHED TO MAIN CSS SYSTEM)
+   Uses exact CSS variables from main stylesheet for perfect color consistency
    ================================================================================================ */
 
 /* Conflict action buttons container (409 response UI) */
 .conflict-actions {
     display: flex; 
-    gap: 10px; 
+    gap: var(--space-sm); 
     flex-wrap: wrap; 
     justify-content: center; 
-    margin-top: 15px; 
-    padding: 12px;
+    margin-top: var(--space-md); 
+    padding: var(--space-base);
 }
 
 .conflict-actions button {
-    padding: 12px 24px; 
+    padding: var(--space-md) var(--space-lg); 
     border: none; 
-    border-radius: 8px;
+    border-radius: var(--radius-md);
     cursor: pointer; 
-    font-weight: 500; 
-    font-size: 14px;
-    min-height: 44px;
-    color: white !important;
-    transition: all 0.2s ease;
+    font-weight: 600; 
+    font-size: 1rem;
+    min-height: var(--touch-min);
+    font-family: var(--font-family);
+    transition: all var(--transition-normal);
+    -webkit-tap-highlight-color: transparent;
+}
+
+/* Primary conflict button */
+.conflict-actions .primary-btn {
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    color: white;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.conflict-actions .primary-btn:active {
+    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
+    transform: scale(0.98);
+}
+
+/* Secondary conflict button */
+.conflict-actions .secondary-btn {
+    background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.conflict-actions .secondary-btn:active {
+    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
+    transform: scale(0.98);
 }
 
 /* Conflict details accordion */
 .conflict-details {
-    background: #f8fafc !important; 
-    padding: 16px; 
-    border-radius: 12px; 
-    margin-top: 12px;
-    border: 1px solid #e2e8f0;
-    color: #1e293b !important;
+    background: var(--background) !important; 
+    padding: var(--space-lg); 
+    border-radius: var(--radius-lg); 
+    margin-top: var(--space-md);
+    border: 1px solid var(--border);
+    color: var(--text-primary) !important;
 }
 
 .conflict-details summary {
     font-weight: 600; 
-    color: #334155; 
+    color: var(--text-primary); 
     cursor: pointer;
-    padding: 8px 0;
+    padding: var(--space-sm) 0;
     list-style: none;
     user-select: none;
+    font-size: 1rem;
 }
 
 .conflict-details summary::-webkit-details-marker {
@@ -68,8 +94,9 @@ export function injectSignupStyles() {
 .conflict-details summary::before {
     content: '▶';
     display: inline-block;
-    margin-right: 8px;
-    transition: transform 0.2s ease;
+    margin-right: var(--space-sm);
+    transition: transform var(--transition-normal);
+    color: var(--secondary-color);
 }
 
 .conflict-details[open] summary::before {
@@ -77,22 +104,40 @@ export function injectSignupStyles() {
 }
 
 .conflict-details summary:hover {
-    color: #1e293b;
+    color: var(--text-primary);
+}
+
+.conflict-details summary:hover::before {
+    color: var(--secondary-hover);
 }
 
 .conflict-details div {
-    margin: 8px 0; 
-    padding: 6px 12px;
-    background: white; 
-    border-radius: 6px;
-    border-left: 4px solid #3b82f6;
-    color: #1f2937 !important;
-    font-size: 14px;
+    margin: var(--space-sm) 0; 
+    padding: var(--space-md); 
+    background: var(--surface); 
+    border-radius: var(--radius-md);
+    border-left: 4px solid var(--secondary-color);
+    color: var(--text-primary) !important;
+    font-size: 0.9375rem;
+}
+
+/* Ensure all text is readable */
+.conflict-details,
+.conflict-details *,
+.conflict-details summary,
+.conflict-details div {
+    color: var(--text-primary) !important;
+}
+
+.conflict-actions button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
 }
     `;
     
     document.head.appendChild(style);
-    console.log('✅ Signup styles injected');
+    console.log('✅ Signup styles injected (color-matched)');
 }
 
 /**
