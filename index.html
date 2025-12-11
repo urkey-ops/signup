@@ -246,7 +246,7 @@
         type="password"
         id="userPassword"
         placeholder="Enter password"
-        autocomplete="off"
+        autocomplete="current-password"
         aria-label="Password"
         aria-describedby="loginMsg"
       />
@@ -349,9 +349,8 @@
             id="floatingSignupBtn"
             class="btn primary-btn"
             type="button"
-            aria-label="Continue to sign up with selected slots"
           >
-            Continue to Sign Up (0 Slots Selected)
+            <span>Continue to Sign Up (<span id="floatingSlotCount">0</span> Slots Selected)</span>
           </button>
         </div>
 
@@ -388,91 +387,101 @@
         ></div>
 
         <form id="signupForm" novalidate>
-          <label for="signupName">Full name</label>
-          <input
-            type="text"
-            id="signupName"
-            name="name"
-            class="form-input"
-            placeholder="Your Full Name *"
-            required
-            maxlength="100"
-            autocomplete="name"
-            aria-required="true"
-            aria-describedby="signupNameHelp"
-          />
-          <small id="signupNameHelp">
-            Name is required (min 2 characters).
-          </small>
+          <div class="form-group">
+            <label for="signupName">Full name *</label>
+            <input
+              type="text"
+              id="signupName"
+              name="name"
+              class="form-input"
+              placeholder="Your Full Name"
+              required
+              maxlength="100"
+              autocomplete="name"
+              aria-required="true"
+              aria-describedby="signupNameHelp"
+            />
+            <small id="signupNameHelp">
+              Name is required (min 2 characters).
+            </small>
+          </div>
 
-          <label for="signupPhone">Phone number</label>
-          <input
-            type="tel"
-            id="signupPhone"
-            name="phone"
-            class="form-input"
-            placeholder="Phone Number *"
-            required
-            maxlength="20"
-            autocomplete="tel"
-            inputmode="tel"
-            aria-required="true"
-            aria-describedby="signupPhoneHelp"
-          />
-          <small id="signupPhoneHelp">
-            US 10-digit mobile number only. Used for confirming your booking.
-          </small>
+          <div class="form-group">
+            <label for="signupPhone">Phone number *</label>
+            <input
+              type="tel"
+              id="signupPhone"
+              name="phone"
+              class="form-input"
+              placeholder="Phone Number"
+              required
+              maxlength="20"
+              autocomplete="tel"
+              inputmode="tel"
+              aria-required="true"
+              aria-describedby="signupPhoneHelp"
+            />
+            <small id="signupPhoneHelp">
+              US 10-digit mobile number only. Used for confirming your booking.
+            </small>
+          </div>
 
-          <label for="signupEmail">Email (optional)</label>
-          <input
-            type="email"
-            id="signupEmail"
-            name="email"
-            class="form-input"
-            placeholder="Your Email Address (Optional)"
-            maxlength="254"
-            autocomplete="email"
-            inputmode="email"
-            aria-describedby="signupEmailHelp"
-          />
-          <small id="signupEmailHelp">
-            Optional. Used only for confirmations and updates.
-          </small>
+          <div class="form-group">
+            <label for="signupEmail">Email (optional)</label>
+            <input
+              type="email"
+              id="signupEmail"
+              name="email"
+              class="form-input"
+              placeholder="Your Email Address (Optional)"
+              maxlength="254"
+              autocomplete="email"
+              inputmode="email"
+              aria-describedby="signupEmailHelp"
+            />
+            <small id="signupEmailHelp">
+              Optional. Used only for confirmations and updates.
+            </small>
+          </div>
 
-          <label for="signupCategory">Category</label>
-          <select
-            id="signupCategory"
-            name="category"
-            class="form-input"
-            required
-            aria-required="true"
-          >
-            <option value="">Select a category *</option>
-            <option value="Bal">Bal</option>
-            <option value="Balika">Balika</option>
-            <option value="Kishore">Kishore</option>
-            <option value="Kishori">Kishori</option>
-            <option value="Yuvak">Yuvak</option>
-            <option value="Yuvati">Yuvati</option>
-            <option value="Premvati">Premvati</option>
-            <option value="Sanyukta">Sanyukta</option>
-          </select>
-          <small>
-            Required. Choose the option that best matches your visit.
-          </small>
+          <div class="form-group">
+            <label for="signupCategory">Category *</label>
+            <select
+              id="signupCategory"
+              name="category"
+              class="form-input"
+              required
+              aria-required="true"
+            >
+              <option value="">Select a category</option>
+              <option value="Bal">Bal</option>
+              <option value="Balika">Balika</option>
+              <option value="Kishore">Kishore</option>
+              <option value="Kishori">Kishori</option>
+              <option value="Yuvak">Yuvak</option>
+              <option value="Yuvati">Yuvati</option>
+              <option value="Premvati">Premvati</option>
+              <option value="Sanyukta">Sanyukta</option>
+            </select>
+            <small>
+              Required. Choose the option that best matches your visit.
+            </small>
+          </div>
 
-          <label for="signupNotes">Notes (optional)</label>
-          <textarea
-            id="signupNotes"
-            name="notes"
-            class="form-input"
-            placeholder="Any special notes or comments (Optional)"
-            rows="3"
-            maxlength="500"
-          ></textarea>
-          <small>
-            Optional. Please avoid sharing sensitive information here.
-          </small>
+          <div class="form-group">
+            <label for="signupNotes">Notes (optional)</label>
+            <textarea
+              id="signupNotes"
+              name="notes"
+              class="form-input"
+              placeholder="Any special notes or comments (Optional)"
+              rows="3"
+              maxlength="500"
+            ></textarea>
+            <small>
+              Optional. Please avoid sharing sensitive information here.
+            </small>
+          </div>
 
           <div
             id="signupMessage"
@@ -481,14 +490,14 @@
             aria-live="polite"
           ></div>
 
-          <div id="floatingSignupBtnContainer">
+          <div id="signupFormButtonContainer">
             <button
               id="signupSubmitBtn"
               type="submit"
               class="btn primary-btn"
             >
               <span class="spinner hidden" aria-hidden="true"></span>
-              Confirm booking
+              <span>Confirm booking</span>
             </button>
           </div>
         </form>
@@ -529,6 +538,11 @@
         const mainApp = document.getElementById('mainApp');
         const loadingMsg = document.getElementById('loadingMsg');
 
+        if (!mainApp || !loadingMsg) {
+          console.error('❌ Required elements not found');
+          return;
+        }
+
         try {
           // 1️⃣ Show app immediately
           mainApp.style.display = 'block';
@@ -552,33 +566,29 @@
           // 3️⃣ Load slots asynchronously in background
           slotsModule.loadSlots().catch((err) => {
             console.error('❌ Slots failed to load:', err);
-            if (loadingMsg) {
-              loadingMsg.innerHTML = `
-                <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
-                  ⚠️ Failed to load slots. Please refresh the page.
-                  <br><br>
-                  <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
-                    🔄 Refresh Page
-                  </button>
-                </div>
-              `;
-            }
-          });
-
-          console.log('✅ App displayed instantly, slots loading in background');
-        } catch (err) {
-          console.error('❌ Failed to load modules:', err);
-          if (loadingMsg) {
             loadingMsg.innerHTML = `
               <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
-                ⚠️ Failed to load application. Please refresh the page.
+                ⚠️ Failed to load slots. Please refresh the page.
                 <br><br>
                 <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
                   🔄 Refresh Page
                 </button>
               </div>
             `;
-          }
+          });
+
+          console.log('✅ App displayed instantly, slots loading in background');
+        } catch (err) {
+          console.error('❌ Failed to load modules:', err);
+          loadingMsg.innerHTML = `
+            <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
+              ⚠️ Failed to load application. Please refresh the page.
+              <br><br>
+              <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
+                🔄 Refresh Page
+              </button>
+            </div>
+          `;
         }
       },
       { once: true }
@@ -598,16 +608,18 @@
     async function handleUserLogin() {
       if (loginPending) return;
 
-      const password = passwordInput.value.trim();
+      const password = passwordInput?.value?.trim();
       if (!password) {
         displayMessage('loginMsg', 'Please enter password', 'error');
         return;
       }
 
       loginPending = true;
-      loginBtn.disabled = true;
-      loginBtn.textContent = 'Logging in...';
-      msgEl.style.display = 'none';
+      if (loginBtn) {
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'Logging in...';
+      }
+      if (msgEl) msgEl.style.display = 'none';
 
       try {
         const result = await window.login(password);
@@ -633,16 +645,20 @@
           }
 
           displayMessage('loginMsg', errorMsg, 'error');
-          passwordInput.value = '';
-          passwordInput.focus();
+          if (passwordInput) {
+            passwordInput.value = '';
+            passwordInput.focus();
+          }
         }
       } catch (error) {
         console.error('Login error:', error);
         displayMessage('loginMsg', 'Network error. Please try again.', 'error');
       } finally {
         loginPending = false;
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Enter Site';
+        if (loginBtn) {
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Enter Site';
+        }
       }
     }
 
