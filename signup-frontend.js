@@ -214,7 +214,7 @@ export async function submitSignup() {
         if (response.status === 409) {
             console.log('⚠️ Booking conflicts detected');
             
-            const msgEl = document.getElementById("signupMsg");
+            const msgEl = document.getElementById("signupMessage");
             if (!msgEl) {
                 console.error('❌ Message element not found');
                 resetSubmitState();
