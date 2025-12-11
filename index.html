@@ -401,45 +401,60 @@
     <!-- 🚀 LOAD AUTH FIRST -->
     <script type="module" src="user-auth/main.js"></script>
     
-    <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY -->
-    <script type="module">
-        window.addEventListener('user-auth-ready', async () => {
-            const mainApp = document.getElementById('mainApp');
-            
-            try {
-                await Promise.all([
-                    import('./config.js'),
-                    import('./utils.js'),
-                    import('./slots.js'),
-                    import('./lookup.js'),
-                    import('./signup-frontend.js')
-                ]);
-                
-                const slotsModule = await import('./slots.js');
-                await slotsModule.loadSlots();
-                
-                mainApp.classList.add('loaded');
-                mainApp.style.display = 'block';
-                
-                console.log('✅ All modules loaded successfully');
-                
-            } catch (error) {
-                console.error('❌ Failed to load modules:', error);
-                const loadingMsg = document.getElementById('loadingMsg');
-                if (loadingMsg) {
-                    loadingMsg.innerHTML = `
-                        <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
-                            ⚠️ Failed to load application. Please refresh the page.
-                            <br><br>
-                            <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
-                                🔄 Refresh Page
-                            </button>
-                        </div>
-                    `;
-                }
+    <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY - INSTANT ON -->
+<script type="module">
+window.addEventListener('user-auth-ready', async () => {
+    const mainApp = document.getElementById('mainApp');
+    const loadingMsg = document.getElementById('loadingMsg');
+
+    try {
+        // 1️⃣ Show app immediately
+        mainApp.style.display = 'block';
+        mainApp.classList.add('loaded');
+
+        // 2️⃣ Import modules in parallel (non-blocking)
+        const [configModule, utilsModule, slotsModule, lookupModule, signupModule] = await Promise.all([
+            import('./config.js'),
+            import('./utils.js'),
+            import('./slots.js'),
+            import('./lookup.js'),
+            import('./signup-frontend.js')
+        ]);
+
+        // 3️⃣ Load slots asynchronously in background
+        slotsModule.loadSlots().catch(err => {
+            console.error('❌ Slots failed to load:', err);
+            if (loadingMsg) {
+                loadingMsg.innerHTML = `
+                    <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
+                        ⚠️ Failed to load slots. Please refresh the page.
+                        <br><br>
+                        <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
+                            🔄 Refresh Page
+                        </button>
+                    </div>
+                `;
             }
-        }, { once: true });
-    </script>
+        });
+
+        console.log('✅ App displayed instantly, slots loading in background');
+    } catch (err) {
+        console.error('❌ Failed to load modules:', err);
+        if (loadingMsg) {
+            loadingMsg.innerHTML = `
+                <div class="msg-box error" role="alert" style="text-align: center; padding: 20px;">
+                    ⚠️ Failed to load application. Please refresh the page.
+                    <br><br>
+                    <button onclick="location.reload()" class="btn secondary-btn" style="margin-top: 15px;">
+                        🔄 Refresh Page
+                    </button>
+                </div>
+            `;
+        }
+    }
+}, { once: true });
+</script>
+
 
     <!-- LOGIN HANDLER -->
     <script type="module">
