@@ -26,8 +26,10 @@ export function showSignupForm() {
     return false;
   }
 
-  // ✅ FIX: Get the SECTION, not the form
+  // Get elements
   const signupSection = document.getElementById('signupSection');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
   const nameInput = document.getElementById('signupName');
 
   if (!signupSection) {
@@ -35,17 +37,26 @@ export function showSignupForm() {
     return false;
   }
 
-  // ✅ FIX: Show the section
+  // Hide slots and lookup sections
+  if (slotsSection) slotsSection.style.display = 'none';
+  if (lookupSection) lookupSection.style.display = 'none';
+
+  // Show signup section
   signupSection.style.display = 'block';
   
   updateSummaryDisplay();
 
-  signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  // Auto-focus name input after scroll
+  // Scroll to top of page first, then to signup section
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  
   setTimeout(() => {
-    if (nameInput) nameInput.focus();
-  }, 300);
+    signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    
+    // Auto-focus name input after scroll
+    setTimeout(() => {
+      if (nameInput) nameInput.focus();
+    }, 300);
+  }, 100);
 
   console.log('✅ Signup form ready for input');
   return true;
@@ -60,7 +71,8 @@ export function hideSignupForm() {
   const successSection = document.getElementById('successMessage');
   const signupSection = document.getElementById('signupSection');
   const signupForm = document.getElementById('signupForm');
-  const slotsDisplay = document.getElementById('slotsDisplay');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
   const summary = document.getElementById('selectedSlotsSummary');
 
   // Hide success & signup section
@@ -68,8 +80,9 @@ export function hideSignupForm() {
   if (signupSection) signupSection.style.display = 'none';
   if (signupForm) signupForm.reset();
 
-  // Show slot selection area again
-  if (slotsDisplay) slotsDisplay.style.display = 'block';
+  // Show slots and lookup sections again
+  if (slotsSection) slotsSection.style.display = 'block';
+  if (lookupSection) lookupSection.style.display = 'block';
   if (summary) summary.classList.add('hidden');
 
   // Reset state
@@ -171,6 +184,8 @@ export function displayBookingSuccess(bookedSlots, category, email) {
   const successSection = document.getElementById('successMessage');
   const confirmationDetails = document.getElementById('confirmationDetails');
   const signupSection = document.getElementById('signupSection');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
 
   if (!successSection || !confirmationDetails) {
     console.error('Success section elements not found');
@@ -247,10 +262,19 @@ export function displayBookingSuccess(bookedSlots, category, email) {
   container.appendChild(chipsContainer);
   confirmationDetails.appendChild(container);
 
-  // Hide signup section and show success
+  // Hide all other sections and show success
   if (signupSection) signupSection.style.display = 'none';
+  if (slotsSection) slotsSection.style.display = 'none';
+  if (lookupSection) lookupSection.style.display = 'none';
+  
   successSection.style.display = 'block';
-  successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  
+  // Scroll to top first, then to success section
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  
+  setTimeout(() => {
+    successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
 
   console.log('✅ Success message displayed');
 }
