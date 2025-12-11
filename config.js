@@ -1,58 +1,64 @@
 // ================================================================================================
-// CONFIG.JS - APPLICATION CONFIGURATION (BUG-FREE VERSION)
+// CONFIG.JS - APPLICATION CONFIGURATION (CLEAN VERSION)
 // ================================================================================================
 
 export const API_URL = "/api/signup";
 
 export const CONFIG = {
-    MAX_SLOTS_PER_BOOKING: 10,
-    MAX_NAME_LENGTH: 100,
-    MAX_EMAIL_LENGTH: 254,
-    MAX_PHONE_LENGTH: 20,
-    MAX_NOTES_LENGTH: 500,
-    MAX_CATEGORY_LENGTH: 50,
-    API_COOLDOWN: 5000,        // 5 seconds - prevents rapid repeat submissions
-    RETRY_DELAY: 3000,         // 3 seconds - delay before retry
-    CLIENT_CACHE_TTL: 30000,   // 30 seconds - cache duration for slot data
-    MESSAGE_DURATION: 4000,    // 4 seconds - default message display duration
-    SUCCESS_REDIRECT_DELAY: 1500, // 1.5 seconds - delay before redirecting after success
+  MAX_SLOTS_PER_BOOKING: 10,
+  MAX_NAME_LENGTH: 100,
+  MAX_EMAIL_LENGTH: 254,
+  MAX_PHONE_LENGTH: 20,
+  MAX_NOTES_LENGTH: 500,
+  MAX_CATEGORY_LENGTH: 50,
+
+  API_COOLDOWN: 5000,           // 5 seconds - prevents rapid repeat submissions
+  RETRY_DELAY: 3000,            // 3 seconds - delay before retry
+  CLIENT_CACHE_TTL: 30000,      // 30 seconds - cache duration for slot data
+  MESSAGE_DURATION: 4000,       // 4 seconds - default message display duration
+  SUCCESS_REDIRECT_DELAY: 1500, // 1.5 seconds - delay before redirecting after success
 };
 
 // ✅ Validate configuration on load
 (function validateConfig() {
-    const requiredNumbers = [
-        'MAX_SLOTS_PER_BOOKING',
-        'MAX_NAME_LENGTH',
-        'MAX_EMAIL_LENGTH',
-        'MAX_PHONE_LENGTH',
-        'MAX_NOTES_LENGTH',
-        'MAX_CATEGORY_LENGTH',
-        'API_COOLDOWN',
-        'RETRY_DELAY',
-        'CLIENT_CACHE_TTL'
-    ];
-    
-    for (const key of requiredNumbers) {
-        if (typeof CONFIG[key] !== 'number' || CONFIG[key] <= 0) {
-            console.error(`Invalid config value for ${key}: ${CONFIG[key]}`);
-            throw new Error(`Configuration error: ${key} must be a positive number`);
-        }
+  const requiredNumbers = [
+    "MAX_SLOTS_PER_BOOKING",
+    "MAX_NAME_LENGTH",
+    "MAX_EMAIL_LENGTH",
+    "MAX_PHONE_LENGTH",
+    "MAX_NOTES_LENGTH",
+    "MAX_CATEGORY_LENGTH",
+    "API_COOLDOWN",
+    "RETRY_DELAY",
+    "CLIENT_CACHE_TTL",
+  ];
+
+  for (const key of requiredNumbers) {
+    if (typeof CONFIG[key] !== "number" || CONFIG[key] <= 0) {
+      console.error(`Invalid config value for ${key}: ${CONFIG[key]}`);
+      throw new Error(`Configuration error: ${key} must be a positive number`);
     }
-    
-    // Validate specific constraints
-    if (CONFIG.MAX_EMAIL_LENGTH > 254) {
-        console.warn('MAX_EMAIL_LENGTH exceeds RFC 5321 limit (254). Setting to 254.');
-        CONFIG.MAX_EMAIL_LENGTH = 254;
-    }
-    
-    if (CONFIG.MAX_SLOTS_PER_BOOKING < 1 || CONFIG.MAX_SLOTS_PER_BOOKING > 50) {
-        console.error('MAX_SLOTS_PER_BOOKING should be between 1 and 50');
-    }
-    
-    // ✅ Freeze config to prevent mutations
-    Object.freeze(CONFIG);
-    
-    console.log('✅ Configuration validated and frozen');
+  }
+
+  // Validate specific constraints
+  if (CONFIG.MAX_EMAIL_LENGTH > 254) {
+    console.warn(
+      "MAX_EMAIL_LENGTH exceeds RFC 5321 limit (254). Setting to 254."
+    );
+    CONFIG.MAX_EMAIL_LENGTH = 254;
+  }
+
+  if (CONFIG.MAX_SLOTS_PER_BOOKING < 1 || CONFIG.MAX_SLOTS_PER_BOOKING > 50) {
+    console.error("MAX_SLOTS_PER_BOOKING should be between 1 and 50");
+    CONFIG.MAX_SLOTS_PER_BOOKING = Math.min(
+      50,
+      Math.max(1, CONFIG.MAX_SLOTS_PER_BOOKING)
+    );
+  }
+
+  // ✅ Freeze config to prevent mutations
+  Object.freeze(CONFIG);
+  console.log("✅ Configuration validated and frozen");
 })();
 
 // ================================================================================================
@@ -64,15 +70,15 @@ let _lastApiCall = 0;
 let _isSubmitting = false;
 
 export const API_CACHE = {
-    data: null,
-    timestamp: 0,
-    TTL: CONFIG.CLIENT_CACHE_TTL
+  data: null,
+  timestamp: 0,
+  TTL: CONFIG.CLIENT_CACHE_TTL,
 };
 
 // ✅ Phone normalization helper (aligned with utils.js)
 export function normalizePhone(phone) {
-    if (!phone || typeof phone !== 'string') return '';
-    return phone.replace(/\D/g, '');
+  if (!phone || typeof phone !== "string") return "";
+  return phone.replace(/\D/g, "");
 }
 
 // ================================================================================================
@@ -84,7 +90,7 @@ export function normalizePhone(phone) {
  * @returns {Array} Copy of selected slots
  */
 export function getSelectedSlots() {
-    return [..._selectedSlots];
+  return [..._selectedSlots];
 }
 
 /**
@@ -92,7 +98,7 @@ export function getSelectedSlots() {
  * @returns {number} Unix timestamp in milliseconds
  */
 export function getLastApiCall() {
-    return _lastApiCall;
+  return _lastApiCall;
 }
 
 /**
@@ -100,7 +106,7 @@ export function getLastApiCall() {
  * @returns {boolean} True if submitting, false otherwise
  */
 export function getIsSubmitting() {
-    return _isSubmitting;
+  return _isSubmitting;
 }
 
 // ================================================================================================
@@ -112,40 +118,44 @@ export function getIsSubmitting() {
  * @param {Array} newSlots - Array of slot objects with {id, date, label}
  */
 export function updateSelectedSlots(newSlots) {
-    // Validate input
-    if (!Array.isArray(newSlots)) {
-        console.error('updateSelectedSlots: newSlots must be an array');
-        return;
+  // Validate input
+  if (!Array.isArray(newSlots)) {
+    console.error("updateSelectedSlots: newSlots must be an array");
+    return;
+  }
+
+  // Validate slot objects
+  const validSlots = newSlots.filter((slot) => {
+    if (!slot || typeof slot !== "object") return false;
+    if (!slot.id || !slot.date || !slot.label) {
+      console.warn("Invalid slot object:", slot);
+      return false;
     }
-    
-    // Validate slot objects
-    const validSlots = newSlots.filter(slot => {
-        if (!slot || typeof slot !== 'object') return false;
-        if (!slot.id || !slot.date || !slot.label) {
-            console.warn('Invalid slot object:', slot);
-            return false;
-        }
-        return true;
-    });
-    
-    // Enforce max slots limit
-    if (validSlots.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
-        console.warn(`Too many slots (${validSlots.length}). Limiting to ${CONFIG.MAX_SLOTS_PER_BOOKING}`);
-        validSlots.splice(CONFIG.MAX_SLOTS_PER_BOOKING);
-    }
-    
-    // Clear and update using reference-safe mutation
-    _selectedSlots.length = 0;
-    _selectedSlots.push(...validSlots);
-    
-    // Trigger custom event for reactive updates
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('slotsUpdated', { 
-            detail: { slots: [..._selectedSlots] } 
-        }));
-    }
-    
-    console.log(`✅ Selected slots updated: ${_selectedSlots.length} slot(s)`);
+    return true;
+  });
+
+  // Enforce max slots limit
+  if (validSlots.length > CONFIG.MAX_SLOTS_PER_BOOKING) {
+    console.warn(
+      `Too many slots (${validSlots.length}). Limiting to ${CONFIG.MAX_SLOTS_PER_BOOKING}`
+    );
+    validSlots.splice(CONFIG.MAX_SLOTS_PER_BOOKING);
+  }
+
+  // Clear and update using reference-safe mutation
+  _selectedSlots.length = 0;
+  _selectedSlots.push(...validSlots);
+
+  // Trigger custom event for reactive updates
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("slotsUpdated", {
+        detail: { slots: [..._selectedSlots] },
+      })
+    );
+  }
+
+  console.log(`✅ Selected slots updated: ${_selectedSlots.length} slot(s)`);
 }
 
 /**
@@ -153,12 +163,11 @@ export function updateSelectedSlots(newSlots) {
  * @param {number} timestamp - Unix timestamp in milliseconds
  */
 export function updateLastApiCall(timestamp) {
-    if (typeof timestamp !== 'number' || timestamp < 0) {
-        console.error('updateLastApiCall: Invalid timestamp');
-        return;
-    }
-    
-    _lastApiCall = timestamp;
+  if (typeof timestamp !== "number" || timestamp < 0) {
+    console.error("updateLastApiCall: Invalid timestamp");
+    return;
+  }
+  _lastApiCall = timestamp;
 }
 
 /**
@@ -166,19 +175,21 @@ export function updateLastApiCall(timestamp) {
  * @param {boolean} status - True if submitting, false otherwise
  */
 export function updateIsSubmitting(status) {
-    if (typeof status !== 'boolean') {
-        console.error('updateIsSubmitting: Status must be boolean');
-        return;
-    }
-    
-    _isSubmitting = status;
-    
-    // Dispatch event for UI updates
-    if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('submittingStateChanged', { 
-            detail: { isSubmitting: status } 
-        }));
-    }
+  if (typeof status !== "boolean") {
+    console.error("updateIsSubmitting: Status must be boolean");
+    return;
+  }
+
+  _isSubmitting = status;
+
+  // Dispatch event for UI updates
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("submittingStateChanged", {
+        detail: { isSubmitting: status },
+      })
+    );
+  }
 }
 
 // ================================================================================================
@@ -189,9 +200,9 @@ export function updateIsSubmitting(status) {
  * Invalidate API cache completely
  */
 export function invalidateCache() {
-    API_CACHE.data = null;
-    API_CACHE.timestamp = 0;
-    console.log('✅ API cache invalidated');
+  API_CACHE.data = null;
+  API_CACHE.timestamp = 0;
+  console.log("✅ API cache invalidated");
 }
 
 /**
@@ -199,9 +210,9 @@ export function invalidateCache() {
  * @returns {boolean} True if cache is valid
  */
 export function isCacheValid() {
-    if (!API_CACHE.data) return false;
-    const now = Date.now();
-    return (now - API_CACHE.timestamp) < API_CACHE.TTL;
+  if (!API_CACHE.data) return false;
+  const now = Date.now();
+  return now - API_CACHE.timestamp < API_CACHE.TTL;
 }
 
 /**
@@ -209,25 +220,25 @@ export function isCacheValid() {
  * @param {Object} data - Data to cache
  */
 export function updateCache(data) {
-    if (!data) {
-        console.warn('updateCache: No data provided');
-        return;
-    }
-    
-    // ✅ Validate data structure
-    if (typeof data !== 'object') {
-        console.warn('updateCache: Data must be an object');
-        return;
-    }
-    
-    if (!data.ok || !data.dates) {
-        console.warn('updateCache: Data missing required fields (ok, dates)');
-        return;
-    }
-    
-    API_CACHE.data = data;
-    API_CACHE.timestamp = Date.now();
-    console.log('✅ API cache updated');
+  if (!data) {
+    console.warn("updateCache: No data provided");
+    return;
+  }
+
+  // ✅ Validate data structure
+  if (typeof data !== "object") {
+    console.warn("updateCache: Data must be an object");
+    return;
+  }
+
+  if (!data.ok || !data.dates) {
+    console.warn("updateCache: Data missing required fields (ok, dates)");
+    return;
+  }
+
+  API_CACHE.data = data;
+  API_CACHE.timestamp = Date.now();
+  console.log("✅ API cache updated");
 }
 
 /**
@@ -235,12 +246,13 @@ export function updateCache(data) {
  * @returns {Object|null} Cached data or null
  */
 export function getCachedData() {
-    if (isCacheValid()) {
-        console.log('✅ Using cached data');
-        return API_CACHE.data;
-    }
-    console.log('⚠️ Cache expired or empty');
-    return null;
+  if (isCacheValid()) {
+    console.log("✅ Using cached data");
+    return API_CACHE.data;
+  }
+
+  console.log("⚠️ Cache expired or empty");
+  return null;
 }
 
 // ================================================================================================
@@ -251,11 +263,11 @@ export function getCachedData() {
  * Reset all application state (useful for logout/cleanup)
  */
 export function resetAppState() {
-    updateSelectedSlots([]);
-    updateLastApiCall(0);
-    updateIsSubmitting(false);
-    invalidateCache();
-    console.log('✅ Application state reset');
+  updateSelectedSlots([]);
+  updateLastApiCall(0);
+  updateIsSubmitting(false);
+  invalidateCache();
+  console.log("✅ Application state reset");
 }
 
 /**
@@ -263,19 +275,19 @@ export function resetAppState() {
  * @returns {Object} Current state snapshot
  */
 export function getStateSnapshot() {
-    return {
-        selectedSlots: [..._selectedSlots],
-        selectedSlotsCount: _selectedSlots.length,
-        lastApiCall: _lastApiCall,
-        isSubmitting: _isSubmitting,
-        cache: {
-            hasData: !!API_CACHE.data,
-            timestamp: API_CACHE.timestamp,
-            isValid: isCacheValid(),
-            age: Date.now() - API_CACHE.timestamp
-        },
-        config: { ...CONFIG }
-    };
+  return {
+    selectedSlots: [..._selectedSlots],
+    selectedSlotsCount: _selectedSlots.length,
+    lastApiCall: _lastApiCall,
+    isSubmitting: _isSubmitting,
+    cache: {
+      hasData: !!API_CACHE.data,
+      timestamp: API_CACHE.timestamp,
+      isValid: isCacheValid(),
+      age: Date.now() - API_CACHE.timestamp,
+    },
+    config: { ...CONFIG },
+  };
 }
 
 /**
@@ -283,46 +295,47 @@ export function getStateSnapshot() {
  * @returns {Object} {canSubmit: boolean, waitTime: number}
  */
 export function canSubmit() {
-    const now = Date.now();
-    
-    // ✅ Handle initial state explicitly
-    if (_lastApiCall === 0) {
-        return { canSubmit: true, waitTime: 0 };
-    }
-    
-    const timeSinceLastCall = now - _lastApiCall;
-    
-    // ✅ Handle clock skew / invalid timestamps
-    if (timeSinceLastCall < 0) {
-        console.warn('Clock skew detected: lastApiCall is in the future');
-        return { canSubmit: true, waitTime: 0 };
-    }
-    
-    const canSubmit = timeSinceLastCall >= CONFIG.API_COOLDOWN;
-    const waitTime = canSubmit ? 0 : Math.ceil((CONFIG.API_COOLDOWN - timeSinceLastCall) / 1000);
-    
-    return { canSubmit, waitTime };
+  const now = Date.now();
+
+  // ✅ Handle initial state explicitly
+  if (_lastApiCall === 0) {
+    return { canSubmit: true, waitTime: 0 };
+  }
+
+  const timeSinceLastCall = now - _lastApiCall;
+
+  // ✅ Handle clock skew / invalid timestamps
+  if (timeSinceLastCall < 0) {
+    console.warn("Clock skew detected: lastApiCall is in the future");
+    return { canSubmit: true, waitTime: 0 };
+  }
+
+  const canSubmit = timeSinceLastCall >= CONFIG.API_COOLDOWN;
+  const waitTime = canSubmit
+    ? 0
+    : Math.ceil((CONFIG.API_COOLDOWN - timeSinceLastCall) / 1000);
+
+  return { canSubmit, waitTime };
 }
 
 // ================================================================================================
 // DEBUG MODE (Only in development)
 // ================================================================================================
 
-if (typeof window !== 'undefined') {
-    window.__APP_DEBUG__ = {
-        getState: getStateSnapshot,
-        resetState: resetAppState,
-        invalidateCache,
-        isCacheValid,
-        normalizePhone,
-        getSelectedSlots,
-        getLastApiCall,
-        getIsSubmitting,
-        canSubmit,
-        // ✅ Return copy of config instead of direct reference
-        config: () => ({ ...CONFIG })
-    };
-    
-    console.log('💡 Debug helpers available at window.__APP_DEBUG__');
-}
+if (typeof window !== "undefined") {
+  window.__APP_DEBUG__ = {
+    getState: getStateSnapshot,
+    resetState: resetAppState,
+    invalidateCache,
+    isCacheValid,
+    normalizePhone,
+    getSelectedSlots,
+    getLastApiCall,
+    getIsSubmitting,
+    canSubmit,
+    // ✅ Return copy of config instead of direct reference
+    config: () => ({ ...CONFIG }),
+  };
 
+  console.log("💡 Debug helpers available at window.__APP_DEBUG__");
+}
