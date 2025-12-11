@@ -62,7 +62,7 @@ injectSignupStyles();
 export async function submitSignup() {
     console.log('🚀 submitSignup() called');
     
-    const submitBtn = document.getElementById("submitSignupBtn");
+    const submitBtn = document.getElementById("signupSubmitBtn");
     if (!submitBtn) {
         console.error('❌ Submit button not found');
         return;
