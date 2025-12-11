@@ -26,14 +26,18 @@ export function showSignupForm() {
     return false;
   }
 
-  const signupSection = document.getElementById('signupForm'); // form lives in card; we just focus into it
+  // ✅ FIX: Get the SECTION, not the form
+  const signupSection = document.getElementById('signupSection');
   const nameInput = document.getElementById('signupName');
 
   if (!signupSection) {
-    console.error('Signup form element not found');
+    console.error('❌ Signup section element not found');
     return false;
   }
 
+  // ✅ FIX: Show the section
+  signupSection.style.display = 'block';
+  
   updateSummaryDisplay();
 
   signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -54,16 +58,18 @@ export function hideSignupForm() {
   console.log('📍 Returning to slot selection...');
 
   const successSection = document.getElementById('successMessage');
+  const signupSection = document.getElementById('signupSection');
   const signupForm = document.getElementById('signupForm');
-  const slotsContainer = document.getElementById('slotsContainer');
+  const slotsDisplay = document.getElementById('slotsDisplay');
   const summary = document.getElementById('selectedSlotsSummary');
 
-  // Hide success & form
+  // Hide success & signup section
   if (successSection) successSection.style.display = 'none';
+  if (signupSection) signupSection.style.display = 'none';
   if (signupForm) signupForm.reset();
 
   // Show slot selection area again
-  if (slotsContainer) slotsContainer.style.display = 'block';
+  if (slotsDisplay) slotsDisplay.style.display = 'block';
   if (summary) summary.classList.add('hidden');
 
   // Reset state
@@ -164,7 +170,7 @@ export function resetFormState() {
 export function displayBookingSuccess(bookedSlots, category, email) {
   const successSection = document.getElementById('successMessage');
   const confirmationDetails = document.getElementById('confirmationDetails');
-  const signupForm = document.getElementById('signupForm');
+  const signupSection = document.getElementById('signupSection');
 
   if (!successSection || !confirmationDetails) {
     console.error('Success section elements not found');
@@ -241,8 +247,8 @@ export function displayBookingSuccess(bookedSlots, category, email) {
   container.appendChild(chipsContainer);
   confirmationDetails.appendChild(container);
 
-  // Hide form and show success
-  if (signupForm) signupForm.style.display = 'none';
+  // Hide signup section and show success
+  if (signupSection) signupSection.style.display = 'none';
   successSection.style.display = 'block';
   successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
