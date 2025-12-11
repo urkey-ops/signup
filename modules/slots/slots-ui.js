@@ -10,43 +10,67 @@ import { sortSlotsByTime } from './slots-api.js';
 let currentSlotListener = null;
 
 // ================================================================================================
-// SKELETON UI (LOADING STATE)
+// SKELETON UI - LOADING STATE (FAST VISUAL FEEDBACK)
 // ================================================================================================
 
 /**
  * Show skeleton loading UI while slots are being fetched
+ * Uses last known slot count for realistic placeholders
  */
-export function showSkeletonUI() {
+export function showSkeletonUI(lastSlotsCount = 10) {
     const datesContainer = document.getElementById("datesContainer");
     const slotsDisplay = document.getElementById("slotsDisplay");
     const loadingMsg = document.getElementById("loadingMsg");
-    
+
     if (!datesContainer || !slotsDisplay || !loadingMsg) {
         console.error('Required DOM elements for skeleton UI not found');
-        showMessage('Unable to display slots. Please refresh the page.', 'error');
         return;
     }
-    
+
     loadingMsg.style.display = "none";
     slotsDisplay.style.display = "block";
-    
-    // Generate skeleton cards
-    const skeletonHTML = Array(3).fill(0).map(() => `
-        <div class="date-card card skeleton-card">
-            <div class="skeleton-title"></div>
-            <div class="slots-grid">
-                ${Array(4).fill(0).map(() => `
-                    <div class="slot skeleton-slot">
-                        <div class="skeleton-text"></div>
-                        <div class="skeleton-text-small"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-    
-    datesContainer.innerHTML = skeletonHTML;
+
+    // Decide number of date cards (default 3)
+    const dateCardsCount = Math.min(Math.ceil(lastSlotsCount / 4), 3);
+
+    // Create skeleton cards
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < dateCardsCount; i++) {
+        const card = document.createElement('div');
+        card.className = 'date-card card skeleton-card fade-in';
+
+        // Skeleton title
+        const title = document.createElement('div');
+        title.className = 'skeleton-title';
+        card.appendChild(title);
+
+        // Skeleton slots grid
+        const grid = document.createElement('div');
+        grid.className = 'slots-grid';
+        for (let j = 0; j < 4; j++) {
+            const slot = document.createElement('div');
+            slot.className = 'slot skeleton-slot';
+
+            const line1 = document.createElement('div');
+            line1.className = 'skeleton-text';
+            const line2 = document.createElement('div');
+            line2.className = 'skeleton-text-small';
+
+            slot.appendChild(line1);
+            slot.appendChild(line2);
+
+            grid.appendChild(slot);
+        }
+
+        card.appendChild(grid);
+        fragment.appendChild(card);
+    }
+
+    datesContainer.innerHTML = '';
+    datesContainer.appendChild(fragment);
 }
+
 
 // ================================================================================================
 // DATE CARD CREATION
