@@ -162,8 +162,10 @@ export async function submitSignup() {
         console.log('📤 Sending POST request to:', API_URL);
         console.log('📦 Payload:', payload);
         
+        // 🔥 FIX: Added credentials: 'include' to send auth cookie
         const response = await fetch(API_URL, {
             method: 'POST',
+            credentials: 'include', // ← THIS IS THE FIX
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
