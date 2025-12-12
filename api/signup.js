@@ -1,7 +1,6 @@
 // ================================================================================================
 // MAIN API HANDLER (Entry Point)
 // ================================================================================================
-
 const { checkRateLimit } = require('./config');
 const { handleGet, handlePost, handlePatch } = require('./handlers');
 
@@ -12,7 +11,7 @@ const { handleGet, handlePost, handlePatch } = require('./handlers');
 module.exports = async function handler(req, res) {
     const requestId = Math.random().toString(36).substring(7);
     console.log(`🚀 REQUEST [${requestId}] ${req.method} ${req.url}`);
-
+    
     // Security headers
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
@@ -26,7 +25,20 @@ module.exports = async function handler(req, res) {
         console.log('✅ OPTIONS handled');
         return res.status(200).end();
     }
-
+    
+    // Parse query parameters using modern URL API (fixes deprecation warning)
+    if (req.url && req.url.includes('?')) {
+        try {
+            const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
+            req.query = Object.fromEntries(url.searchParams);
+        } catch (err) {
+            console.warn('⚠️ URL parsing failed, falling back to default query parsing');
+            req.query = req.query || {};
+        }
+    } else {
+        req.query = req.query || {};
+    }
+    
     try {
         // Get client IP for rate limiting
         const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
@@ -41,7 +53,7 @@ module.exports = async function handler(req, res) {
                 error: "Too many requests. Please wait." 
             });
         }
-
+        
         // Route to appropriate handler
         switch (req.method) {
             case 'GET':
