@@ -136,7 +136,10 @@ export async function lookupBookings() {
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
 
     try {
-        const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`);
+        // 🔥 FIX: Added credentials: 'include' to send auth cookie
+        const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`, {
+            credentials: 'include'
+        });
         
         if (!res.ok) {
             const errorMsg = getErrorMessage(res.status, "Failed to look up bookings.");
@@ -303,8 +306,10 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
     try {
         showLoadingState(displayEl, '⏳ Cancelling your booking...');
         
+        // 🔥 FIX: Added credentials: 'include' to send auth cookie
         const res = await fetch(API_URL, {
             method: "PATCH",
+            credentials: 'include',
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ 
                 signupRowId, 
