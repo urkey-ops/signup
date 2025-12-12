@@ -54,7 +54,10 @@ export async function fetchSlots() {
         console.log('📡 Fetching slots from API...');
         const startTime = performance.now();
         
-        const response = await fetch(API_URL);
+        // 🔥 FIX: Added credentials: 'include' to send auth cookie
+        const response = await fetch(API_URL, {
+            credentials: 'include'
+        });
         
         const fetchTime = performance.now() - startTime;
         console.log(`⏱️ API fetch took ${fetchTime.toFixed(0)}ms`);
