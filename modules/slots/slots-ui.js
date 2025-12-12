@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS UI - DOM RENDERING & INTERACTIONS
+// SLOTS UI - DOM RENDERING & INTERACTIONS (FULLY CSS CONSISTENT)
 // ================================================================================================
 
 import { getSelectedSlots, CONFIG } from '../../config.js';
@@ -10,43 +10,67 @@ import { sortSlotsByTime } from './slots-api.js';
 let currentSlotListener = null;
 
 // ================================================================================================
-// SKELETON UI (LOADING STATE)
+// SKELETON UI - LOADING STATE (FAST VISUAL FEEDBACK)
 // ================================================================================================
 
 /**
  * Show skeleton loading UI while slots are being fetched
+ * Uses last known slot count for realistic placeholders
  */
-export function showSkeletonUI() {
+export function showSkeletonUI(lastSlotsCount = 10) {
     const datesContainer = document.getElementById("datesContainer");
     const slotsDisplay = document.getElementById("slotsDisplay");
     const loadingMsg = document.getElementById("loadingMsg");
-    
+
     if (!datesContainer || !slotsDisplay || !loadingMsg) {
         console.error('Required DOM elements for skeleton UI not found');
-        showMessage('Unable to display slots. Please refresh the page.', 'error');
         return;
     }
-    
+
     loadingMsg.style.display = "none";
     slotsDisplay.style.display = "block";
-    
-    // Generate skeleton cards
-    const skeletonHTML = Array(3).fill(0).map(() => `
-        <div class="date-card card skeleton-card">
-            <div class="skeleton-title"></div>
-            <div class="slots-grid">
-                ${Array(4).fill(0).map(() => `
-                    <div class="slot skeleton-slot">
-                        <div class="skeleton-text"></div>
-                        <div class="skeleton-text-small"></div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `).join('');
-    
-    datesContainer.innerHTML = skeletonHTML;
+
+    // Decide number of date cards (default 3)
+    const dateCardsCount = Math.min(Math.ceil(lastSlotsCount / 4), 3);
+
+    // Create skeleton cards
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < dateCardsCount; i++) {
+        const card = document.createElement('div');
+        card.className = 'date-card card skeleton-card fade-in';
+
+        // Skeleton title
+        const title = document.createElement('div');
+        title.className = 'skeleton-title';
+        card.appendChild(title);
+
+        // Skeleton slots grid
+        const grid = document.createElement('div');
+        grid.className = 'slots-grid';
+        for (let j = 0; j < 4; j++) {
+            const slot = document.createElement('div');
+            slot.className = 'slot skeleton-slot';
+
+            const line1 = document.createElement('div');
+            line1.className = 'skeleton-text';
+            const line2 = document.createElement('div');
+            line2.className = 'skeleton-text-small';
+
+            slot.appendChild(line1);
+            slot.appendChild(line2);
+
+            grid.appendChild(slot);
+        }
+
+        card.appendChild(grid);
+        fragment.appendChild(card);
+    }
+
+    datesContainer.innerHTML = '';
+    datesContainer.appendChild(fragment);
 }
+
 
 // ================================================================================================
 // DATE CARD CREATION
@@ -95,7 +119,7 @@ export function createDateCard(date, slots) {
 }
 
 /**
- * Create a slot button element
+ * Create a slot button element (CSS CONSISTENT)
  * @param {Object} slot - Slot data object
  * @returns {HTMLElement} Slot button element
  */
@@ -121,20 +145,20 @@ export function createSlotElement(slot) {
     
     div.appendChild(document.createElement('br'));
     
-    // Availability count
+    // ✅ FIXED: Use CSS classes instead of inline colors
     const small = document.createElement('small');
     const available = slot.available ?? 0;
     small.textContent = `(${available} left)`;
     
-    // Color code based on availability
+    // Availability classes (styled in CSS)
     if (available === 0) {
-        small.style.color = '#ef4444';
+        small.className = 'availability-none';
         div.classList.add('disabled');
         div.setAttribute('aria-disabled', 'true');
     } else if (available <= 2) {
-        small.style.color = '#f59e0b';
+        small.className = 'availability-low';
     } else {
-        small.style.color = '#10b981';
+        small.className = 'availability-high';
     }
     
     div.appendChild(small);
@@ -274,7 +298,7 @@ export function updateSlotUI(slotId, selected) {
 }
 
 // ================================================================================================
-// EMPTY & ERROR STATES
+// EMPTY & ERROR STATES (CSS CONSISTENT)
 // ================================================================================================
 
 /**
@@ -289,9 +313,9 @@ export function showNoSlotsMessage() {
     const container = document.createElement('div');
     container.className = 'empty-state';
     
+    // ✅ FIXED: Use CSS classes
     const icon = document.createElement('div');
-    icon.style.fontSize = '3rem';
-    icon.style.marginBottom = '16px';
+    icon.className = 'empty-state-icon';
     icon.textContent = '📅';
     container.appendChild(icon);
     
@@ -305,8 +329,6 @@ export function showNoSlotsMessage() {
     
     const refreshBtn = document.createElement('button');
     refreshBtn.className = 'btn secondary-btn';
-    refreshBtn.style.maxWidth = '200px';
-    refreshBtn.style.margin = '20px auto 0';
     refreshBtn.textContent = '🔄 Refresh';
     refreshBtn.addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('reloadSlots'));
@@ -319,7 +341,7 @@ export function showNoSlotsMessage() {
 }
 
 /**
- * Show error message
+ * Show error message (CSS CONSISTENT)
  * @param {string} errorMessage - Error message to display
  */
 export function showErrorMessage(errorMessage) {
@@ -331,16 +353,14 @@ export function showErrorMessage(errorMessage) {
     datesContainer.innerHTML = '';
     loadingMsg.innerHTML = ''; 
     
+    // ✅ FIXED: Use CSS classes
     const errorText = document.createElement('p');
-    errorText.style.color = '#dc2626';
-    errorText.style.marginBottom = '15px';
+    errorText.className = 'error-text';
     errorText.textContent = `⚠️ ${errorMessage}`;
     loadingMsg.appendChild(errorText);
     
     const retryBtn = document.createElement('button');
     retryBtn.className = 'btn secondary-btn';
-    retryBtn.style.maxWidth = '200px';
-    retryBtn.style.margin = '0 auto';
     retryBtn.textContent = '🔄 Retry';
     retryBtn.addEventListener('click', () => {
         window.dispatchEvent(new CustomEvent('reloadSlots'));

@@ -1,5 +1,5 @@
 // ============================================================================================
-// SIGNUP FRONTEND - MAIN ORCHESTRATOR (REFACTORED & MODULAR)
+// SIGNUP FRONTEND - MAIN ORCHESTRATOR (INITIALIZATION FIXED)
 // ================================================================================================
 
 import { 
@@ -60,33 +60,44 @@ injectSignupStyles();
  * Validates form, sends API request, handles responses (200, 409, errors)
  */
 export async function submitSignup() {
-    // Get submit button and check state
-    const submitBtn = document.getElementById("submitSignupBtn");
+    console.log('🚀 submitSignup() called');
+    
+    const submitBtn = document.getElementById("signupSubmitBtn");
     if (!submitBtn) {
-        console.error('Submit button not found');
+        console.error('❌ Submit button not found');
         return;
     }
     
-    // Immediate DOM-level lock to prevent double-clicks
+    // Immediate DOM-level lock
     if (submitBtn.disabled) {
-        console.warn('Button already disabled - submission in progress');
+        console.warn('⚠️ Button already disabled - submission in progress');
         return;
     }
     submitBtn.disabled = true;
     
     // Check module-level state
     if (getIsSubmitting()) {
-        console.warn('Submission already in progress');
+        console.warn('⚠️ Submission already in progress (module state)');
+        submitBtn.disabled = false;
         return;
     }
     
+    // Set submitting state IMMEDIATELY
     updateIsSubmitting(true);
+    console.log('🔒 Submission started - beforeunload disabled');
     
     // Set loading state
     const originalBtnText = setButtonLoading(submitBtn);
     
     // Get and validate form data
     const formData = getFormData();
+    console.log('📋 Form data retrieved:', {
+        name: formData.name,
+        phone: formData.phone,
+        category: formData.category,
+        slotsCount: formData.selectedSlots.length
+    });
+    
     const sanitizedData = {
         name: sanitizeInput(formData.name, CONFIG.MAX_NAME_LENGTH),
         phone: normalizePhone(formData.phone),
@@ -99,13 +110,14 @@ export async function submitSignup() {
     // Helper to reset button state
     const resetSubmitState = () => {
         updateIsSubmitting(false);
+        console.log('🔓 Submission ended - beforeunload re-enabled');
         resetButtonState(submitBtn, originalBtnText);
     };
     
     // Validate form
     const validation = validateSignupForm({
         name: sanitizedData.name,
-        phone: formData.phone, // Use raw phone for validation
+        phone: formData.phone,
         email: sanitizedData.email,
         category: sanitizedData.category,
         notes: sanitizedData.notes,
@@ -113,18 +125,24 @@ export async function submitSignup() {
     });
     
     if (!validation.valid) {
+        console.error('❌ Validation failed:', validation.error);
         showFormError(validation.error);
         resetSubmitState();
         return;
     }
     
+    console.log('✅ Validation passed');
+    
     // Check cooldown
     const submitCheck = canSubmit();
     if (!submitCheck.canSubmit) {
+        console.warn('⚠️ Cooldown active:', submitCheck.waitTime, 'seconds remaining');
         showFormError(`Please wait ${submitCheck.waitTime} seconds before submitting again.`);
         resetSubmitState();
         return;
     }
+    
+    console.log('✅ Cooldown check passed');
     
     // Show loading message
     showFormInfo('⏳ Processing your booking...', 0);
@@ -132,30 +150,46 @@ export async function submitSignup() {
     try {
         const slotIds = sanitizedData.selectedSlots.map(s => s.id);
         
+        const payload = {
+            name: sanitizedData.name,
+            phone: sanitizedData.phone,
+            email: sanitizedData.email,
+            notes: sanitizedData.notes,
+            category: sanitizedData.category,
+            slotIds
+        };
+        
+        console.log('📤 Sending POST request to:', API_URL);
+        console.log('📦 Payload:', payload);
+        
+        // 🔥 FIX: Added credentials: 'include' to send auth cookie
         const response = await fetch(API_URL, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                name: sanitizedData.name,
-                phone: sanitizedData.phone,
-                email: sanitizedData.email,
-                notes: sanitizedData.notes,
-                category: sanitizedData.category,
-                slotIds
-            })
+            credentials: 'include', // ← THIS IS THE FIX
+            headers: { 
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload)
         });
         
         updateLastApiCall(Date.now());
+        
+        console.log('📥 Response received - Status:', response.status);
+        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+        
         const data = await response.json();
+        console.log('📋 Response data:', data);
         
         // Handle success (200)
         if (response.ok && data.ok) {
-            console.log('✅ Booking successful');
+            console.log('✅ Booking successful!');
             
             // Invalidate cache
             if (API_CACHE) {
                 API_CACHE.data = null;
                 API_CACHE.timestamp = 0;
+                console.log('🗑️ Cache invalidated');
             }
             
             // Store booked slots before clearing
@@ -163,14 +197,17 @@ export async function submitSignup() {
             
             // Clear state
             updateSelectedSlots([]);
+            console.log('🧹 Selected slots cleared');
             
             // Display success
+            console.log('🎉 Displaying success page');
             displayBookingSuccess(
                 bookedSlots,
                 sanitizedData.category,
                 sanitizedData.email
             );
             
+            // Reset submission state
             resetSubmitState();
             return;
         }
@@ -179,9 +216,9 @@ export async function submitSignup() {
         if (response.status === 409) {
             console.log('⚠️ Booking conflicts detected');
             
-            const msgEl = document.getElementById("signupMsg");
+            const msgEl = document.getElementById("signupMessage");
             if (!msgEl) {
-                console.error('Message element not found');
+                console.error('❌ Message element not found');
                 resetSubmitState();
                 return;
             }
@@ -212,6 +249,9 @@ export async function submitSignup() {
         }
         
         // Handle other errors (400, 429, 500)
+        console.error('❌ Booking failed - Status:', response.status);
+        console.error('❌ Error data:', data);
+        
         let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
         if (response.status === 429) {
             errorMsg += ' Too many requests. Please wait a minute and try again.';
@@ -220,7 +260,9 @@ export async function submitSignup() {
         resetSubmitState();
         
     } catch (err) {
-        console.error('Signup error:', err);
+        console.error('❌ Signup error (catch block):', err);
+        console.error('❌ Error stack:', err.stack);
+        
         const errorMsg = err.message === 'Failed to fetch' 
             ? 'Unable to connect to the server. Please check your internet connection.' 
             : 'An unexpected error occurred. Please try again.';
@@ -237,6 +279,7 @@ export async function submitSignup() {
  * Navigate to signup form (called from floating button)
  */
 export function goToSignupForm() {
+    console.log('📝 Navigating to signup form');
     showSignupForm();
 }
 
@@ -244,6 +287,7 @@ export function goToSignupForm() {
  * Return to slot selection (called from "back" buttons)
  */
 export function backToSlotSelection() {
+    console.log('🔙 Returning to slot selection');
     hideSignupForm();
 }
 
@@ -252,36 +296,59 @@ window.goToSignupForm = goToSignupForm;
 window.backToSlotSelection = backToSlotSelection;
 
 // ================================================================================================
-// INITIALIZATION
+// INITIALIZATION (FIXED - RUNS IMMEDIATELY)
 // ================================================================================================
 
-document.addEventListener('DOMContentLoaded', () => {
+function initializeSignup() {
     console.log('📝 Signup module initializing...');
     
     // Setup form submission
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
         signupForm.addEventListener('submit', (e) => {
+            console.log('📝 Form submit event fired');
             e.preventDefault();
             submitSignup();
         });
+        console.log('✅ Form submission handler attached');
+    } else {
+        console.error('❌ Signup form not found');
     }
     
     // Setup back button in signup form
     const backBtn = document.getElementById('backToSlotsBtn');
     if (backBtn) {
         backBtn.addEventListener('click', backToSlotSelection);
+        console.log('✅ Back button handler attached');
+    } else {
+        console.warn('⚠️ Back button not found');
     }
     
     // Setup "Book Another Slot" button in success page
     const resetPageBtn = document.getElementById('resetPageBtn');
     if (resetPageBtn) {
-        resetPageBtn.addEventListener('click', backToSlotSelection);
+        resetPageBtn.addEventListener('click', () => {
+            console.log('🔄 Book Another Slot clicked');
+            updateIsSubmitting(false);
+            backToSlotSelection();
+        });
         console.log('✅ Book Another Slot button initialized');
+    } else {
+        console.warn('⚠️ Reset page button not found');
     }
     
     // Setup real-time validation
     setupRealtimeValidation();
+    console.log('✅ Real-time validation initialized');
     
     console.log('✅ Signup module initialized');
-});
+}
+
+// ✅ FIX: Run immediately if DOM is ready, otherwise wait
+if (document.readyState === 'loading') {
+    console.log('⏳ Waiting for DOMContentLoaded...');
+    document.addEventListener('DOMContentLoaded', initializeSignup);
+} else {
+    console.log('✅ DOM already ready, initializing immediately');
+    initializeSignup();
+}

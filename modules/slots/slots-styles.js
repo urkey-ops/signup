@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS STYLES - CSS-IN-JS FOR SLOTS MODULE
+// SLOTS STYLES - CSS-IN-JS FOR SLOTS MODULE (MINOR CSS CONSISTENCY)
 // ================================================================================================
 
 /**
@@ -16,24 +16,28 @@ export function injectSlotsStyles() {
     style.id = 'slots-styles';
     style.textContent = `
 /* ================================================================================================
-   SLOTS MODULE STYLES (UNIQUE ADDITIONS ONLY)
-   Main styles are in styles.css - these are slots-specific enhancements
+   SLOTS MODULE SKELETON STYLES (LOADING STATES)
+   Neutral grayscale - intentionally doesn't use main color palette
    ================================================================================================ */
 
-/* Skeleton loading animations */
 @keyframes shimmer {
     0% { background-position: -468px 0; }
     100% { background-position: 468px 0; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
 }
 
 /* Skeleton card container */
 .skeleton-card { 
     background: #f8f8f8; 
     border: 1px solid #e0e0e0; 
-    border-radius: 12px; 
-    padding: 24px; 
-    margin-bottom: 24px; 
-    animation: fadeIn 0.3s ease; 
+    border-radius: var(--radius-lg); 
+    padding: var(--space-xl); 
+    margin-bottom: var(--space-xl); 
+    animation: fadeIn var(--transition-slow) ease; 
 }
 
 /* Skeleton title placeholder */
@@ -43,8 +47,8 @@ export function injectSlotsStyles() {
     background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); 
     background-size: 200% 100%; 
     animation: shimmer 1.5s infinite; 
-    border-radius: 4px; 
-    margin-bottom: 16px; 
+    border-radius: var(--radius-sm); 
+    margin-bottom: var(--space-base); 
 }
 
 /* Skeleton slot placeholder */
@@ -55,30 +59,30 @@ export function injectSlotsStyles() {
     border: 1px solid #e0e0e0; 
     pointer-events: none; 
     min-height: 64px; 
-    border-radius: 8px; 
-    padding: 16px; 
+    border-radius: var(--radius-md); 
+    padding: var(--space-base); 
 }
 
 /* Skeleton text lines */
 .skeleton-text { 
     height: 16px; 
     background: #e0e0e0; 
-    border-radius: 4px; 
-    margin: 8px auto; 
+    border-radius: var(--radius-sm); 
+    margin: var(--space-sm) auto; 
     width: 80%; 
 }
 
 .skeleton-text-small { 
     height: 12px; 
     background: #e8e8e8; 
-    border-radius: 4px; 
-    margin: 4px auto; 
+    border-radius: var(--radius-sm); 
+    margin: var(--space-xs) auto; 
     width: 50%; 
 }
     `;
     
     document.head.appendChild(style);
-    console.log('✅ Slots styles injected');
+    console.log('✅ Slots skeleton styles injected');
 }
 
 /**
@@ -88,6 +92,6 @@ export function removeSlotsStyles() {
     const styleEl = document.getElementById('slots-styles');
     if (styleEl) {
         styleEl.remove();
-        console.log('🗑️ Slots styles removed');
+        console.log('🗑️ Slots skeleton styles removed');
     }
 }

@@ -1,5 +1,5 @@
 // ================================================================================================
-// SIGNUP CONFLICT HANDLER - 409 RESPONSE UI & LOGIC
+// SIGNUP CONFLICT HANDLER - 409 RESPONSE UI & LOGIC (FIXED DATE FORMATTING)
 // ================================================================================================
 
 import { getSelectedSlots, updateSelectedSlots } from '../../config.js';
@@ -61,7 +61,7 @@ export function displayConflictUI(msgEl, data, onBookValid, onRemoveConflicts, o
 }
 
 /**
- * Create conflict details accordion
+ * Create conflict details accordion (FIXED DATE FORMATTING)
  * @param {number} validSlots - Number of valid slots
  * @param {number} conflictedCount - Number of conflicted slots
  * @param {Array} slotStatus - Array of slot status objects
@@ -79,11 +79,18 @@ function createConflictDetailsAccordion(validSlots, conflictedCount, slotStatus)
         slotStatus.forEach(slot => {
             const slotDiv = document.createElement('div');
             const icon = slot.status === 'valid' ? '✅' : '❌';
-            const date = escapeHTML(slot.date || 'Unknown');
+            
+            // ✅ FIXED: Proper readable date formatting (Mon, Dec 15)
+            const readableDate = new Date(slot.date).toLocaleDateString('en-US', {
+                weekday: 'short',
+                month: 'short',
+                day: 'numeric'
+            });
+            
             const label = escapeHTML(slot.label || 'Unknown');
             const reason = escapeHTML(slot.reason || 'OK');
             
-            slotDiv.textContent = `${icon} ${date} ${label}: ${reason}`;
+            slotDiv.textContent = `${icon} ${readableDate} ${label}: ${reason}`;
             details.appendChild(slotDiv);
         });
     } else {
@@ -110,18 +117,18 @@ function createConflictActionButtons(validSlots, conflictedCount, onBookValid, o
     
     // Book valid slots button
     const bookBtn = document.createElement('button');
-    bookBtn.className = 'btn btn-primary';
+    bookBtn.className = 'btn primary-btn';
     bookBtn.textContent = `✅ Book ${validSlots} Valid Slot${validSlots !== 1 ? 's' : ''}`;
     bookBtn.disabled = validSlots === 0;
     
     // Remove conflicts button
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'btn btn-secondary';
+    removeBtn.className = 'btn secondary-btn';
     removeBtn.textContent = `🗑️ Remove ${conflictedCount} Conflict${conflictedCount !== 1 ? 's' : ''}`;
     
     // Back to slots button
     const backBtn = document.createElement('button');
-    backBtn.className = 'btn btn-outline';
+    backBtn.className = 'btn secondary-btn';
     backBtn.textContent = '🔄 Back to Slots';
     
     actionsDiv.appendChild(bookBtn);
@@ -198,7 +205,7 @@ export function removeConflictedSlots(slotStatus) {
 }
 
 /**
- * Show success message after removing conflicts
+ * Show success message after removing conflicts (CSS CLASSES)
  * @param {HTMLElement} msgEl - Message container
  * @param {number} count - Number of conflicts removed
  */
@@ -207,9 +214,7 @@ export function showConflictRemovalSuccess(msgEl, count) {
     
     msgEl.innerHTML = '';
     const successDiv = document.createElement('div');
-    successDiv.style.color = '#10b981';
-    successDiv.style.padding = '12px';
-    successDiv.style.textAlign = 'center';
+    successDiv.className = 'msg-box success';
     successDiv.textContent = `🗑️ Removed ${count} conflicted slot${count !== 1 ? 's' : ''}`;
     msgEl.appendChild(successDiv);
 }

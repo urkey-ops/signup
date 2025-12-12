@@ -1,9 +1,9 @@
 // ================================================================================================
-// SIGNUP FORM - UI MANAGEMENT & NAVIGATION
+// SIGNUP FORM - UI MANAGEMENT & NAVIGATION (CSS CONSISTENT)
 // ================================================================================================
 
 import { getSelectedSlots, updateSelectedSlots } from '../../config.js';
-import { showMessage, escapeHTML } from '../../utils.js';
+import { showMessage } from '../../utils.js';
 import { updateSummaryDisplay, resetSlotSelectionUI } from '../../slots.js';
 import { clearAllValidation } from './signup-validation.js';
 
@@ -16,74 +16,89 @@ import { clearAllValidation } from './signup-validation.js';
  * @returns {boolean} True if form shown successfully
  */
 export function showSignupForm() {
-    const selectedSlots = getSelectedSlots();
-    
-    if (selectedSlots.length === 0) {
-        showMessage('Please select at least one slot before continuing.', 'warning');
-        return false;
-    }
-    
-    const slotsDisplay = document.getElementById("slotsDisplay");
-    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
-    const signupSection = document.getElementById("signupSection");
-    
-    if (!signupSection) {
-        console.error('Signup section not found');
-        return false;
-    }
-    
-    // Hide slot selection UI
-    if (slotsDisplay) slotsDisplay.style.display = "none";
-    if (floatingBtn) floatingBtn.style.display = "none";
-    
-    // Show signup form
-    signupSection.style.display = "block";
-    updateSummaryDisplay();
-    signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const selectedSlots = getSelectedSlots();
 
-    // Auto-focus name input after animation
-    setTimeout(() => {
-        const nameInput = document.getElementById("nameInput");
-        if (nameInput) nameInput.focus();
-    }, 300);
+  if (selectedSlots.length === 0) {
+    const msgEl = document.getElementById('slotsMessage');
+    if (msgEl) {
+      showMessage(msgEl, 'Please select at least one slot before continuing.', 'warning');
+    }
+    return false;
+  }
+
+  // Get elements
+  const signupSection = document.getElementById('signupSection');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
+  const nameInput = document.getElementById('signupName');
+
+  if (!signupSection) {
+    console.error('❌ Signup section element not found');
+    return false;
+  }
+
+  // Hide slots and lookup sections
+  if (slotsSection) slotsSection.style.display = 'none';
+  if (lookupSection) lookupSection.style.display = 'none';
+
+  // Show signup section
+  signupSection.style.display = 'block';
+  
+  updateSummaryDisplay();
+
+  // Scroll to top of page first, then to signup section
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  
+  setTimeout(() => {
+    signupSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     
-    console.log('✅ Signup form displayed');
-    return true;
+    // Auto-focus name input after scroll
+    setTimeout(() => {
+      if (nameInput) nameInput.focus();
+    }, 300);
+  }, 100);
+
+  console.log('✅ Signup form ready for input');
+  return true;
 }
 
 /**
  * Hide signup form and return to slot selection
  */
 export function hideSignupForm() {
-    console.log('📍 Returning to slot selection...');
-    
-    const successSection = document.getElementById("successMessage");
-    const signupSection = document.getElementById("signupSection");
-    const slotsDisplay = document.getElementById("slotsDisplay");
-    const floatingBtn = document.getElementById("floatingSignupBtnContainer");
-    
-    // Hide form sections
-    if (successSection) successSection.style.display = "none";
-    if (signupSection) signupSection.style.display = "none";
-    
-    // Show slot selection
-    if (slotsDisplay) slotsDisplay.style.display = "block";
-    if (floatingBtn) floatingBtn.style.display = "none";
-    
-    // Reset state
-    updateSelectedSlots([]);
-    resetSlotSelectionUI();
-    
-    // Clear form
-    clearSignupForm();
-    
-    // Scroll to top
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    
-    // Trigger slots reload
-    window.dispatchEvent(new CustomEvent('reloadSlots'));
-    
-    console.log('✅ Returned to slot selection (state + UI reset)');
+  console.log('📍 Returning to slot selection...');
+
+  const successSection = document.getElementById('successMessage');
+  const signupSection = document.getElementById('signupSection');
+  const signupForm = document.getElementById('signupForm');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
+  const summary = document.getElementById('selectedSlotsSummary');
+
+  // Hide success & signup section
+  if (successSection) successSection.style.display = 'none';
+  if (signupSection) signupSection.style.display = 'none';
+  if (signupForm) signupForm.reset();
+
+  // Show slots and lookup sections again
+  if (slotsSection) slotsSection.style.display = 'block';
+  if (lookupSection) lookupSection.style.display = 'block';
+  if (summary) summary.classList.add('hidden');
+
+  // Reset state
+  updateSelectedSlots([]);
+  resetSlotSelectionUI();
+
+  // Clear form
+  clearSignupForm();
+
+  // Scroll to top
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  // Trigger slots reload
+  window.dispatchEvent(new CustomEvent('reloadSlots'));
+
+  console.log('✅ Returned to slot selection (state + UI reset)');
 }
 
 // ================================================================================================
@@ -95,60 +110,68 @@ export function hideSignupForm() {
  * @returns {Object} Form data object
  */
 export function getFormData() {
-    const nameInput = document.getElementById("nameInput");
-    const phoneInput = document.getElementById("phoneInput");
-    const emailInput = document.getElementById("emailInput");
-    const categorySelect = document.getElementById("categorySelect");
-    const notesInput = document.getElementById("notesInput");
-    
-    return {
-        name: nameInput?.value?.trim() || '',
-        phone: phoneInput?.value?.trim() || '',
-        email: emailInput?.value?.trim() || '',
-        category: categorySelect?.value?.trim() || '',
-        notes: notesInput?.value?.trim() || '',
-        selectedSlots: getSelectedSlots()
-    };
+  const nameInput = document.getElementById('signupName');
+  const phoneInput = document.getElementById('signupPhone');
+  const emailInput = document.getElementById('signupEmail');
+  const categorySelect = document.getElementById('signupCategory');
+  const notesInput = document.getElementById('signupNotes');
+
+  return {
+    name: nameInput?.value?.trim() || '',
+    phone: phoneInput?.value?.trim() || '',
+    email: emailInput?.value?.trim() || '',
+    category: categorySelect?.value?.trim() || '',
+    notes: notesInput?.value?.trim() || '',
+    selectedSlots: getSelectedSlots(),
+  };
 }
 
 /**
  * Clear all form inputs and validation states
  */
 export function clearSignupForm() {
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) msgEl.textContent = '';
-    
-    const formInputs = [
-        'nameInput', 
-        'phoneInput', 
-        'emailInput', 
-        'categorySelect', 
-        'notesInput'
-    ];
-    
-    formInputs.forEach(id => {
-        const input = document.getElementById(id);
-        if (input) {
-            input.value = '';
-        }
-    });
-    
-    clearAllValidation();
-    console.log('🧹 Form cleared');
+  const msgEl = document.getElementById('signupMessage');
+  if (msgEl) {
+    msgEl.textContent = '';
+  }
+
+  const formInputs = [
+    'signupName',
+    'signupPhone',
+    'signupEmail',
+    'signupCategory',
+    'signupNotes',
+  ];
+
+  formInputs.forEach((id) => {
+    const input = document.getElementById(id);
+    if (input) {
+      if (input.tagName === 'SELECT') {
+        input.value = '';
+      } else {
+        input.value = '';
+      }
+    }
+  });
+
+  clearAllValidation();
+  console.log('🧹 Form cleared');
 }
 
 /**
  * Reset form to initial state (for retry after error)
  */
 export function resetFormState() {
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) msgEl.textContent = '';
-    
-    clearAllValidation();
+  const msgEl = document.getElementById('signupMessage');
+  if (msgEl) {
+    msgEl.textContent = '';
+  }
+
+  clearAllValidation();
 }
 
 // ================================================================================================
-// SUCCESS DISPLAY
+// SUCCESS DISPLAY (CSS CONSISTENT + FIXED DATES)
 // ================================================================================================
 
 /**
@@ -158,71 +181,102 @@ export function resetFormState() {
  * @param {string} email - User email (optional)
  */
 export function displayBookingSuccess(bookedSlots, category, email) {
-    const successSection = document.getElementById("successMessage");
-    const confirmationDetails = document.getElementById("confirmationDetails");
-    const signupSection = document.getElementById("signupSection");
-    
-    if (!successSection || !confirmationDetails) {
-        console.error('Success section elements not found');
-        return;
-    }
-    
-    // Clear previous content
-    confirmationDetails.innerHTML = '';
-    
-    // Create confirmation message
-    const container = document.createElement('div');
-    container.style.margin = '20px 0';
-    
-    // Heading
-    const heading = document.createElement('strong');
-    heading.textContent = 'Your bookings:';
-    container.appendChild(heading);
-    
-    // Booking list
-    const list = document.createElement('ul');
-    list.style.textAlign = 'left';
-    list.style.display = 'inline-block';
-    list.style.margin = '10px auto';
-    list.style.paddingLeft = '20px';
-    
-    // Sort slots by date and time
-    const sortedSlots = [...bookedSlots].sort((a, b) => {
-        const dateCompare = new Date(a.date) - new Date(b.date);
-        if (dateCompare !== 0) return dateCompare;
-        return a.label.localeCompare(b.label);
+  const successSection = document.getElementById('successMessage');
+  const confirmationDetails = document.getElementById('confirmationDetails');
+  const signupSection = document.getElementById('signupSection');
+  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection = document.querySelector('.lookup-section');
+
+  if (!successSection || !confirmationDetails) {
+    console.error('Success section elements not found');
+    return;
+  }
+
+  // Clear previous content
+  confirmationDetails.innerHTML = '';
+
+  // Create confirmation container
+  const container = document.createElement('div');
+  container.className = 'selected-slots-summary';
+  container.style.marginBottom = 'var(--space-xl)';
+
+  // Heading
+  const heading = document.createElement('h3');
+  heading.textContent = 'Your bookings:';
+  container.appendChild(heading);
+
+  // Booking chips
+  const chipsContainer = document.createElement('div');
+  chipsContainer.className = 'chips-container';
+
+  // Sort chronologically
+  const sortedSlots = [...bookedSlots].sort((a, b) => {
+    const dateA = new Date(a.date);
+    const dateB = new Date(b.date);
+    if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+
+    const timeA = a.label.match(/(\d+)(AM|PM)/i);
+    const timeB = b.label.match(/(\d+)(AM|PM)/i);
+    const hourA = timeA
+      ? parseInt(timeA[1], 10) + (timeA[2].toUpperCase() === 'PM' ? 12 : 0)
+      : 0;
+    const hourB = timeB
+      ? parseInt(timeB[1], 10) + (timeB[2].toUpperCase() === 'PM' ? 12 : 0)
+      : 0;
+    return hourA - hourB;
+  });
+
+  sortedSlots.forEach((slot) => {
+    const chip = document.createElement('div');
+    chip.className = 'slot-chip';
+
+    const readableDate = new Date(slot.date).toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
     });
-    
-    sortedSlots.forEach(slot => {
-        const li = document.createElement('li');
-        li.style.marginBottom = '8px';
-        li.textContent = `📅 ${slot.date} at 🕰️ ${slot.label}`;
-        list.appendChild(li);
-    });
-    
-    container.appendChild(list);
-    confirmationDetails.appendChild(container);
-    
-    // Category info
-    const categoryInfo = document.createElement('p');
-    categoryInfo.style.marginTop = '15px';
-    categoryInfo.innerHTML = `Selected category: <strong>${escapeHTML(category)}</strong>`;
-    confirmationDetails.appendChild(categoryInfo);
-    
-    // Email confirmation
-    if (email) {
-        const emailConfirmation = document.createElement('p');
-        emailConfirmation.style.marginTop = '10px';
-        emailConfirmation.innerHTML = `A confirmation email will be sent to <strong>${escapeHTML(email)}</strong>`;
-        confirmationDetails.appendChild(emailConfirmation);
-    }
-    
-    // Show success section
-    if (signupSection) signupSection.style.display = "none";
-    successSection.style.display = "block";
+
+    const shortTime = slot.label
+      .replace(/:\d{2}/g, '')
+      .replace(/\s*-\s*/g, '-')
+      .replace(/\s/g, '');
+
+    const chipContent = document.createElement('span');
+    chipContent.className = 'chip-content';
+
+    const chipDate = document.createElement('span');
+    chipDate.className = 'chip-date';
+    chipDate.textContent = readableDate;
+
+    const chipTime = document.createElement('span');
+    chipTime.className = 'chip-time';
+    chipTime.textContent = shortTime;
+
+    chipContent.appendChild(chipDate);
+    chipContent.appendChild(chipTime);
+    chip.appendChild(chipContent);
+
+    chipsContainer.appendChild(chip);
+  });
+
+  container.appendChild(chipsContainer);
+  confirmationDetails.appendChild(container);
+
+  // Hide all other sections and show success
+  if (signupSection) signupSection.style.display = 'none';
+  if (slotsSection) slotsSection.style.display = 'none';
+  if (lookupSection) lookupSection.style.display = 'none';
+  
+  successSection.style.display = 'block';
+  
+  // Scroll to top first, then to success section
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  
+  setTimeout(() => {
     successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    
-    console.log('✅ Success message displayed');
+  }, 100);
+
+  console.log('✅ Success message displayed');
 }
 
 // ================================================================================================
@@ -235,13 +289,13 @@ export function displayBookingSuccess(bookedSlots, category, email) {
  * @returns {string} Original button text
  */
 export function setButtonLoading(button) {
-    if (!button) return '';
-    
-    const originalText = button.textContent;
-    button.disabled = true;
-    button.innerHTML = '<span class="loading-spinner"></span> Submitting...';
-    
-    return originalText;
+  if (!button) return '';
+
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.innerHTML = '<span class="loading-spinner"></span> Submitting...';
+
+  return originalText;
 }
 
 /**
@@ -250,10 +304,10 @@ export function setButtonLoading(button) {
  * @param {string} originalText - Original button text
  */
 export function resetButtonState(button, originalText) {
-    if (!button) return;
-    
-    button.disabled = false;
-    button.textContent = originalText || 'Submit';
+  if (!button) return;
+
+  button.disabled = false;
+  button.textContent = originalText || 'Confirm booking';
 }
 
 // ================================================================================================
@@ -265,10 +319,10 @@ export function resetButtonState(button, originalText) {
  * @param {string} message - Error message
  */
 export function showFormError(message) {
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) {
-        showMessage(msgEl, `⚠️ ${message}`, 'error');
-    }
+  const msgEl = document.getElementById('signupMessage');
+  if (msgEl) {
+    showMessage(msgEl, `⚠️ ${message}`, 'error');
+  }
 }
 
 /**
@@ -277,18 +331,18 @@ export function showFormError(message) {
  * @param {number} duration - Display duration in ms (0 = persistent)
  */
 export function showFormInfo(message, duration = 8000) {
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) {
-        showMessage(msgEl, message, 'info', duration);
-    }
+  const msgEl = document.getElementById('signupMessage');
+  if (msgEl) {
+    showMessage(msgEl, message, 'info', duration);
+  }
 }
 
 /**
  * Clear form messages
  */
 export function clearFormMessages() {
-    const msgEl = document.getElementById("signupMsg");
-    if (msgEl) {
-        msgEl.textContent = '';
-    }
+  const msgEl = document.getElementById('signupMessage');
+  if (msgEl) {
+    msgEl.textContent = '';
+  }
 }
