@@ -25,13 +25,38 @@ const {
 // ================================================================================================
 
 /**
- * Parse date string to Date object
- * @param {string} dateStr - Date string (YYYY-MM-DD)
+ * Parse date string to Date object (supports multiple formats)
+ * @param {string} dateStr - Date string in various formats
  * @returns {Date|null} Parsed date or null if invalid
  */
 function parseDate(dateStr) {
     if (!dateStr) return null;
-    const date = new Date(dateStr + 'T00:00:00');
+    
+    // Handle string conversion
+    const str = String(dateStr).trim();
+    
+    // Try ISO format first (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        const date = new Date(str + 'T00:00:00');
+        return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Handle MM/DD/YYYY format (US format from Google Sheets)
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(str)) {
+        const [month, day, year] = str.split('/').map(Number);
+        const date = new Date(year, month - 1, day);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Handle DD-MM-YYYY format
+    if (/^\d{1,2}-\d{1,2}-\d{4}$/.test(str)) {
+        const [day, month, year] = str.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        return isNaN(date.getTime()) ? null : date;
+    }
+    
+    // Fallback: Try native Date parsing
+    const date = new Date(str);
     return isNaN(date.getTime()) ? null : date;
 }
 
@@ -59,6 +84,22 @@ function getCurrentTimestamp() {
         second: '2-digit',
         hour12: false
     });
+}
+
+/**
+ * Normalize date to ISO format (YYYY-MM-DD)
+ * @param {string|Date} dateInput - Date in any format
+ * @returns {string} Date in YYYY-MM-DD format
+ */
+function normalizeDateToISO(dateInput) {
+    const date = typeof dateInput === 'string' ? parseDate(dateInput) : dateInput;
+    if (!date || isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
 }
 
 // ================================================================================================
