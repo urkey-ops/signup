@@ -2,24 +2,42 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5"
-  />
-  <meta
-    name="description"
-    content="Secure appointment booking. View and manage your bookings by phone number, then pick one or more time slots in Eastern Time."
-  />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=5" />
+  <meta name="description" content="Private appointment booking system - Access restricted" />
   <meta name="theme-color" content="#10b981" />
   <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Book Slots" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-  <!-- ANTI-CACHE PROTECTION -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+  <!-- 🔒 PRIVACY: Block ALL Search Engines & Crawlers -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache" />
+  <meta name="googlebot" content="noindex, nofollow" />
+  <meta name="bingbot" content="noindex, nofollow" />
+  <meta name="slurp" content="noindex, nofollow" />
+  <meta name="duckduckbot" content="noindex, nofollow" />
+
+  <!-- 🔒 PRIVACY: Block Social Media Crawlers -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Private Access Only" />
+  <meta property="og:description" content="This is a private system. Access restricted." />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Private Access Only" />
+  <meta name="twitter:description" content="This is a private system. Access restricted." />
+
+  <!-- Security Headers -->
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+  <meta http-equiv="X-Frame-Options" content="DENY" />
+  <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
+
+  <!-- Anti-Cache Protection -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, private" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
-  <title>Book a Slot - Online Booking System</title>
+  <title>Private Booking System - Access Restricted</title>
 
   <!-- DNS Prefetch -->
   <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
@@ -29,33 +47,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- Favicon -->
-  <link
-    rel="icon"
-    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>"
-  />
+  <!-- PWA Manifest (Private) -->
+  <link rel="manifest" href="/manifest.json" />
 
-  <!-- CSS preload -->
-  <link
-    rel="preload"
-    href="user-style.css"
-    as="style"
-    onload="this.onload=null;this.rel='stylesheet'"
-  />
+  <!-- Favicons -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>" />
+  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%2310b981'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='100' filter='drop-shadow(2px 2px 2px rgb(0 0 0 / 0.3))'>🔒</text></svg>" />
+
+  <!-- CSS Preload with Priority -->
+  <link rel="preload" href="user-style.css" as="style" fetchpriority="high" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="user-style.css" /></noscript>
 
-  <!-- Fonts -->
-  <link
-    rel="preload"
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-    as="style"
-    onload="this.onload=null;this.rel='stylesheet'"
-  />
-  <noscript
-    ><link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
-  /></noscript>
+  <!-- Fonts with Low Priority -->
+  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" fetchpriority="low" onload="this.onload=null;this.rel='stylesheet'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
 
   <!-- CRITICAL INLINE CSS ONLY (Login + Essential) -->
   <style>
@@ -214,6 +219,80 @@
 
     #mainApp.loaded {
       opacity: 1;
+    }
+
+    /* Performance utilities */
+    .fade-in {
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Loading skeleton shimmer */
+    @keyframes shimmer {
+      0% { background-position: -1000px 0; }
+      100% { background-position: 1000px 0; }
+    }
+
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 1000px 100%;
+      animation: shimmer 2s infinite;
+    }
+
+    /* Focus visible for better accessibility */
+    *:focus-visible {
+      outline: 3px solid #10b981;
+      outline-offset: 2px;
+    }
+
+    /* Reduce motion for accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      #loginSection {
+        background: rgba(0, 0, 0, 0.98);
+      }
+      
+      #loginSection > div {
+        background: #1f2937;
+        color: #f9fafb;
+      }
+      
+      #loginSection h2 {
+        color: #f9fafb;
+      }
+      
+      #loginSection p {
+        color: #d1d5db;
+      }
+      
+      #userPassword {
+        background: #374151;
+        color: #f9fafb;
+        border-color: #4b5563;
+      }
     }
 
     /* Essential utilities */
@@ -711,21 +790,54 @@
   </script>
 
   <noscript>
-    <div
-      style="
-        padding: 20px;
+    <div style="
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    ">
+      <div style="
+        max-width: 500px;
+        padding: 40px;
         text-align: center;
-        background: #fee2e2;
-        border: 2px solid #ef4444;
-        margin: 20px;
-        border-radius: 12px;
-      "
-    >
-      <h2>⚠️ JavaScript Required</h2>
-      <p>
-        This booking system requires JavaScript to function. Please enable JavaScript in
-        your browser settings.
-      </p>
+        background: #fef2f2;
+        border: 3px solid #ef4444;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      ">
+        <div style="font-size: 64px; margin-bottom: 20px;">🔒</div>
+        <h2 style="margin: 0 0 15px 0; color: #991b1b; font-size: 24px;">JavaScript Required</h2>
+        <p style="margin: 0 0 25px 0; color: #7f1d1d; line-height: 1.6;">
+          This private booking system requires JavaScript. Please enable JavaScript and refresh.
+        </p>
+        <div style="padding: 15px; background: white; border-radius: 8px; text-align: left; margin-bottom: 20px;">
+          <strong style="display: block; margin-bottom: 10px; color: #991b1b;">Quick steps:</strong>
+          <ol style="margin: 0; padding-left: 20px; color: #7f1d1d; line-height: 1.8;">
+            <li>Open browser settings</li>
+            <li>Enable JavaScript</li>
+            <li>Refresh this page</li>
+          </ol>
+        </div>
+        <button onclick="location.reload()" style="
+          padding: 12px 24px;
+          background: #ef4444;
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+        ">
+          🔄 Refresh Page
+        </button>
+      </div>
     </div>
   </noscript>
 </body>
