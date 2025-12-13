@@ -81,12 +81,22 @@ export function showSkeletonUI(lastSlotsCount = 10) {
  * @param {string} dateString - Date string (YYYY-MM-DD)
  * @returns {string} Formatted date (e.g., "Mon, Jan 15")
  */
+
 function formatDateWithDay(dateString) {
-    const date = new Date(dateString); 
-    const options = { weekday: 'short', month: 'short', day: 'numeric' }; 
+    // Parse YYYY-MM-DD manually to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    
+    // Create date in local timezone (not UTC)
+    const date = new Date(year, month - 1, day);
+    
+    const options = { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric' 
+    }; 
+    
     return date.toLocaleDateString('en-US', options); 
 }
-
 /**
  * Create a date card with slots
  * @param {string} date - Date string
