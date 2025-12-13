@@ -216,10 +216,14 @@ async function handleGet(req, res, requestId) {
             .map((row, idx) => {
                 const capacity = parseInt(row[SHEETS.SLOTS.COLS.CAPACITY]) || 0;
                 const taken = parseInt(row[SHEETS.SLOTS.COLS.TAKEN]) || 0;
+                const rawDate = row[SHEETS.SLOTS.COLS.DATE] || '';
+                
+                // Normalize date to ISO format (handles MM/DD/YYYY, DD-MM-YYYY, etc.)
+                const normalizedDate = normalizeDateToISO(rawDate);
                 
                 return {
                     id: idx + 2, // Sheet row number (1-indexed, header at row 1)
-                    date: row[SHEETS.SLOTS.COLS.DATE] || '',
+                    date: normalizedDate,
                     slotLabel: row[SHEETS.SLOTS.COLS.LABEL] || '',
                     capacity: capacity,
                     taken: taken,
@@ -427,11 +431,45 @@ async function handlePost(req, res, requestId) {
             console.warn(`⚠️ [${requestId}] Booking conflicts: ${conflictCount}/${slotIds.length} unavailable`);
             decrementActiveBookings(normalizedPhone);
             
+            // Build slotStatus array for frontend compatibility
+            const slotStatus = slotIds.map(slotId => {
+                const conflict = conflicts.find(c => c.slotId === slotId);
+                if (conflict) {
+                    return {
+                        slotId: conflict.slotId,
+                        date: conflict.date,
+                        label: conflict.label,
+                        status: 'conflict',
+                        reason: conflict.reason
+                    };
+                }
+                
+                const valid = validBookings.find(b => b.slotId === slotId);
+                if (valid) {
+                    return {
+                        slotId: valid.slotId,
+                        date: valid.date,
+                        label: valid.label,
+                        status: 'valid',
+                        reason: null
+                    };
+                }
+                
+                return {
+                    slotId: slotId,
+                    date: 'Unknown',
+                    label: 'Unknown',
+                    status: 'conflict',
+                    reason: 'Slot not found'
+                };
+            });
+            
             return res.status(409).json({ 
                 ok: false,
                 error: `${conflictCount} of ${slotIds.length} slot(s) unavailable`,
                 validSlots: validCount,
                 conflicts: conflicts,
+                slotStatus: slotStatus, // ← Added for frontend compatibility
                 message: validCount > 0 
                     ? `${validCount} slot(s) available, but ${conflictCount} conflict(s) detected`
                     : 'No slots available for booking'
