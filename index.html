@@ -175,18 +175,25 @@
       z-index: 1000;
     }
 
-    #logoutBtn button {
-      background: #ef4444;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      cursor: pointer;
-      font-size: 18px;
-      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-      transition: transform 0.15s;
-    }
+#logoutBtn button {
+  background: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  font-size: 22px;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  transition: transform 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#logoutBtn button i {
+  line-height: 1;
+}
 
     #logoutBtn button:hover {
       transform: scale(1.05);
