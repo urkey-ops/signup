@@ -1,5 +1,5 @@
 // ================================================================================================
-// MAIN API HANDLER (Entry Point)
+// MAIN API HANDLER (Entry Point) - State-of-the-Art Version
 // ================================================================================================
 const { checkRateLimit } = require('./config');
 const { handleGet, handlePost, handlePatch } = require('./handlers');
@@ -7,77 +7,131 @@ const { handleGet, handlePost, handlePatch } = require('./handlers');
 /**
  * Main request handler for the signup API
  * Handles GET (fetch slots/lookup), POST (create booking), PATCH (cancel booking)
+ * 
+ * @param {Object} req - HTTP request object
+ * @param {Object} res - HTTP response object
+ * @returns {Promise<void>}
  */
 module.exports = async function handler(req, res) {
-    const requestId = Math.random().toString(36).substring(7);
+    const requestId = crypto.randomUUID?.() || Math.random().toString(36).substring(2, 15);
+    const startTime = performance.now();
+    
     console.log(`🚀 REQUEST [${requestId}] ${req.method} ${req.url}`);
     
-    // Security headers
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Security headers (OWASP best practices)
+    const securityHeaders = {
+        'X-Content-Type-Options': 'nosniff',
+        'X-Frame-Options': 'DENY',
+        'X-XSS-Protection': '1; mode=block',
+        'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
+        'Content-Security-Policy': "default-src 'none'",
+        'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Access-Control-Allow-Origin': process.env.ALLOWED_ORIGIN || '*',
+        'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Max-Age': '86400'
+    };
     
-    // Handle CORS preflight
+    Object.entries(securityHeaders).forEach(([key, value]) => {
+        res.setHeader(key, value);
+    });
+    
+    // Handle CORS preflight with proper response
     if (req.method === 'OPTIONS') {
-        console.log('✅ OPTIONS handled');
-        return res.status(200).end();
+        console.log(`✅ OPTIONS [${requestId}] handled`);
+        res.status(204).end();
+        return;
     }
     
-    // Parse query parameters using modern URL API (fixes deprecation warning)
-    if (req.url && req.url.includes('?')) {
+    // Parse query parameters using modern URL API
+    req.query = {};
+    if (req.url?.includes('?')) {
         try {
             const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
             req.query = Object.fromEntries(url.searchParams);
         } catch (err) {
-            console.warn('⚠️ URL parsing failed, falling back to default query parsing');
-            req.query = req.query || {};
+            console.warn(`⚠️ [${requestId}] URL parsing failed:`, err.message);
         }
-    } else {
-        req.query = req.query || {};
     }
     
     try {
-        // Get client IP for rate limiting
-        const clientIP = req.headers['x-forwarded-for']?.split(',')[0]?.trim() 
-            || req.socket.remoteAddress 
-            || 'unknown';
-        console.log(`👤 Client: ${clientIP}`);
+        // Extract client IP with better fallback chain
+        const clientIP = (
+            req.headers['cf-connecting-ip'] || // Cloudflare
+            req.headers['x-real-ip'] || // Nginx
+            req.headers['x-forwarded-for']?.split(',')[0]?.trim() || // Standard proxy
+            req.connection?.remoteAddress ||
+            req.socket?.remoteAddress ||
+            'unknown'
+        ).replace(/^::ffff:/, ''); // Remove IPv6 prefix
+        
+        console.log(`👤 [${requestId}] Client: ${clientIP}`);
         
         // Rate limiting check
         if (!checkRateLimit(clientIP)) {
-            return res.status(429).json({ 
+            console.warn(`🚫 [${requestId}] Rate limit exceeded for ${clientIP}`);
+            res.status(429).json({ 
                 ok: false, 
-                error: "Too many requests. Please wait." 
+                error: "Too many requests. Please try again later.",
+                retryAfter: 60
             });
+            return;
         }
         
-        // Route to appropriate handler
+        // Route to appropriate handler with method validation
+        const allowedMethods = ['GET', 'POST', 'PATCH'];
+        
+        if (!allowedMethods.includes(req.method)) {
+            console.warn(`🚫 [${requestId}] Method not allowed: ${req.method}`);
+            res.status(405)
+                .setHeader('Allow', allowedMethods.join(', '))
+                .json({ 
+                    ok: false, 
+                    error: "Method not allowed.",
+                    allowedMethods
+                });
+            return;
+        }
+        
+        // Execute handler
+        let result;
         switch (req.method) {
             case 'GET':
-                return await handleGet(req, res);
-            
+                result = await handleGet(req, res, requestId);
+                break;
             case 'POST':
-                return await handlePost(req, res);
-            
+                result = await handlePost(req, res, requestId);
+                break;
             case 'PATCH':
-                return await handlePatch(req, res);
-            
-            default:
-                return res.status(405).json({ 
-                    ok: false, 
-                    error: "Method not allowed." 
-                });
+                result = await handlePatch(req, res, requestId);
+                break;
         }
         
+        // Log request completion
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.log(`✅ [${requestId}] Completed in ${duration}ms`);
+        
+        return result;
+        
     } catch (err) {
-        console.error('❌ Unhandled error:', err.message);
-        console.error('Stack:', err.stack);
-        return res.status(500).json({ 
+        const duration = (performance.now() - startTime).toFixed(2);
+        console.error(`❌ [${requestId}] Unhandled error after ${duration}ms:`, err.message);
+        console.error(`Stack:`, err.stack);
+        
+        // Avoid exposing internal error details in production
+        const isDevelopment = process.env.NODE_ENV === 'development';
+        
+        res.status(500).json({ 
             ok: false, 
-            error: "Internal server error." 
+            error: "Internal server error. Please try again later.",
+            ...(isDevelopment && { 
+                debug: {
+                    message: err.message,
+                    stack: err.stack
+                }
+            })
         });
     }
 };

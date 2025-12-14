@@ -1,0 +1,21 @@
+{
+  "name": "Private Booking System",
+  "short_name": "Private",
+  "description": "Private appointment booking - Access restricted to authorized users only",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10b981",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='110' fill='%2310b981'/><text x='50%' y='58%' dominant-baseline='middle' text-anchor='middle' font-size='300' filter='drop-shadow(4px 4px 4px rgb(0 0 0 / 0.3))'>🔒</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "scope": "/",
+  "screenshots": []
+}
