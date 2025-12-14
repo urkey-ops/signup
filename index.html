@@ -369,58 +369,62 @@
 
     <main aria-labelledby="lookup-heading">
       <!-- Lookup Section -->
-      <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
-        <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
-        <div class="signup-inline-wrapper">
-  <span class="signup-inline-text">Already Signed Up?</span>
-  <button
-    id="lookupToggle"
-    class="btn secondary-btn signup-inline-btn"
-    aria-expanded="false"
-    aria-controls="lookupContent"
-    type="button"
-  >
-    Manage My Sign Ups
-  </button>
-</div>
+      <!-- Lookup Section -->
+<section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
+  <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
 
-<div id="lookupContent" class="hidden" aria-hidden="true" style="margin-top: 10px;">
-  <p class="description">
-    Enter your phone number to view and manage your sign ups.
-  </p>
-  <div class="lookup-controls">
-    <label for="lookupPhone" class="visually-hidden">Phone number for booking lookup</label>
-    <input
-      type="tel"
-      id="lookupPhone"
-      class="form-input lookup-input"
-      placeholder="Enter your phone number"
-      maxlength="20"
-      autocomplete="tel"
-      inputmode="tel"
-      aria-describedby="phone-hint"
-    />
-    <span id="phone-hint" class="visually-hidden">
-      Enter your 10-digit phone number to search for sign ups
-    </span>
+  <div class="signup-inline-wrapper">
+    <span class="signup-inline-text">Already Signed Up?</span>
     <button
-      id="lookupSearchBtn"
-      class="btn secondary-btn"
-      aria-label="Search for sign ups"
+      id="lookupToggle"
+      class="btn secondary-btn signup-inline-btn"
+      aria-expanded="false"
+      aria-controls="lookupContent"
       type="button"
     >
-      Search
+      Manage My Sign Ups
     </button>
   </div>
-</div>
 
-          id="userBookingsDisplay"
-          style="margin-top: 15px;"
-          role="region"
-          aria-live="polite"
-          aria-label="Your bookings"
-        ></div>
-      </section>
+  <div id="lookupContent" class="hidden" aria-hidden="true" style="margin-top: 10px;">
+    <p class="description">
+      Enter your phone number to view and manage your sign ups.
+    </p>
+    <div class="lookup-controls">
+      <label for="lookupPhone" class="visually-hidden">Phone number for booking lookup</label>
+      <input
+        type="tel"
+        id="lookupPhone"
+        class="form-input lookup-input"
+        placeholder="Enter your phone number"
+        maxlength="20"
+        autocomplete="tel"
+        inputmode="tel"
+        aria-describedby="phone-hint"
+      />
+      <span id="phone-hint" class="visually-hidden">
+        Enter your 10-digit phone number to search for sign ups
+      </span>
+      <button
+        id="lookupSearchBtn"
+        class="btn secondary-btn"
+        aria-label="Search for sign ups"
+        type="button"
+      >
+        Search
+      </button>
+    </div>
+  </div>
+
+  <div
+    id="userBookingsDisplay"
+    style="margin-top: 15px;"
+    role="region"
+    aria-live="polite"
+    aria-label="Your bookings"
+  ></div>
+</section>
+
 
       <!-- Slots Section -->
       <section class="card" aria-label="Select time slots">
