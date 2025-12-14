@@ -61,6 +61,8 @@
   <!-- Fonts with Low Priority -->
   <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" fetchpriority="low" onload="this.onload=null;this.rel='stylesheet'" />
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
+  <!-- Font Awesome for Icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
 
   <!-- CRITICAL INLINE CSS ONLY (Login + Essential) -->
   <style>
@@ -334,10 +336,12 @@
     </div>
   </div>
 
-  <!-- LOGOUT BUTTON -->
-  <div id="logoutBtn">
-    <button onclick="handleLogout()" title="Logout" aria-label="Logout">🚪</button>
-  </div>
+ <!-- LOGOUT BUTTON -->
+<div id="logoutBtn">
+  <button onclick="handleLogout()" title="Logout" aria-label="Logout">
+    <i class="fa fa-sign-out" aria-hidden="true"></i>
+  </button>
+</div>
 
   <!-- MAIN APP -->
   <div class="container" id="mainApp" style="display:none;">
