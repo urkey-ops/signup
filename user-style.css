@@ -1,25 +1,25 @@
 /* ============================================================ */
-/* MOBILE-FIRST BOOKING SYSTEM - OPTIMIZED FOR iPHONE */
-/* Lightning-fast, touch-optimized, iOS-perfect design */
+/* MOBILE-FIRST BOOKING SYSTEM - OPTIMIZED FOR iPHONE           */
+/* Lightning-fast, touch-optimized, iOS-perfect design           */
 /* ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 /* ============================================================ */
-/* ROOT VARIABLES - CONSOLIDATED & CLEANED */
+/* ROOT VARIABLES - CONSOLIDATED & CLEANED                      */
 /* ============================================================ */
 
 :root {
-  /* Primary Colors (Emerald Green) */
-  --primary-color: #10b981;
-  --primary-hover: #059669;
-  --primary-dark: #047857;
-  --primary-light: #d1fae5;
+  /* Primary Colors (Teal) - main CTAs */
+  --primary-color: #14b8a6;     /* teal-500-ish */
+  --primary-hover: #0d9488;     /* teal-600 */
+  --primary-dark: #0f766e;      /* teal-700 */
+  --primary-light: #ccfbf1;     /* teal-100 */
 
-  /* Secondary Colors (Bright Blue) */
-  --secondary-color: #3b82f6;
-  --secondary-hover: #2563eb;
-  --secondary-light: #dbeafe;
+  /* Secondary Colors (Indigo) - secondary actions */
+  --secondary-color: #6366f1;   /* indigo-500 */
+  --secondary-hover: #4f46e5;   /* indigo-600 */
+  --secondary-light: #e0e7ff;   /* indigo-100 */
 
   /* Danger Colors (Red) */
   --danger-color: #ef4444;
@@ -30,14 +30,14 @@
   --warning-color: #f59e0b;
   --warning-light: #fef3c7;
 
-  /* Success Colors (Green) */
-  --success-color: #10b981;
-  --success-hover: #059669;
-  --success-light: #d1fae5;
+  /* Success Colors (Green) - status only */
+  --success-color: #16a34a;     /* green-600 */
+  --success-hover: #15803d;     /* green-700 */
+  --success-light: #dcfce7;     /* green-100 */
 
-  /* Info Colors (Blue) */
-  --info-color: #3b82f6;
-  --info-light: #dbeafe;
+  /* Info Colors (Blue) - neutral info */
+  --info-color: #3b82f6;        /* blue-500 */
+  --info-light: #dbeafe;        /* blue-100 */
 
   /* Neutrals */
   --background: #f8fafc;
@@ -91,15 +91,15 @@
   --weekend-border: #c084fc;
 
   /* RGB helpers (for tints) */
-  --primary-rgb: 16, 185, 129;
-  --secondary-rgb: 59, 130, 246;
+  --primary-rgb: 20, 184, 166;     /* teal */
+  --secondary-rgb: 99, 102, 241;   /* indigo */
   --error-rgb: 239, 68, 68;
   --warning-rgb: 245, 158, 11;
-  --success-rgb: 16, 185, 129;
+  --success-rgb: 22, 163, 74;      /* green */
 }
 
 /* ============================================================ */
-/* BASE STYLES */
+/* BASE STYLES                                                  */
 /* ============================================================ */
 
 *, *::before, *::after {
@@ -126,7 +126,7 @@ body {
 }
 
 /* ============================================================ */
-/* TYPOGRAPHY */
+/* TYPOGRAPHY                                                   */
 /* ============================================================ */
 
 h1 {
@@ -163,7 +163,7 @@ h3 {
 }
 
 /* ============================================================ */
-/* LAYOUT */
+/* LAYOUT                                                       */
 /* ============================================================ */
 
 .container {
@@ -193,7 +193,7 @@ header {
 }
 
 /* ============================================================ */
-/* CARDS */
+/* CARDS                                                        */
 /* ============================================================ */
 
 .card {
@@ -223,7 +223,7 @@ header {
 }
 
 /* ============================================================ */
-/* BUTTONS */
+/* BUTTONS                                                      */
 /* ============================================================ */
 
 .btn {
@@ -279,31 +279,21 @@ header {
 .primary-btn {
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   color: white;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.25);
 }
 
 .primary-btn:active {
-  box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 1px 4px rgba(var(--primary-rgb), 0.2);
 }
 
 .secondary-btn {
   background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
   color: white;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 8px rgba(var(--secondary-rgb), 0.2);
 }
 
 .secondary-btn:active {
-  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
-}
-
-/* Enhanced focus/hover/active states */
-
-.btn:focus-visible,
-.primary-btn:focus-visible,
-.secondary-btn:focus-visible {
-  outline: 3px solid var(--primary-color);
-  outline-offset: 3px;
-  box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.25);
+  box-shadow: 0 1px 4px rgba(var(--secondary-rgb), 0.15);
 }
 
 .primary-btn:hover,
@@ -313,7 +303,7 @@ header {
 }
 
 /* ============================================================ */
-/* FORM INPUTS */
+/* FORM INPUTS                                                  */
 /* ============================================================ */
 
 .form-input {
@@ -344,6 +334,7 @@ header {
 
 .form-input[aria-invalid="true"] {
   border-color: var(--danger-color);
+  animation: shake 0.4s ease;
 }
 
 .form-input[aria-invalid="true"]:focus {
@@ -365,7 +356,7 @@ select.form-input {
 }
 
 /* ============================================================ */
-/* FLOATING BUTTON */
+/* FLOATING BUTTON                                              */
 /* ============================================================ */
 
 #floatingSignupBtnContainer {
@@ -409,7 +400,7 @@ select.form-input {
 }
 
 /* ============================================================ */
-/* SLOTS GRID */
+/* SLOTS GRID                                                   */
 /* ============================================================ */
 
 .date-card {
@@ -419,6 +410,8 @@ select.form-input {
   padding: var(--space-base);
   margin-bottom: var(--space-base);
   box-shadow: var(--shadow-xs);
+  scroll-snap-align: start;
+  scroll-margin-top: 80px;
 }
 
 .date-card h3 {
@@ -465,7 +458,7 @@ select.form-input {
   background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
   border-color: var(--primary-dark);
   color: white;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb), 0.3);
   transform: scale(1.02);
 }
 
@@ -490,18 +483,12 @@ select.form-input {
   opacity: 1;
 }
 
-.slot:focus-visible {
-  outline: 3px solid var(--primary-color);
-  outline-offset: 2px;
-  z-index: 1;
-}
-
 /* ============================================================ */
-/* CHIP SYSTEM - UNIFIED */
+/* CHIP SYSTEM - UNIFIED                                        */
 /* ============================================================ */
 
 .selected-slots-summary {
-  background: linear-gradient(135deg, var(--success-light), #a7f3d0);
+  background: linear-gradient(135deg, var(--success-light), #bbf7d0);
   border: 2px solid var(--success-color);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
@@ -522,7 +509,6 @@ select.form-input {
   align-items: center;
   gap: var(--space-sm);
   background: var(--surface);
-  border: 2px solid var(--success-color);
   border-radius: var(--radius-full);
   padding: var(--space-sm) var(--space-md);
   transition: all var(--transition-normal);
@@ -531,14 +517,17 @@ select.form-input {
   max-width: 100%;
   will-change: transform;
   transform: translateZ(0);
+  position: relative;
+  overflow: hidden;
 }
 
 .lookup-chip {
-  border-color: var(--secondary-color);
+  border: 2px solid var(--secondary-color);
   box-shadow: var(--shadow-xs);
 }
 
 .slot-chip {
+  border: 2px solid var(--success-color);
   animation: chipSlideIn var(--transition-slow) ease;
 }
 
@@ -630,13 +619,34 @@ select.form-input {
   color: white;
 }
 
+/* Better touch feedback for chips */
+.slot-chip::before,
+.lookup-chip::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(var(--primary-rgb), 0.2);
+  transform: translate(-50%, -50%);
+  transition: width 0.4s, height 0.4s;
+}
+
+.slot-chip:active::before,
+.lookup-chip:active::before {
+  width: 200%;
+  height: 200%;
+}
+
 /* ============================================================ */
-/* LOOKUP SECTION */
+/* LOOKUP SECTION                                               */
 /* ============================================================ */
 
 .lookup-section {
   background: linear-gradient(135deg, var(--info-light), #e0f2fe);
-  border: 2px solid var(--secondary-light);
+  border: 2px solid var(--info-light);
 }
 
 .lookup-controls {
@@ -652,7 +662,7 @@ select.form-input {
 }
 
 /* ============================================================ */
-/* MESSAGE BOXES */
+/* MESSAGE BOXES                                                */
 /* ============================================================ */
 
 .msg-box {
@@ -685,7 +695,7 @@ select.form-input {
 }
 
 .msg-box.success {
-  color: #065f46;
+  color: #166534;
   background: var(--success-light);
   border: 2px solid var(--success-color);
 }
@@ -697,13 +707,13 @@ select.form-input {
 }
 
 .msg-box.info {
-  color: #1e40af;
+  color: #1d4ed8;
   background: var(--info-light);
   border: 2px solid var(--info-color);
 }
 
 /* ============================================================ */
-/* LOADING & UTILITIES */
+/* LOADING & UTILITIES                                          */
 /* ============================================================ */
 
 .loading-spinner,
@@ -737,8 +747,23 @@ select.form-input {
   color: var(--text-secondary);
 }
 
+/* Button loading state improvements */
+.btn .spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  margin: 0 var(--space-sm) 0 0;
+}
+
+.btn:disabled .spinner {
+  border-color: rgba(255, 255, 255, 0.2);
+  border-top-color: rgba(255, 255, 255, 0.5);
+}
+
 /* ============================================================ */
-/* RESPONSIVE */
+/* RESPONSIVE                                                   */
 /* ============================================================ */
 
 @media (min-width: 640px) {
@@ -832,11 +857,60 @@ select.form-input {
   }
 }
 
+/* Inline signup layout */
+
+.signup-inline-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.signup-inline-text {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.signup-inline-btn {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  height: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+  .signup-inline-wrapper {
+    justify-content: flex-start;
+  }
+  .signup-inline-text,
+  .signup-inline-btn {
+    font-size: 0.85rem;
+  }
+}
+
 /* ============================================================ */
-/* ACCESSIBILITY & PRINT */
+/* ACCESSIBILITY & PRINT                                         */
 /* ============================================================ */
 
 *:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
+.slot:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.2);
+  z-index: 10;
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--primary-color);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.25);
+}
+
+.form-input:focus-visible {
   outline: 3px solid var(--primary-color);
   outline-offset: 2px;
 }
@@ -898,21 +972,7 @@ small {
 }
 
 /* ============================================================ */
-/* PERFORMANCE ENHANCEMENTS - ADDED [DATE] */
-/* ============================================================ */
-
-/* GPU acceleration for smoother animations */
-.slot,
-.btn,
-.slot-chip,
-.lookup-chip,
-.date-card {
-  backface-visibility: hidden;
-  perspective: 1000px;
-}
-
-/* ============================================================ */
-/* PERFORMANCE ENHANCEMENTS */
+/* PERFORMANCE ENHANCEMENTS                                     */
 /* ============================================================ */
 
 /* GPU acceleration for smoother animations */
@@ -937,43 +997,15 @@ small {
 }
 
 /* ============================================================ */
-/* BETTER FOCUS INDICATORS (WCAG AAA) */
-/* ============================================================ */
-
-/* Enhanced keyboard navigation */
-.slot:focus-visible {
-  outline: 3px solid var(--primary-color);
-  outline-offset: 4px;
-  box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.2);
-  z-index: 10;
-}
-
-.btn:focus-visible {
-  outline: 3px solid var(--primary-color);
-  outline-offset: 4px;
-  box-shadow: 0 0 0 6px rgba(var(--primary-rgb), 0.25);
-}
-
-.form-input:focus-visible {
-  outline: 3px solid var(--primary-color);
-  outline-offset: 2px;
-}
-
-/* ============================================================ */
-/* SCROLL SNAP (SMOOTH SCROLLING BETWEEN DATES) */
+/* SCROLL SNAP (SMOOTH SCROLLING BETWEEN DATES)                 */
 /* ============================================================ */
 
 #datesContainer {
   scroll-snap-type: y proximity;
 }
 
-.date-card {
-  scroll-snap-align: start;
-  scroll-margin-top: 80px; /* Space for sticky header */
-}
-
 /* ============================================================ */
-/* BETTER SKELETON LOADING */
+/* BETTER SKELETON LOADING                                      */
 /* ============================================================ */
 
 .skeleton-card {
@@ -1027,11 +1059,10 @@ small {
 }
 
 /* ============================================================ */
-/* HAPTIC FEEDBACK SIMULATION (VISUAL) */
+/* HAPTIC FEEDBACK SIMULATION (VISUAL)                          */
 /* ============================================================ */
 
 @media (hover: none) and (pointer: coarse) {
-  /* Mobile devices only */
   .slot:active:not(.disabled) {
     animation: hapticPulse 0.3s ease;
   }
@@ -1057,45 +1088,7 @@ small {
 }
 
 /* ============================================================ */
-/* BETTER ERROR STATES */
-/* ============================================================ */
-
-.form-input[aria-invalid="true"] {
-  animation: shake 0.4s ease;
-}
-
-@keyframes shake {
-  0%, 100% {
-    transform: translateX(0);
-  }
-  10%, 30%, 50%, 70%, 90% {
-    transform: translateX(-4px);
-  }
-  20%, 40%, 60%, 80% {
-    transform: translateX(4px);
-  }
-}
-
-/* ============================================================ */
-/* LOADING STATE IMPROVEMENTS */
-/* ============================================================ */
-
-.btn .spinner {
-  width: 18px;
-  height: 18px;
-  border-width: 2px;
-  border-color: rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  margin: 0 var(--space-sm) 0 0;
-}
-
-.btn:disabled .spinner {
-  border-color: rgba(255, 255, 255, 0.2);
-  border-top-color: rgba(255, 255, 255, 0.5);
-}
-
-/* ============================================================ */
-/* SAFE AREA IMPROVEMENTS FOR NEWER iPhones */
+/* SAFE AREA IMPROVEMENTS FOR NEWER iPhones                     */
 /* ============================================================ */
 
 @supports (padding: max(0px)) {
@@ -1113,37 +1106,7 @@ small {
 }
 
 /* ============================================================ */
-/* BETTER TOUCH FEEDBACK FOR CHIPS */
-/* ============================================================ */
-
-.slot-chip,
-.lookup-chip {
-  position: relative;
-  overflow: hidden;
-}
-
-.slot-chip::before,
-.lookup-chip::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(var(--primary-rgb), 0.2);
-  transform: translate(-50%, -50%);
-  transition: width 0.4s, height 0.4s;
-}
-
-.slot-chip:active::before,
-.lookup-chip:active::before {
-  width: 200%;
-  height: 200%;
-}
-
-/* ============================================================ */
-/* ACCESSIBILITY: HIGH CONTRAST MODE SUPPORT */
+/* ACCESSIBILITY: HIGH CONTRAST MODE SUPPORT                    */
 /* ============================================================ */
 
 @media (prefers-contrast: high) {
@@ -1165,7 +1128,7 @@ small {
 }
 
 /* ============================================================ */
-/* LANDSCAPE MODE OPTIMIZATION */
+/* LANDSCAPE MODE OPTIMIZATION                                  */
 /* ============================================================ */
 
 @media (orientation: landscape) and (max-height: 500px) {
@@ -1196,7 +1159,7 @@ small {
 }
 
 /* ============================================================ */
-/* SELECTION HIGHLIGHTING */
+/* SELECTION HIGHLIGHTING                                       */
 /* ============================================================ */
 
 ::selection {
@@ -1210,7 +1173,7 @@ small {
 }
 
 /* ============================================================ */
-/* BETTER SCROLLBAR STYLING (WEBKIT ONLY) */
+/* BETTER SCROLLBAR STYLING (WEBKIT ONLY)                       */
 /* ============================================================ */
 
 @supports selector(::-webkit-scrollbar) {
@@ -1234,7 +1197,7 @@ small {
 }
 
 /* ============================================================ */
-/* EASTER EGG: CELEBRATION ANIMATION (OPTIONAL) */
+/* EASTER EGG: CELEBRATION ANIMATION (OPTIONAL)                 */
 /* ============================================================ */
 
 @keyframes celebrate {
@@ -1252,41 +1215,10 @@ small {
   }
 }
 
-/* Apply to success message */
 #successMessage.show {
   animation: celebrate 0.6s ease;
 }
 
-/* Inline flex wrapper for text + button */
-.signup-inline-wrapper {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap; /* Allows wrapping on small screens */
-}
-
-.signup-inline-text {
-  font-weight: 500;
-  white-space: nowrap; /* Prevent breaking in the middle */
-}
-
-.signup-inline-btn {
-  padding: 6px 12px;
-  font-size: 0.875rem;
-  height: auto;
-  white-space: nowrap;
-}
-
-@media (max-width: 400px) {
-  .signup-inline-wrapper {
-    justify-content: flex-start;
-  }
-  .signup-inline-text,
-  .signup-inline-btn {
-    font-size: 0.85rem;
-  }
-}
-
 /* ============================================================ */
-/* END OF ENHANCEMENTS */
+/* END OF ENHANCEMENTS                                          */
 /* ============================================================ */
