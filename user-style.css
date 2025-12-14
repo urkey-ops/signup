@@ -1257,6 +1257,36 @@ small {
   animation: celebrate 0.6s ease;
 }
 
+/* Inline flex wrapper for text + button */
+.signup-inline-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap; /* Allows wrapping on small screens */
+}
+
+.signup-inline-text {
+  font-weight: 500;
+  white-space: nowrap; /* Prevent breaking in the middle */
+}
+
+.signup-inline-btn {
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  height: auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 400px) {
+  .signup-inline-wrapper {
+    justify-content: flex-start;
+  }
+  .signup-inline-text,
+  .signup-inline-btn {
+    font-size: 0.85rem;
+  }
+}
+
 /* ============================================================ */
 /* END OF ENHANCEMENTS */
 /* ============================================================ */
