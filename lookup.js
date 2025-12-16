@@ -156,8 +156,19 @@ export async function lookupBookings() {
 
         const bookings = data.bookings || [];
 
-        if (bookings.length === 0) {
-            showInfo(displayEl, '📭 No active bookings found for this phone number.');
+       if (bookings.length === 0) {
+            displayEl.innerHTML = '';
+            const noBookingsDiv = document.createElement('div');
+            noBookingsDiv.className = 'msg-box info';
+            noBookingsDiv.style.cssText = 'padding: 20px; text-align: center; margin-top: 10px;';
+            noBookingsDiv.innerHTML = `
+                <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
+                <div style="font-weight: 600; margin-bottom: 8px;">No Bookings Found</div>
+                <div style="color: #6b7280; font-size: 0.95rem;">
+                    We couldn't find any bookings associated with this phone number.
+                </div>
+            `;
+            displayEl.appendChild(noBookingsDiv);
             return;
         }
 
