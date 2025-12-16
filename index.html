@@ -361,70 +361,71 @@
   <div class="container" id="mainApp" style="display:none;">
     <header>
       <h1>📅 Book Your Slot</h1>
-      <p class="description">
-        Hello! Thank you for your interest in helping with Greeter Seva at the Mandir. Please review the available dates and time slots below, select what works best for you, and complete the sign-up form. We look forward to welcoming you on site and sincerely thank you in advance for your generous seva.
-      </p>
     </header>
+    
+    <div class="header-description">
+      <p class="description">
+        This site is password protected. Enter your details to view and manage your bookings, then choose one or more
+        available time slots.
+      </p>
+    </div>
 
     <main aria-labelledby="lookup-heading">
       <!-- Lookup Section -->
-      <!-- Lookup Section -->
-<section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
-  <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
+      <section class="card lookup-section card-compact" aria-labelledby="lookup-heading">
+        <h2 id="lookup-heading" class="visually-hidden">Lookup and Cancel Bookings</h2>
 
+        <div class="signup-inline-wrapper">
+          <span class="signup-inline-text">Already Signed Up?</span>
+          <button
+            id="lookupToggle"
+            class="btn secondary-btn signup-inline-btn"
+            aria-expanded="false"
+            aria-controls="lookupContent"
+            type="button"
+          >
+            Manage My Sign Ups
+          </button>
+        </div>
 
-   <div class="signup-inline-wrapper">
-    <span class="signup-inline-text">Already Signed Up?</span>
-    <button
-      id="lookupToggle"
-      class="btn secondary-btn signup-inline-btn"
-      aria-expanded="false"
-      aria-controls="lookupContent"
-      type="button"
-    >
-      Manage My Sign Ups
-    </button>
-  </div>
-  
-  
-  <div id="lookupContent" class="hidden" aria-hidden="true" style="margin-top: 10px;">
-    <p class="description">
-      Enter your phone number to view and manage your sign ups.
-    </p>
-    <div class="lookup-controls">
-      <label for="lookupPhone" class="visually-hidden">Phone number for booking lookup</label>
-      <input
-        type="tel"
-        id="lookupPhone"
-        class="form-input lookup-input"
-        placeholder="Enter your phone number"
-        maxlength="20"
-        autocomplete="tel"
-        inputmode="tel"
-        aria-describedby="phone-hint"
-      />
-      <span id="phone-hint" class="visually-hidden">
-        Enter your 10-digit phone number to search for sign ups
-      </span>
-      <button
-        id="lookupSearchBtn"
-        class="btn secondary-btn"
-        aria-label="Search for sign ups"
-        type="button"
-      >
-        Search
-      </button>
-    </div>
-  </div>
+        <div id="lookupContent" class="hidden" aria-hidden="true" style="margin-top: 10px;">
+          <p class="description">
+            Enter your phone number to view and manage your sign ups.
+          </p>
+          <div class="lookup-controls">
+            <label for="lookupPhone" class="visually-hidden">Phone number for booking lookup</label>
+            <input
+              type="tel"
+              id="lookupPhone"
+              class="form-input lookup-input"
+              placeholder="Enter your phone number"
+              maxlength="20"
+              autocomplete="tel"
+              inputmode="tel"
+              aria-describedby="phone-hint"
+            />
+            <span id="phone-hint" class="visually-hidden">
+              Enter your 10-digit phone number to search for sign ups
+            </span>
+            <button
+              id="lookupSearchBtn"
+              class="btn secondary-btn"
+              aria-label="Search for sign ups"
+              type="button"
+            >
+              Search
+            </button>
+          </div>
+        </div>
 
-  <div
-    id="userBookingsDisplay"
-    style="margin-top: 15px;"
-    role="region"
-    aria-live="polite"
-    aria-label="Your bookings"
-  ></div>
-</section>
+        <div
+          id="userBookingsDisplay"
+          style="margin-top: 15px;"
+          role="region"
+          aria-live="polite"
+          aria-label="Your bookings"
+        ></div>
+      </section>
 
 
       <!-- Slots Section -->
