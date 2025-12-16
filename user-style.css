@@ -156,7 +156,7 @@ small {
   color: var(--text-secondary);
   font-size: 0.9375rem;
   line-height: 1.6;
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-2xl);
 }
 
 /* ============================================================ */
@@ -197,7 +197,7 @@ header {
   background: var(--surface);
   border-radius: var(--radius-lg);
   padding: var(--space-lg);
-  margin-bottom: var(--space-xl);
+  margin-bottom: var(--space-2xl);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
   transition: box-shadow var(--transition-normal);
@@ -212,7 +212,7 @@ header {
 
 .card-compact {
   padding: var(--space-base);
-  margin-bottom: var(--space-lg);
+  margin-bottom: var(--space-xl);
 }
 
 .card-compact.lookup-section {
@@ -432,7 +432,7 @@ select.form-input {
 .slots-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: var(--space-md);
+  gap: var(--space-lg);
 }
 
 .slot {
@@ -948,8 +948,34 @@ select.form-input {
   }
 }
 
-#successMessage.show {
-  animation: celebrate 0.6s ease;
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+  75% {
+    transform: translateX(-2px);
+  }
+}
+
+@keyframes celebrate {
+  0%, 100% {
+    transform: scale(1) rotate(0deg);
+  }
+  25% {
+    transform: scale(1.1) rotate(-5deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  75% {
+    transform: scale(1.1) rotate(-3deg);
+  }
 }
 
 /* ============================================================ */
@@ -1022,16 +1048,16 @@ select.form-input {
     align-items: flex-start;
     gap: 8px;
   }
-  
+
   .signup-inline-btn {
     width: 100%;
     text-align: center;
   }
-  
+
   .signup-inline-text {
     font-size: 0.9rem;
   }
-  
+
   .lookup-section.card-compact {
     padding: 0.875rem 1rem;
   }
@@ -1045,6 +1071,15 @@ select.form-input {
 }
 
 @media (max-width: 380px) {
+  .card {
+    padding: var(--space-base);
+    margin-bottom: var(--space-xl);
+  }
+
+  .date-card {
+    padding: var(--space-base);
+  }
+
   .chip-content {
     flex-direction: column;
     align-items: flex-start;
@@ -1238,23 +1273,3 @@ select.form-input {
     box-shadow: 0 0 0 3px rgba(var(--error-rgb), 0.1) !important;
   }
 }
-    transform: scale(0.98);
-  }
-}
-
-
-
-    @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  50% { transform: translateX(3px); }
-  75% { transform: translateX(-2px); }
-}
-
-@keyframes celebrate {
-  0%, 100% { transform: scale(1) rotate(0deg); }
-  25% { transform: scale(1.1) rotate(-5deg); }
-  50% { transform: scale(1.2) rotate(5deg); }
-  75% { transform: scale(1.1) rotate(-3deg); }
-}
-
