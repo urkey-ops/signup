@@ -1266,6 +1266,63 @@ small {
   animation: celebrate 0.6s ease;
 }
 
+/* Compact inline layout for "Already Signed Up?" section */
+.signup-inline-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 0;
+  margin: 0;
+}
+
+.signup-inline-text {
+  font-size: 0.95rem;
+  color: #4b5563;
+  font-weight: 500;
+  white-space: nowrap;
+  margin: 0;
+}
+
+.signup-inline-btn {
+  margin: 0;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  min-height: unset;
+  height: auto;
+  flex-shrink: 0;
+}
+
+/* Reduce spacing for the lookup section card */
+.lookup-section.card-compact {
+  padding: 16px 20px;
+}
+
+/* Mobile: Stack vertically with minimal spacing */
+@media (max-width: 640px) {
+  .signup-inline-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .signup-inline-btn {
+    width: 100%;
+    text-align: center;
+  }
+  
+  .signup-inline-text {
+    font-size: 0.9rem;
+  }
+  
+  .lookup-section.card-compact {
+    padding: 14px 16px;
+  }
+}
+
+
+
 /* ============================================================ */
 /* END OF ENHANCEMENTS                                          */
 /* ============================================================ */
