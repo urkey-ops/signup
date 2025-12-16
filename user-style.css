@@ -1276,3 +1276,21 @@ select.form-input {
     box-shadow: 0 0 0 3px rgba(var(--error-rgb), 0.1) !important;
   }
 }
+
+/* Stack main label and count inside the floating button */
+#floatingSignupBtn {
+  flex-direction: column;        /* was row via .btn */
+  align-items: center;
+  text-align: center;
+}
+
+#floatingSignupBtn .btn-main-label {
+  line-height: 1.2;
+}
+
+#floatingSignupBtn .btn-sub-label {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  line-height: 1.2;
+}
+
