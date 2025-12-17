@@ -1,5 +1,5 @@
 // ================================================================================================
-// SLOTS - MAIN ORCHESTRATOR (BEFOREUNLOAD BUG FIXED)
+// SLOTS - MAIN ORCHESTRATOR (WITH MINOR IMPROVEMENTS)
 // ================================================================================================
 
 import { getSelectedSlots, invalidateCache, getIsSubmitting } from './config.js';
@@ -45,63 +45,168 @@ import {
 injectSlotsStyles();
 
 // ================================================================================================
+// CONFIGURATION & STATE
+// ================================================================================================
+
+const MAX_LOAD_RETRIES = 2; // Retry failed loads up to 2 times
+const RETRY_DELAY_MS = 1000; // Wait 1 second between retries
+const RELOAD_DEBOUNCE_MS = 300; // Debounce force reloads
+
+// Loading state management
+let isLoading = false;
+let loadAbortController = null;
+
+// Debounce timer for reload
+let reloadDebounceTimer = null;
+
+// ================================================================================================
+// HELPER FUNCTIONS
+// ================================================================================================
+
+/**
+ * Cancel any pending slot load
+ */
+function cancelPendingLoad() {
+    if (loadAbortController) {
+        loadAbortController.abort();
+        loadAbortController = null;
+        console.log('🚫 Pending slot load cancelled');
+    }
+}
+
+/**
+ * Reset loading state
+ */
+function resetLoadingState() {
+    isLoading = false;
+    cancelPendingLoad();
+}
+
+// ================================================================================================
 // MAIN LOAD FUNCTION
 // ================================================================================================
 
 /**
- * Load and display available slots
+ * Load and display available slots (with retry and abort support)
  * Main entry point for slot loading
+ * @param {number} retryCount - Current retry attempt (internal use)
  */
-export async function loadSlots() {
-    console.log('📅 Loading slots...');
-    
-    // Show skeleton UI
-    showSkeletonUI();
-    
-    // Hide signup section if visible
-    const signupSection = document.getElementById("signupSection");
-    if (signupSection) signupSection.style.display = "none";
-    
-    // Fetch slots data
-    const data = await fetchSlots();
-    
-    // Handle errors
-    if (!data) {
-        showErrorMessage('Failed to load slots. Please try again.');
+export async function loadSlots(retryCount = 0) {
+    // Prevent duplicate simultaneous loads
+    if (isLoading) {
+        console.warn('⚠️ Slots already loading, skipping duplicate request');
         return;
     }
     
-    if (data.error) {
-        showErrorMessage(data.error);
-        return;
+    isLoading = true;
+    console.log(`📅 Loading slots... ${retryCount > 0 ? `(Retry ${retryCount}/${MAX_LOAD_RETRIES})` : ''}`);
+    
+    // Cancel previous load if still pending
+    if (loadAbortController) {
+        loadAbortController.abort();
     }
+    loadAbortController = new AbortController();
     
-    // Validate data structure
-    if (!isValidSlotsData(data)) {
-        showErrorMessage('Invalid data received from server.');
-        return;
+    try {
+        // Show skeleton UI
+        showSkeletonUI();
+        
+        // Hide signup section if visible
+        const signupSection = document.getElementById("signupSection");
+        if (signupSection) signupSection.style.display = "none";
+        
+        // Fetch slots data with abort signal
+        const data = await fetchSlots(loadAbortController.signal);
+        
+        // Handle errors with retry logic
+        if (!data) {
+            if (retryCount < MAX_LOAD_RETRIES) {
+                console.log(`🔄 Retrying slot load... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+                resetLoadingState();
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                return loadSlots(retryCount + 1);
+            }
+            showErrorMessage('Failed to load slots. Please try again.');
+            resetLoadingState();
+            return;
+        }
+        
+        if (data.error) {
+            if (retryCount < MAX_LOAD_RETRIES) {
+                console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+                resetLoadingState();
+                await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                return loadSlots(retryCount + 1);
+            }
+            showErrorMessage(data.error);
+            resetLoadingState();
+            return;
+        }
+        
+        // Validate data structure
+        if (!isValidSlotsData(data)) {
+            console.error('❌ Invalid data structure received:', data);
+            showErrorMessage('Invalid data received from server.');
+            resetLoadingState();
+            return;
+        }
+        
+        // Filter and process slots
+        const futureSlots = filterFutureSlots(data);
+        const dateCount = Object.keys(futureSlots).length;
+        const availableCount = countAvailableSlots(futureSlots);
+        
+        console.log(`📊 Total dates: ${dateCount}, Available slots: ${availableCount}`);
+        
+        if (availableCount === 0) {
+            showNoSlotsMessage();
+            resetLoadingState();
+            return;
+        }
+        
+        // Render slots with error boundary
+        try {
+            renderSlots(futureSlots, handleSlotClick);
+            toggleDisplay(true);
+        } catch (renderErr) {
+            console.error('❌ Error rendering slots:', renderErr);
+            showErrorMessage('Failed to display slots. Please refresh the page.');
+            resetLoadingState();
+            return;
+        }
+        
+        // Update summary and button
+        updateSummaryDisplay();
+        updateFloatingButton();
+        
+        console.log(`✅ Successfully loaded ${availableCount} available slots`);
+        
+    } catch (err) {
+        // Handle aborted loads (user navigated away)
+        if (err.name === 'AbortError') {
+            console.log('🚫 Slot loading was cancelled');
+            resetLoadingState();
+            return;
+        }
+        
+        console.error('❌ Error loading slots:', err);
+        
+        // Retry on unexpected errors
+        if (retryCount < MAX_LOAD_RETRIES) {
+            console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+            resetLoadingState();
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            return loadSlots(retryCount + 1);
+        }
+        
+        showErrorMessage('An unexpected error occurred. Please refresh the page.');
+        resetLoadingState();
+        
+    } finally {
+        // Always reset loading state
+        isLoading = false;
+        loadAbortController = null;
     }
-    
-    // Filter and process slots
-    const futureSlots = filterFutureSlots(data);
-    const availableCount = countAvailableSlots(futureSlots);
-    
-    if (availableCount === 0) {
-        showNoSlotsMessage();
-        return;
-    }
-    
-    // Render slots with click handler
-    renderSlots(futureSlots, handleSlotClick);
-    
-    // Show the slots display
-    toggleDisplay(true);
-    
-    // Update summary and button
-    updateSummaryDisplay();
-    updateFloatingButton();
-    
-    console.log(`✅ Loaded ${availableCount} available slots`);
 }
 
 /**
@@ -112,7 +217,15 @@ export async function loadSlots() {
  * @param {HTMLElement} element - Clicked element
  */
 function handleSlotClick(date, label, slotId, element) {
+    const wasSelected = isSlotSelected(slotId);
     toggleSlot(date, label, slotId, element);
+    
+    // Optional: Log selection change
+    if (!wasSelected) {
+        console.log(`✓ Slot selected: ${label} on ${date} (ID: ${slotId})`);
+    } else {
+        console.log(`✗ Slot deselected: ${label} on ${date} (ID: ${slotId})`);
+    }
 }
 
 // ================================================================================================
@@ -120,12 +233,32 @@ function handleSlotClick(date, label, slotId, element) {
 // ================================================================================================
 
 /**
- * Force reload slots from API (bypass cache)
+ * Force reload slots from API (bypass cache) with debouncing
  */
 export async function forceReloadSlots() {
-    console.log('🔄 Force reloading slots...');
-    invalidateCache();
-    await loadSlots();
+    // Debounce rapid reload attempts
+    if (reloadDebounceTimer) {
+        console.log('⏳ Reload already scheduled, skipping duplicate');
+        clearTimeout(reloadDebounceTimer);
+    }
+    
+    reloadDebounceTimer = setTimeout(async () => {
+        console.log('🔄 Force reloading slots...');
+        
+        // Cancel any pending load
+        cancelPendingLoad();
+        
+        // Invalidate cache
+        invalidateCache();
+        
+        // Reset loading state to allow new load
+        isLoading = false;
+        
+        // Load slots
+        await loadSlots();
+        
+        reloadDebounceTimer = null;
+    }, RELOAD_DEBOUNCE_MS);
 }
 
 /**
@@ -206,9 +339,22 @@ function setupBeforeUnloadWarning() {
 export function cleanup() {
     console.log('🧹 Cleaning up slots module...');
     
+    // Cancel pending operations
+    cancelPendingLoad();
+    
+    // Clear debounce timer
+    if (reloadDebounceTimer) {
+        clearTimeout(reloadDebounceTimer);
+        reloadDebounceTimer = null;
+    }
+    
+    // Cleanup UI listeners
     cleanupSlotListeners();
     cleanupFloatingButton();
     clearPendingRemovals();
+    
+    // Reset state
+    isLoading = false;
     
     console.log('✅ Slots module cleaned up');
 }
@@ -223,14 +369,23 @@ function initialize() {
     // Setup beforeunload warning
     setupBeforeUnloadWarning();
     
-    // Handle reload slots event
-    window.addEventListener('reloadSlots', () => {
+    // Handle reload slots event (with CustomEvent type checking)
+    window.addEventListener('reloadSlots', (e) => {
         console.log('🔄 Reload slots event triggered');
-        forceReloadSlots();
+        
+        // Verify it's a proper custom event
+        if (e instanceof Event) {
+            forceReloadSlots();
+        } else {
+            console.warn('⚠️ Invalid reload event received');
+        }
     });
     
     // Cleanup on page unload
     window.addEventListener('unload', cleanup);
+    
+    // Cleanup on beforeunload (in case unload doesn't fire)
+    window.addEventListener('beforeunload', cleanup);
     
     console.log('✅ Slots module initialized');
 }
