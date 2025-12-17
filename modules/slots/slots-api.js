@@ -33,27 +33,41 @@ export function isLoading() {
  * @returns {Promise<Object|null>} Slots data or null on error
  */
 // Accept optional AbortSignal
+// Accept optional AbortSignal
 export async function fetchSlots(signal) {
+    // 0️⃣ Use preloaded data once if available
+    if (typeof window !== 'undefined' && window.__PRELOADED_SLOTS__) {
+        const pre = window.__PRELOADED_SLOTS__;
+        window.__PRELOADED_SLOTS__ = null; // one-time use
+        updateCache(pre);
+        console.log('✅ Using preloaded slots data (from auth phase)');
+        return pre;
+    }
+
+    // Prevent duplicate requests
     if (isLoadingSlots) {
         console.log('⚠️ Already loading slots, skipping duplicate request');
         return null;
     }
 
+    // Set loading flag immediately to prevent race condition
     isLoadingSlots = true;
 
     try {
+        // Check cache first (unless you want to force a network call)
         const cachedData = getCachedData();
         if (cachedData && !signal) { // optional: still use cache even if signal exists
             console.log('✅ Using cached slots data');
             return cachedData;
         }
 
+        // Fetch from API
         console.log('📡 Fetching slots from API...');
         const startTime = performance.now();
 
         const response = await fetch(API_URL, {
             credentials: 'include',
-            signal // <-- key for AbortController integration
+            signal // AbortController integration
         });
 
         const fetchTime = performance.now() - startTime;
@@ -72,6 +86,7 @@ export async function fetchSlots(signal) {
             return { error: data.error || 'Failed to load slots' };
         }
 
+        // Update cache
         updateCache(data);
         console.log(`✅ Loaded ${Object.keys(data.dates || {}).length} dates`);
         return data;
@@ -87,7 +102,6 @@ export async function fetchSlots(signal) {
         isLoadingSlots = false;
     }
 }
-
 
 /**
  * Force reload slots from API (bypass cache)
