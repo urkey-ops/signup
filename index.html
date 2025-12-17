@@ -598,16 +598,25 @@
             aria-live="polite"
           ></div>
 
-          <div id="signupFormButtonContainer">
-            <button
-              id="signupSubmitBtn"
-              type="submit"
-              class="btn primary-btn"
-            >
-              <span class="spinner hidden" aria-hidden="true"></span>
-              <span>Confirm booking</span>
-            </button>
-          </div>
+          <div id="signupFormButtonContainer" style="display: flex; gap: 10px; flex-wrap: wrap;">
+  <button
+    id="backToSlotsBtn"
+    type="button"
+    class="btn secondary-btn"
+    style="flex: 1; min-width: 150px;"
+  >
+    ← Back to Slots
+  </button>
+  <button
+    id="signupSubmitBtn"
+    type="submit"
+    class="btn primary-btn"
+    style="flex: 2; min-width: 200px;"
+  >
+    <span class="spinner hidden" aria-hidden="true"></span>
+    <span>Confirm booking</span>
+  </button>
+</div>
         </form>
       </section>
 
