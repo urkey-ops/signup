@@ -60,7 +60,24 @@ async function initializeSession() {
     try {
         const data = await checkSession();
         if (data.ok) {
-            // ✅ Show app instantly
+
+            // ⚡ NEW: Preload slots in background
+            (async () => {
+                try {
+                    // Adjust path if needed based on your folder structure
+                    const { fetchSlots } = await import('../modules/slots/slots-api.js');
+                    const slotsData = await fetchSlots();
+                    if (slotsData && slotsData.ok) {
+                        window.__PRELOADED_SLOTS__ = slotsData;
+                        console.log('⚡ Slots preloaded during session init');
+                    }
+                } catch (e) {
+                    console.warn('Slots preload failed (will fall back later)', e);
+                }
+            })();
+            // ⚡ END NEW
+
+            // ✅ Existing behavior
             loginSection.style.display = 'none';
             mainApp.style.display = 'block';
             logoutBtn.style.display = 'block';
@@ -80,6 +97,7 @@ async function initializeSession() {
         logoutBtn.style.display = 'none';
     }
 }
+
 
 // Track user activity
 ['mousemove','mousedown','keypress','scroll','touchstart','click'].forEach(evt => {
