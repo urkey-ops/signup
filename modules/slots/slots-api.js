@@ -32,36 +32,33 @@ export function isLoading() {
  * Fetch available slots from API with caching
  * @returns {Promise<Object|null>} Slots data or null on error
  */
-export async function fetchSlots() {
-    // Prevent duplicate requests
+// Accept optional AbortSignal
+export async function fetchSlots(signal) {
     if (isLoadingSlots) {
         console.log('⚠️ Already loading slots, skipping duplicate request');
         return null;
     }
 
-    // Set loading flag immediately to prevent race condition
     isLoadingSlots = true;
 
     try {
-        // Check cache first
         const cachedData = getCachedData();
-        if (cachedData) {
+        if (cachedData && !signal) { // optional: still use cache even if signal exists
             console.log('✅ Using cached slots data');
             return cachedData;
         }
 
-        // Fetch from API
         console.log('📡 Fetching slots from API...');
         const startTime = performance.now();
-        
-        // 🔥 FIX: Added credentials: 'include' to send auth cookie
+
         const response = await fetch(API_URL, {
-            credentials: 'include'
+            credentials: 'include',
+            signal // <-- key for AbortController integration
         });
-        
+
         const fetchTime = performance.now() - startTime;
         console.log(`⏱️ API fetch took ${fetchTime.toFixed(0)}ms`);
-        
+
         if (!response.ok) {
             const errorMsg = getErrorMessage(response.status, 'Failed to load slots');
             console.error(`❌ API error ${response.status}: ${errorMsg}`);
@@ -69,28 +66,28 @@ export async function fetchSlots() {
         }
 
         const data = await response.json();
-        
+
         if (!data.ok) {
             console.error('❌ API returned error:', data.error);
             return { error: data.error || 'Failed to load slots' };
         }
 
-        // Update cache
         updateCache(data);
-        
         console.log(`✅ Loaded ${Object.keys(data.dates || {}).length} dates`);
         return data;
 
     } catch (err) {
         console.error('❌ Fetch error:', err.message);
-        return { error: err.message === 'Failed to fetch' 
-            ? 'Unable to connect to server. Check your internet connection.' 
-            : 'An unexpected error occurred.' 
+        return {
+            error: err.message === 'Failed to fetch'
+                ? 'Unable to connect to server. Check your internet connection.'
+                : 'An unexpected error occurred.'
         };
     } finally {
         isLoadingSlots = false;
     }
 }
+
 
 /**
  * Force reload slots from API (bypass cache)
