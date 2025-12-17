@@ -1,5 +1,5 @@
 // ============================================================================================
-// SIGNUP FRONTEND - MAIN ORCHESTRATOR (INITIALIZATION FIXED)
+// SIGNUP FRONTEND - MAIN ORCHESTRATOR (WITH MINOR IMPROVEMENTS)
 // ================================================================================================
 
 import { 
@@ -52,16 +52,122 @@ import {
 injectSignupStyles();
 
 // ================================================================================================
+// CONFIGURATION & STATE
+// ================================================================================================
+
+const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
+const MAX_RETRIES = 2; // Retry network failures up to 2 times
+const RETRY_DELAY_MS = 1000; // Wait 1 second between retries
+
+// Global abort controller for request cancellation
+let abortController = null;
+
+// Debounce timer for submission
+let submitDebounceTimer = null;
+
+// ================================================================================================
+// HELPER FUNCTIONS
+// ================================================================================================
+
+/**
+ * Fetch with timeout support
+ * @param {string} url - API URL
+ * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds
+ * @returns {Promise<Response>}
+ */
+async function fetchWithTimeout(url, options, timeout = REQUEST_TIMEOUT_MS) {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    
+    try {
+        const response = await fetch(url, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (err) {
+        clearTimeout(id);
+        if (err.name === 'AbortError') {
+            throw new Error('Request timeout - server took too long to respond');
+        }
+        throw err;
+    }
+}
+
+/**
+ * Fetch with automatic retry on network failures
+ * @param {string} url - API URL
+ * @param {Object} options - Fetch options
+ * @param {number} retries - Number of retries remaining
+ * @returns {Promise<Response>}
+ */
+async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
+    try {
+        return await fetchWithTimeout(url, options);
+    } catch (err) {
+        // Only retry on network failures, not timeouts or other errors
+        const isNetworkError = err.message === 'Failed to fetch' || 
+                               err.message.includes('network') ||
+                               err.message.includes('NetworkError');
+        
+        if (retries > 0 && isNetworkError) {
+            const attemptNumber = MAX_RETRIES - retries + 1;
+            console.log(`🔄 Network error detected. Retrying... (Attempt ${attemptNumber}/${MAX_RETRIES})`);
+            
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+            
+            return fetchWithRetry(url, options, retries - 1);
+        }
+        
+        // No more retries or non-retryable error
+        throw err;
+    }
+}
+
+/**
+ * Cancel any pending request
+ */
+function cancelPendingRequest() {
+    if (abortController) {
+        abortController.abort();
+        abortController = null;
+        console.log('🚫 Pending request cancelled');
+    }
+}
+
+// ================================================================================================
 // MAIN SIGNUP SUBMISSION
 // ================================================================================================
 
 /**
- * Main signup submission handler
+ * Main signup submission handler (with debouncing)
  * Validates form, sends API request, handles responses (200, 409, errors)
  */
 export async function submitSignup() {
     console.log('🚀 submitSignup() called');
     
+    // Clear any existing debounce timer
+    if (submitDebounceTimer) {
+        clearTimeout(submitDebounceTimer);
+    }
+    
+    // Debounce: wait 100ms before processing
+    // This prevents accidental double-clicks
+    return new Promise((resolve) => {
+        submitDebounceTimer = setTimeout(async () => {
+            await processSignupSubmission();
+            resolve();
+        }, 100);
+    });
+}
+
+/**
+ * Core submission logic (called after debounce)
+ */
+async function processSignupSubmission() {
     const submitBtn = document.getElementById("signupSubmitBtn");
     if (!submitBtn) {
         console.error('❌ Submit button not found');
@@ -81,6 +187,9 @@ export async function submitSignup() {
         submitBtn.disabled = false;
         return;
     }
+    
+    // Cancel any pending request before starting new one
+    cancelPendingRequest();
     
     // Set submitting state IMMEDIATELY
     updateIsSubmitting(true);
@@ -112,6 +221,7 @@ export async function submitSignup() {
         updateIsSubmitting(false);
         console.log('🔓 Submission ended - beforeunload re-enabled');
         resetButtonState(submitBtn, originalBtnText);
+        cancelPendingRequest();
     };
     
     // Validate form
@@ -162,15 +272,19 @@ export async function submitSignup() {
         console.log('📤 Sending POST request to:', API_URL);
         console.log('📦 Payload:', payload);
         
-        // 🔥 FIX: Added credentials: 'include' to send auth cookie
-        const response = await fetch(API_URL, {
+        // Create new abort controller for this request
+        abortController = new AbortController();
+        
+        // Send request with retry and timeout
+        const response = await fetchWithRetry(API_URL, {
             method: 'POST',
-            credentials: 'include', // ← THIS IS THE FIX
+            credentials: 'include',
             headers: { 
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            signal: abortController.signal
         });
         
         updateLastApiCall(Date.now());
@@ -263,9 +377,23 @@ export async function submitSignup() {
         console.error('❌ Signup error (catch block):', err);
         console.error('❌ Error stack:', err.stack);
         
-        const errorMsg = err.message === 'Failed to fetch' 
-            ? 'Unable to connect to the server. Please check your internet connection.' 
-            : 'An unexpected error occurred. Please try again.';
+        // Handle aborted requests (user cancelled or navigated away)
+        if (err.name === 'AbortError') {
+            console.log('🚫 Request was cancelled');
+            resetSubmitState();
+            return;
+        }
+        
+        // Determine error message based on error type
+        let errorMsg;
+        if (err.message.includes('timeout')) {
+            errorMsg = 'Request timed out. The server is taking too long to respond. Please try again.';
+        } else if (err.message === 'Failed to fetch' || err.message.includes('network')) {
+            errorMsg = 'Unable to connect to the server. Please check your internet connection and try again.';
+        } else {
+            errorMsg = 'An unexpected error occurred. Please try again.';
+        }
+        
         showFormError(errorMsg);
         resetSubmitState();
     }
@@ -288,12 +416,47 @@ export function goToSignupForm() {
  */
 export function backToSlotSelection() {
     console.log('🔙 Returning to slot selection');
+    
+    // Cancel any pending requests when navigating away
+    cancelPendingRequest();
+    
+    // Reset submission state
+    updateIsSubmitting(false);
+    
     hideSignupForm();
 }
 
 // Make functions available globally for onclick handlers
 window.goToSignupForm = goToSignupForm;
 window.backToSlotSelection = backToSlotSelection;
+
+// ================================================================================================
+// CLEANUP
+// ================================================================================================
+
+/**
+ * Cleanup function - call when unmounting or leaving page
+ */
+export function cleanup() {
+    console.log('🧹 Cleaning up signup module...');
+    
+    // Cancel pending requests
+    cancelPendingRequest();
+    
+    // Clear debounce timer
+    if (submitDebounceTimer) {
+        clearTimeout(submitDebounceTimer);
+        submitDebounceTimer = null;
+    }
+    
+    // Reset state
+    updateIsSubmitting(false);
+    
+    console.log('✅ Signup module cleaned up');
+}
+
+// Cleanup on page unload
+window.addEventListener('beforeunload', cleanup);
 
 // ================================================================================================
 // INITIALIZATION (FIXED - RUNS IMMEDIATELY)
@@ -321,7 +484,7 @@ function initializeSignup() {
         backBtn.addEventListener('click', backToSlotSelection);
         console.log('✅ Back button handler attached');
     } else {
-        console.warn('⚠️ Back button not found');
+        console.warn('⚠️ Back button not found - will be added to HTML');
     }
     
     // Setup "Book Another Slot" button in success page
@@ -330,6 +493,7 @@ function initializeSignup() {
         resetPageBtn.addEventListener('click', () => {
             console.log('🔄 Book Another Slot clicked');
             updateIsSubmitting(false);
+            cancelPendingRequest();
             backToSlotSelection();
         });
         console.log('✅ Book Another Slot button initialized');
