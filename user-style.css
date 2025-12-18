@@ -1051,11 +1051,10 @@ select.form-input {
     gap: 4px;
   }
 
-   .signup-inline-btn {
-    width: auto;        /* let it be shorter, not full width */
+  .signup-inline-btn {
+    width: auto;
     align-self: flex-start;
   }
-}
 
   .signup-inline-text {
     font-size: 0.9rem;
@@ -1243,37 +1242,6 @@ select.form-input {
   .card {
     box-shadow: none;
     border: 1px solid #000;
-  }
-
-  .availability-none {
-    color: var(--danger-color) !important;
-    background: rgba(var(--error-rgb), 0.06);
-  }
-
-  .availability-low {
-    color: var(--warning-color) !important;
-    background: rgba(var(--warning-rgb), 0.06);
-  }
-
-  .availability-high {
-    color: var(--success-color) !important;
-    background: rgba(var(--success-rgb), 0.06);
-  }
-
-  .empty-state-icon {
-    font-size: 1.5rem;
-    margin-bottom: var(--space-lg);
-    text-align: center;
-  }
-
-  .error-text {
-    color: var(--danger-color) !important;
-    margin-bottom: var(--space-md);
-  }
-
-  .form-input[aria-invalid="true"] {
-    border-color: var(--danger-color) !important;
-    box-shadow: 0 0 0 3px rgba(var(--error-rgb), 0.1) !important;
   }
 }
 
