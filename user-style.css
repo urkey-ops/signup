@@ -696,7 +696,7 @@ select.form-input {
   font-weight: 500;
   line-height: 1.5;
   animation: msgFadeIn 0.22s ease-out;
-  display: none;
+  display: block;  /* ✅ FIXED - show by default */
   text-align: center;
 }
 
