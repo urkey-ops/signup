@@ -1,8 +1,6 @@
 import { login, logout, checkSession } from './api.js';
-
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const SESSION_CHECK_INTERVAL = 60 * 1000; // 1 minute
-
 let timeoutId = null;
 let sessionCheckInterval = null;
 let isLoggingOut = false;
@@ -17,10 +15,8 @@ function dispatchAuthReady() {
 function handleSessionExpired() {
     if (isLoggingOut) return;
     isLoggingOut = true;
-
     clearTimeout(timeoutId);
     clearInterval(sessionCheckInterval);
-
     logout()
         .catch(() => {})
         .finally(() => {
@@ -34,7 +30,6 @@ function resetTimer() {
     const now = Date.now();
     if (now - lastActivity < 1000) return;
     lastActivity = now;
-
     clearTimeout(timeoutId);
     timeoutId = setTimeout(handleSessionExpired, IDLE_TIMEOUT);
 }
@@ -56,32 +51,27 @@ async function initializeSession() {
     const loginSection = document.getElementById('loginSection');
     const mainApp = document.getElementById('mainApp');
     const logoutBtn = document.getElementById('logoutBtn');
-
+    
     try {
         const data = await checkSession();
+        
         if (data.ok) {
-
-            // ⚡ NEW: Preload slots in background
-            (async () => {
-                try {
-                    // Adjust path if needed based on your folder structure
-                    const { fetchSlots } = await import('../modules/slots/slots-api.js');
-                    const slotsData = await fetchSlots();
-                    if (slotsData && slotsData.ok) {
-                        window.__PRELOADED_SLOTS__ = slotsData;
-                        console.log('⚡ Slots preloaded during session init');
-                    }
-                } catch (e) {
-                    console.warn('Slots preload failed (will fall back later)', e);
+            // ⚡ Preload slots and WAIT before signaling ready
+            try {
+                const { fetchSlots } = await import('../modules/slots/slots-api.js');
+                const slotsData = await fetchSlots();
+                if (slotsData && slotsData.ok) {
+                    window.__PRELOADED_SLOTS__ = slotsData;
+                    console.log('⚡ Slots preloaded during session init');
                 }
-            })();
-            // ⚡ END NEW
-
-            // ✅ Existing behavior
+            } catch (e) {
+                console.warn('⚠️ Slots preload failed (will fall back later)', e);
+            }
+            
+            // ✅ Now show UI and signal ready AFTER preload
             loginSection.style.display = 'none';
             mainApp.style.display = 'block';
             logoutBtn.style.display = 'block';
-
             resetTimer();
             startSessionValidation();
             dispatchAuthReady();
@@ -97,7 +87,6 @@ async function initializeSession() {
         logoutBtn.style.display = 'none';
     }
 }
-
 
 // Track user activity
 ['mousemove','mousedown','keypress','scroll','touchstart','click'].forEach(evt => {
