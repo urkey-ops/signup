@@ -136,7 +136,6 @@ export async function lookupBookings() {
     showLoadingState(displayEl, '🔍 Searching for your bookings...');
 
     try {
-        // 🔥 FIX: Added credentials: 'include' to send auth cookie
         const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`, {
             credentials: 'include'
         });
@@ -156,7 +155,8 @@ export async function lookupBookings() {
 
         const bookings = data.bookings || [];
 
-       if (bookings.length === 0) {
+        // ✅ FIXED: Check for empty bookings FIRST
+        if (bookings.length === 0) {
             displayEl.innerHTML = '';
             const noBookingsDiv = document.createElement('div');
             noBookingsDiv.className = 'msg-box info';
@@ -169,7 +169,7 @@ export async function lookupBookings() {
                 </div>
             `;
             displayEl.appendChild(noBookingsDiv);
-            return;
+            return; // ✅ CRITICAL: Must return here to stop execution
         }
 
         // ✅ PERFECT CHRONOLOGICAL SORT: Date FIRST, then Time SECOND
@@ -269,7 +269,6 @@ export async function lookupBookings() {
         }
     }
 }
-
 // ================================================================================================
 // CANCEL BOOKING BY PHONE (RACE CONDITION FIXED)
 // ================================================================================================
