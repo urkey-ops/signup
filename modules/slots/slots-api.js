@@ -32,8 +32,6 @@ export function isLoading() {
  * Fetch available slots from API with caching
  * @returns {Promise<Object|null>} Slots data or null on error
  */
-// Accept optional AbortSignal
-// Accept optional AbortSignal
 export async function fetchSlots(signal) {
     // 0️⃣ Use preloaded data once if available
     if (typeof window !== 'undefined' && window.__PRELOADED_SLOTS__) {
@@ -54,9 +52,9 @@ export async function fetchSlots(signal) {
     isLoadingSlots = true;
 
     try {
-        // Check cache first (unless you want to force a network call)
+        // Check cache first
         const cachedData = getCachedData();
-        if (cachedData && !signal) { // optional: still use cache even if signal exists
+        if (cachedData && !signal) {
             console.log('✅ Using cached slots data');
             return cachedData;
         }
@@ -67,7 +65,7 @@ export async function fetchSlots(signal) {
 
         const response = await fetch(API_URL, {
             credentials: 'include',
-            signal // AbortController integration
+            signal
         });
 
         const fetchTime = performance.now() - startTime;
