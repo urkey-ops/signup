@@ -664,7 +664,7 @@ select.form-input {
   justify-content: flex-start;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 0.25rem; /* add a little separation from content below */
+  margin-bottom: 0.25rem;
 }
 
 .signup-inline-text {
@@ -676,11 +676,11 @@ select.form-input {
 
 .signup-inline-btn {
   margin: 0;
-  padding: 6px 12px;   /* was 8px 16px */
-  font-size: 0.85rem;  /* slightly smaller */
+  padding: 6px 12px;
+  font-size: 0.85rem;
   min-height: auto;
   height: auto;
-  width: auto;         /* let it size to content on larger screens */
+  width: auto;
   flex-shrink: 0;
 }
 
@@ -696,7 +696,7 @@ select.form-input {
   font-weight: 500;
   line-height: 1.5;
   animation: msgFadeIn 0.22s ease-out;
-  display: block;  /* ✅ FIXED - show by default */
+  display: block;
   text-align: center;
 }
 
