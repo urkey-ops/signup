@@ -10,69 +10,43 @@
   <meta name="apple-mobile-web-app-title" content="Book Slots" />
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
 
-  <!-- 🔒 PRIVACY: Block ALL Search Engines & Crawlers -->
-  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex, nocache" />
-  <meta name="googlebot" content="noindex, nofollow" />
-  <meta name="bingbot" content="noindex, nofollow" />
-  <meta name="slurp" content="noindex, nofollow" />
-  <meta name="duckduckbot" content="noindex, nofollow" />
-
-  <!-- 🔒 PRIVACY: Block Social Media Crawlers -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Private Access Only" />
-  <meta property="og:description" content="This is a private system. Access restricted." />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Private Access Only" />
-  <meta name="twitter:description" content="This is a private system. Access restricted." />
-
-  <!-- Security Headers -->
+  <!-- 🔒 PRIVACY & SECURITY (Simplified) -->
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <meta http-equiv="X-Frame-Options" content="DENY" />
-  <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
-  <meta name="referrer" content="no-referrer" />
-  <meta http-equiv="Permissions-Policy" content="geolocation=(), microphone=(), camera=()" />
-
-  <!-- Anti-Cache Protection -->
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate, private" />
+  <meta http-equiv="Referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
 
   <title>Private Booking System - Access Restricted</title>
 
-  <!-- DNS Prefetch -->
-  <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
-  <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
-
-  <!-- Preconnect -->
+  <!-- DNS Prefetch & Preconnect (Optimized) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- PWA Manifest (Private) -->
+  <!-- PWA Manifest -->
   <link rel="manifest" href="/manifest.json" />
 
-  <!-- Favicons -->
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔒</text></svg>" />
-  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect width='180' height='180' rx='40' fill='%2310b981'/><text x='50%' y='55%' dominant-baseline='middle' text-anchor='middle' font-size='100' filter='drop-shadow(2px 2px 2px rgb(0 0 0 / 0.3))'>🔒</text></svg>" />
+  <!-- Favicons (URL-encoded) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🔒%3C/text%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" sizes="180x180" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='40' fill='%2310b981'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-size='100' filter='drop-shadow(2px 2px 2px rgb(0 0 0 / 0.3))'%3E🔒%3C/text%3E%3C/svg%3E" />
 
-  <!-- CSS Preload with Priority -->
-  <link rel="preload" href="user-style.css" as="style" fetchpriority="high" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="user-style.css" /></noscript>
+  <!-- Fonts (Non-blocking, moved from CSS) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
 
-  <!-- Fonts with Low Priority -->
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" as="style" fetchpriority="low" onload="this.onload=null;this.rel='stylesheet'" />
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" /></noscript>
-  <!-- Font Awesome for Icons -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <!-- Main Stylesheet (No @import inside) -->
+  <link rel="stylesheet" href="user-style.css" />
 
-  <!-- CRITICAL INLINE CSS ONLY (Login + Essential) -->
+  <!-- CRITICAL INLINE CSS (Login Only) -->
   <style>
-    /* Critical: Login overlay (shows first) */
+    /* Login overlay */
     #loginSection {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
       background: rgba(0, 0, 0, 0.95);
       z-index: 9999;
       display: flex;
@@ -80,7 +54,6 @@
       justify-content: center;
       font-family: Inter, -apple-system, sans-serif;
       backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
     }
 
     #loginSection > div {
@@ -150,14 +123,9 @@
       transform: translateY(-1px);
     }
 
-    #userLoginBtn:active:not(:disabled) {
-      transform: translateY(0);
-    }
-
     #userLoginBtn:disabled {
       background: #9ca3af;
       cursor: not-allowed;
-      transform: none;
     }
 
     #loginMsg {
@@ -166,7 +134,7 @@
       font-size: 14px;
     }
 
-    /* Critical: Logout button */
+    /* Logout button */
     #logoutBtn {
       display: none;
       position: fixed;
@@ -175,38 +143,31 @@
       z-index: 1000;
     }
 
-
     #logoutBtn button {
-  background: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
-  transition: transform 0.15s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+      background: #ef4444;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+      transition: transform 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-#logoutBtn button svg {
-  width: 24px;
-  height: 24px;
-}
+    #logoutBtn button svg {
+      width: 24px;
+      height: 24px;
+    }
 
-#logoutBtn button:hover {
-  transform: scale(1.05);
-}
+    #logoutBtn button:hover {
+      transform: scale(1.05);
+    }
 
-#logoutBtn button:active {
-  transform: scale(0.98);
-}
-    
-  
-
-    /* Critical: Loading spinner */
+    /* Loading spinner */
     .spinner {
       display: inline-block;
       width: 20px;
@@ -223,7 +184,7 @@
       }
     }
 
-    /* Critical: Main app fade */
+    /* Main app fade */
     #mainApp {
       opacity: 0;
       transition: opacity 0.3s ease-in;
@@ -233,52 +194,21 @@
       opacity: 1;
     }
 
-    /* Performance utilities */
-    .fade-in {
-      animation: fadeIn 0.3s ease-in;
+    /* Utilities */
+    .hidden {
+      display: none !important;
     }
 
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .slide-in {
-      animation: slideIn 0.3s ease-out;
-    }
-
-    @keyframes slideIn {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-
-    /* Loading skeleton shimmer */
-    @keyframes shimmer {
-      0% { background-position: -1000px 0; }
-      100% { background-position: 1000px 0; }
-    }
-
-    .skeleton {
-      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-      background-size: 1000px 100%;
-      animation: shimmer 2s infinite;
-    }
-
-    /* Focus visible for better accessibility */
-    *:focus-visible {
-      outline: 3px solid #10b981;
-      outline-offset: 2px;
-    }
-
-    /* Reduce motion for accessibility */
-    @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-      }
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     /* Dark mode support */
@@ -307,21 +237,13 @@
       }
     }
 
-    /* Essential utilities */
-    .hidden {
-      display: none !important;
-    }
-
-    .visually-hidden {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      padding: 0;
-      margin: -1px;
-      overflow: hidden;
-      clip: rect(0, 0, 0, 0);
-      white-space: nowrap;
-      border: 0;
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
     }
   </style>
 </head>
@@ -341,21 +263,21 @@
         aria-label="Password"
         aria-describedby="loginMsg"
       />
-      <button id="userLoginBtn">Enter Site</button>
+      <button id="userLoginBtn" type="button">Enter Site</button>
       <div id="loginMsg" class="msg-box" role="alert" aria-live="polite"></div>
     </div>
   </div>
 
- <!-- LOGOUT BUTTON -->
-<div id="logoutBtn">
-  <button onclick="handleLogout()" title="Logout" aria-label="Logout">
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-      <polyline points="16 17 21 12 16 7"></polyline>
-      <line x1="21" y1="12" x2="9" y2="12"></line>
-    </svg>
-  </button>
-</div>
+  <!-- LOGOUT BUTTON -->
+  <div id="logoutBtn">
+    <button onclick="handleLogout()" type="button" title="Logout" aria-label="Logout">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+        <polyline points="16 17 21 12 16 7"></polyline>
+        <line x1="21" y1="12" x2="9" y2="12"></line>
+      </svg>
+    </button>
+  </div>
 
   <!-- MAIN APP -->
   <div class="container" id="mainApp" style="display:none;">
@@ -363,15 +285,14 @@
       <h1>📅 Book Your Slot</h1>
     </header>
     
-   <div class="header-description">
-  <p class="description">
-    Hello!<br>
-    Thank you for your interest in helping with Greeter Seva at the Mandir.<br>
-    Please review the available dates and time slots below, select what works best for you, and complete the sign-up form.<br>
-    We look forward to welcoming you on site and sincerely thank you in advance for your generous seva.
-  </p>
-</div>
-
+    <div class="header-description">
+      <p class="description">
+        Hello!<br>
+        Thank you for your interest in helping with Greeter Seva at the Mandir.<br>
+        Please review the available dates and time slots below, select what works best for you, and complete the sign-up form.<br>
+        We look forward to welcoming you on site and sincerely thank you in advance for your generous seva.
+      </p>
+    </div>
 
     <main aria-labelledby="lookup-heading">
       <!-- Lookup Section -->
@@ -430,7 +351,6 @@
         ></div>
       </section>
 
-
       <!-- Slots Section -->
       <section class="card" aria-label="Select time slots">
         <h2>Choose your time slots</h2>
@@ -454,15 +374,15 @@
           style="display:none;"
           role="region"
           aria-live="polite"
+          aria-label="Checkout"
         >
-<button id="floatingSignupBtn" class="btn primary-btn" type="button">
-  Continue to Sign Up<br>
-  (<span id="floatingSlotCount">0</span> Slots Selected)
-</button>
-
+          <button id="floatingSignupBtn" class="btn primary-btn" type="button">
+            Continue to Sign Up<br>
+            (<span id="floatingSlotCount">0</span> Slots Selected)
+          </button>
         </div>
 
-        <!-- Selected slots summary (inline for screen readers) -->
+        <!-- Selected slots summary -->
         <div
           id="selectedSlotsSummary"
           class="selected-slots-summary hidden"
@@ -495,101 +415,109 @@
         ></div>
 
         <form id="signupForm" novalidate>
-          <div class="form-group">
-            <label for="signupName">Full name *</label>
-            <input
-              type="text"
-              id="signupName"
-              name="name"
-              class="form-input"
-              placeholder="Your Full Name"
-              required
-              maxlength="100"
-              autocomplete="name"
-              aria-required="true"
-              aria-describedby="signupNameHelp"
-            />
-            <small id="signupNameHelp">
-              Name is required (min 2 characters).
-            </small>
-          </div>
+          <fieldset style="border: none; padding: 0; margin: 0;">
+            <legend class="visually-hidden">Personal Information</legend>
+            
+            <div class="form-group">
+              <label for="signupName">Full name *</label>
+              <input
+                type="text"
+                id="signupName"
+                name="name"
+                class="form-input"
+                placeholder="Your Full Name"
+                required
+                maxlength="100"
+                autocomplete="name"
+                aria-required="true"
+                aria-describedby="signupNameHelp"
+              />
+              <small id="signupNameHelp">
+                Name is required (min 2 characters).
+              </small>
+            </div>
 
-          <div class="form-group">
-            <label for="signupPhone">Phone number *</label>
-            <input
-              type="tel"
-              id="signupPhone"
-              name="phone"
-              class="form-input"
-              placeholder="Phone Number"
-              required
-              maxlength="20"
-              autocomplete="tel"
-              inputmode="tel"
-              aria-required="true"
-              aria-describedby="signupPhoneHelp"
-            />
-            <small id="signupPhoneHelp">
-              US 10-digit mobile number only. Used for confirming your booking.
-            </small>
-          </div>
+            <div class="form-group">
+              <label for="signupPhone">Phone number *</label>
+              <input
+                type="tel"
+                id="signupPhone"
+                name="phone"
+                class="form-input"
+                placeholder="Phone Number"
+                required
+                maxlength="20"
+                autocomplete="tel"
+                inputmode="tel"
+                aria-required="true"
+                aria-describedby="signupPhoneHelp"
+              />
+              <small id="signupPhoneHelp">
+                US 10-digit mobile number only. Used for confirming your booking.
+              </small>
+            </div>
 
-          <div class="form-group">
-            <label for="signupEmail">Email (optional)</label>
-            <input
-              type="email"
-              id="signupEmail"
-              name="email"
-              class="form-input"
-              placeholder="Your Email Address (Optional)"
-              maxlength="254"
-              autocomplete="email"
-              inputmode="email"
-              aria-describedby="signupEmailHelp"
-            />
-            <small id="signupEmailHelp">
-              Optional. Used only for confirmations and updates.
-            </small>
-          </div>
+            <div class="form-group">
+              <label for="signupEmail">Email (optional)</label>
+              <input
+                type="email"
+                id="signupEmail"
+                name="email"
+                class="form-input"
+                placeholder="Your Email Address (Optional)"
+                maxlength="254"
+                autocomplete="email"
+                inputmode="email"
+                aria-describedby="signupEmailHelp"
+              />
+              <small id="signupEmailHelp">
+                Optional. Used only for confirmations and updates.
+              </small>
+            </div>
+          </fieldset>
 
-          <div class="form-group">
-            <label for="signupCategory">Category *</label>
-            <select
-              id="signupCategory"
-              name="category"
-              class="form-input"
-              required
-              aria-required="true"
-            >
-              <option value="">Select a category</option>
-              <option value="Bal">Bal</option>
-              <option value="Balika">Balika</option>
-              <option value="Kishore">Kishore</option>
-              <option value="Kishori">Kishori</option>
-              <option value="Yuvak">Yuvak</option>
-              <option value="Yuvati">Yuvati</option>
-              <option value="Premvati">Premvati</option>
-              <option value="Sanyukta">Sanyukta</option>
-            </select>
-            <small>
-              Required. Choose the option that best matches your visit.
-            </small>
-          </div>
+          <fieldset style="border: none; padding: 0; margin: 0;">
+            <legend class="visually-hidden">Booking Details</legend>
+            
+            <div class="form-group">
+              <label for="signupCategory">Category *</label>
+              <select
+                id="signupCategory"
+                name="category"
+                class="form-input"
+                required
+                aria-required="true"
+              >
+                <option value="">Select a category</option>
+                <option value="Bal">Bal</option>
+                <option value="Balika">Balika</option>
+                <option value="Kishore">Kishore</option>
+                <option value="Kishori">Kishori</option>
+                <option value="Yuvak">Yuvak</option>
+                <option value="Yuvati">Yuvati</option>
+                <option value="Premvati">Premvati</option>
+                <option value="Sanyukta">Sanyukta</option>
+              </select>
+              <small>
+                Required. Choose the option that best matches your visit.
+              </small>
+            </div>
 
-          <div class="form-group">
-            <label for="signupNotes">Notes (optional)</label>
-            <textarea
-              id="signupNotes"
-              name="notes"
-              class="form-input"
-              placeholder="Any special notes or comments (Optional)"
-              rows="3"
-              maxlength="500"
-            ></textarea>
-            <small>
-              Optional. Please avoid sharing sensitive information here.
-            </small>
-          </div>
+            <div class="form-group">
+              <label for="signupNotes">Notes (optional)</label>
+              <textarea
+                id="signupNotes"
+                name="notes"
+                class="form-input"
+                placeholder="Any special notes or comments (Optional)"
+                rows="3"
+                maxlength="500"
+              ></textarea>
+              <small>
+                Optional. Please avoid sharing sensitive information here.
+              </small>
+            </div>
+          </fieldset>
 
           <div
             id="signupMessage"
@@ -599,24 +527,24 @@
           ></div>
 
           <div id="signupFormButtonContainer" style="display: flex; gap: 10px; flex-wrap: wrap;">
-  <button
-    id="backToSlotsBtn"
-    type="button"
-    class="btn secondary-btn"
-    style="flex: 1; min-width: 150px;"
-  >
-    ← Back to Slots
-  </button>
-  <button
-    id="signupSubmitBtn"
-    type="submit"
-    class="btn primary-btn"
-    style="flex: 2; min-width: 200px;"
-  >
-    <span class="spinner hidden" aria-hidden="true"></span>
-    <span>Confirm booking</span>
-  </button>
-</div>
+            <button
+              id="backToSlotsBtn"
+              type="button"
+              class="btn secondary-btn"
+              style="flex: 1; min-width: 150px;"
+            >
+              ← Back to Slots
+            </button>
+            <button
+              id="signupSubmitBtn"
+              type="submit"
+              class="btn primary-btn"
+              style="flex: 2; min-width: 200px;"
+            >
+              <span class="spinner hidden" aria-hidden="true"></span>
+              <span>Confirm booking</span>
+            </button>
+          </div>
         </form>
       </section>
 
@@ -647,7 +575,7 @@
   <!-- 🚀 LOAD AUTH FIRST -->
   <script type="module" src="user-auth/main.js"></script>
 
-  <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY - INSTANT ON -->
+  <!-- 🚀 LOAD ALL MODULES AFTER AUTH IS READY -->
   <script type="module">
     window.addEventListener(
       'user-auth-ready',
@@ -661,11 +589,11 @@
         }
 
         try {
-          // 1️⃣ Show app immediately
+          // Show app immediately
           mainApp.style.display = 'block';
           mainApp.classList.add('loaded');
 
-          // 2️⃣ Import modules in parallel (non-blocking)
+          // Import modules in parallel
           const [
             configModule,
             utilsModule,
@@ -680,7 +608,7 @@
             import('./signup-frontend.js'),
           ]);
 
-          // 3️⃣ Load slots asynchronously in background
+          // Load slots asynchronously
           slotsModule.loadSlots().catch((err) => {
             console.error('❌ Slots failed to load:', err);
             loadingMsg.innerHTML = `
@@ -694,7 +622,7 @@
             `;
           });
 
-          console.log('✅ App displayed instantly, slots loading in background');
+          console.log('✅ App loaded successfully');
         } catch (err) {
           console.error('❌ Failed to load modules:', err);
           loadingMsg.innerHTML = `
@@ -830,10 +758,7 @@
   <noscript>
     <div style="
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
+      inset: 0;
       background: white;
       display: flex;
       align-items: center;
