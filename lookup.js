@@ -133,7 +133,7 @@ export async function lookupBookings() {
         searchBtn.textContent = '🔍 Searching...';
     }
     
-    showLoadingState(displayEl, '🔍 Searching for your bookings...');
+    showLoadingState(displayEl, '🔍 Searching for your upcoming bookings...');
 
     try {
         const res = await fetch(`${API_URL}?phone=${encodeURIComponent(normalizedPhone)}`, {
@@ -155,7 +155,7 @@ export async function lookupBookings() {
 
         const bookings = data.bookings || [];
 
-        // ✅ FIXED: Check for empty bookings FIRST
+        // ✅ Check for empty bookings FIRST
         if (bookings.length === 0) {
             displayEl.innerHTML = '';
             const noBookingsDiv = document.createElement('div');
@@ -163,17 +163,27 @@ export async function lookupBookings() {
             noBookingsDiv.style.cssText = 'padding: 20px; text-align: center; margin-top: 10px;';
             noBookingsDiv.innerHTML = `
                 <div style="font-size: 48px; margin-bottom: 10px;">📭</div>
-                <div style="font-weight: 600; margin-bottom: 8px;">No Bookings Found</div>
+                <div style="font-weight: 600; margin-bottom: 8px;">No Upcoming Bookings Found</div>
                 <div style="color: #6b7280; font-size: 0.95rem;">
-                    We couldn't find any bookings associated with this phone number.
+                    We couldn't find any upcoming bookings associated with this phone number.
                 </div>
             `;
             displayEl.appendChild(noBookingsDiv);
-            return; // ✅ CRITICAL: Must return here to stop execution
+            return;
         }
 
         // ✅ PERFECT CHRONOLOGICAL SORT: Date FIRST, then Time SECOND
         displayEl.innerHTML = '';
+
+        // Friendly heading for upcoming-only list
+        const heading = document.createElement('div');
+        heading.textContent = 'Here are your upcoming booking slots.';
+        heading.style.fontWeight = '600';
+        heading.style.marginBottom = '0.5rem';
+        heading.style.color = '#0f172a';
+        heading.style.fontSize = '0.95rem';
+        displayEl.appendChild(heading);
+
         const sortedBookings = [...bookings].sort((a, b) => {
             // 1. Compare dates first
             const dateA = new Date(a.date);
@@ -216,7 +226,10 @@ export async function lookupBookings() {
             cancelBtn.dataset.date = booking.date;
             cancelBtn.dataset.slot_label = booking.slotLabel;
 
-            // ✅ FIXED: Proper animation + removal handling
+            // Hidden by default (CSS also enforces this)
+            cancelBtn.style.visibility = 'hidden';
+
+            // ✅ Proper animation + removal handling
             const handleCancel = (ev) => {
                 ev.stopPropagation();
                 
@@ -247,6 +260,27 @@ export async function lookupBookings() {
 
             cancelBtn.addEventListener('click', handleCancel);
 
+            // ✅ Two-step cancel: first click selects chip and reveals X
+            chip.addEventListener('click', () => {
+                // Unselect other chips and hide their X
+                document.querySelectorAll('.lookup-chip.selected').forEach((other) => {
+                    if (other !== chip) {
+                        other.classList.remove('selected');
+                        const otherBtn = other.querySelector('.cancel-btn');
+                        if (otherBtn) otherBtn.style.visibility = 'hidden';
+                    }
+                });
+
+                if (!chip.classList.contains('selected')) {
+                    chip.classList.add('selected');
+                    cancelBtn.style.visibility = 'visible';
+                } else {
+                    // Second tap on the chip toggles off, hiding X again
+                    chip.classList.remove('selected');
+                    cancelBtn.style.visibility = 'hidden';
+                }
+            });
+
             chip.appendChild(text);
             chip.appendChild(cancelBtn);
             chipList.appendChild(chip);
@@ -269,6 +303,7 @@ export async function lookupBookings() {
         }
     }
 }
+
 // ================================================================================================
 // CANCEL BOOKING BY PHONE (RACE CONDITION FIXED)
 // ================================================================================================
@@ -316,7 +351,6 @@ export async function cancelBooking(signupRowId, slotRowId, date, slotLabel, but
     try {
         showLoadingState(displayEl, '⏳ Cancelling your booking...');
         
-        // 🔥 FIX: Added credentials: 'include' to send auth cookie
         const res = await fetch(API_URL, {
             method: "PATCH",
             credentials: 'include',

@@ -115,77 +115,92 @@ function normalizeDateToISO(dateInput) {
 async function handleGet(req, res, requestId) {
     console.log(`📥 [${requestId}] GET request`);
     
-    // ============================================================================================
-    // PHONE LOOKUP ENDPOINT
-    // ============================================================================================
-    if (req.query.phone) {
-        console.log(`📞 [${requestId}] Phone lookup request`);
-        
-        const rawPhone = req.query.phone;
-        const normalizedPhone = normalizePhone(rawPhone);
-        
-        if (!isValidPhone(rawPhone)) {
-            console.warn(`⚠️ [${requestId}] Invalid phone format: ${rawPhone}`);
-            return res.status(400).json({ 
-                ok: false, 
-                error: "Invalid phone number. Must be 10 digits." 
-            });
-        }
-
-        try {
-            const sheets = await getSheets();
-            
-            const response = await sheets.spreadsheets.values.get({
-                spreadsheetId: ENV.SHEET_ID,
-                range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
-                valueRenderOption: 'UNFORMATTED_VALUE'
-            });
-            
-            const rows = response.data.values || [];
-            console.log(`📞 [${requestId}] Retrieved ${rows.length} signup records`);
-            
-            // Map and filter bookings
-            const userBookings = rows
-                .map((row, idx) => {
-                    const rowId = idx + 2; // Sheet rows are 1-indexed, header at row 1
-                    const status = row[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
-                    
-                    return {
-                        signupRowId: rowId,
-                        timestamp: row[SHEETS.SIGNUPS.COLS.TIMESTAMP] || '',
-                        date: row[SHEETS.SIGNUPS.COLS.DATE] || '',
-                        slotLabel: row[SHEETS.SIGNUPS.COLS.SLOT_LABEL] || '',
-                        name: row[SHEETS.SIGNUPS.COLS.NAME] || '',
-                        email: row[SHEETS.SIGNUPS.COLS.EMAIL] || '',
-                        phone: row[SHEETS.SIGNUPS.COLS.PHONE] || '',
-                        category: row[SHEETS.SIGNUPS.COLS.CATEGORY] || '',
-                        notes: row[SHEETS.SIGNUPS.COLS.NOTES] || '',
-                        slotRowId: parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]) || null,
-                        status: status
-                    };
-                })
-                .filter(booking => {
-                    const phoneMatch = normalizePhone(booking.phone) === normalizedPhone;
-                    const isActive = isActiveBooking(booking.status);
-                    return phoneMatch && isActive;
-                });
-
-            console.log(`✅ [${requestId}] Found ${userBookings.length} active bookings for ${normalizedPhone}`);
-            
-            return res.status(200).json({ 
-                ok: true, 
-                bookings: userBookings,
-                count: userBookings.length
-            });
-            
-        } catch (err) {
-            console.error(`❌ [${requestId}] Phone lookup failed:`, err.message);
-            return res.status(500).json({ 
-                ok: false, 
-                error: "Failed to retrieve bookings. Please try again." 
-            });
-        }
+  // ============================================================================================
+// PHONE LOOKUP ENDPOINT
+// ============================================================================================
+if (req.query.phone) {
+    console.log(`📞 [${requestId}] Phone lookup request`);
+    
+    const rawPhone = req.query.phone;
+    const normalizedPhone = normalizePhone(rawPhone);
+    
+    if (!isValidPhone(rawPhone)) {
+        console.warn(`⚠️ [${requestId}] Invalid phone format: ${rawPhone}`);
+        return res.status(400).json({ 
+            ok: false, 
+            error: "Invalid phone number. Must be 10 digits." 
+        });
     }
+
+    try {
+        const sheets = await getSheets();
+        
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: ENV.SHEET_ID,
+            range: `${SHEETS.SIGNUPS.NAME}!${SHEETS.SIGNUPS.RANGE}`,
+            valueRenderOption: 'UNFORMATTED_VALUE'
+        });
+        
+        const rows = response.data.values || [];
+        console.log(`📞 [${requestId}] Retrieved ${rows.length} signup records`);
+
+        // Prepare "today" for comparison (midnight in server's local time)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        // Map and filter bookings: active + upcoming only
+        const userBookings = rows
+            .map((row, idx) => {
+                const rowId = idx + 2; // Sheet rows are 1-indexed, header at row 1
+                const status = row[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
+                
+                return {
+                    signupRowId: rowId,
+                    timestamp: row[SHEETS.SIGNUPS.COLS.TIMESTAMP] || '',
+                    date: row[SHEETS.SIGNUPS.COLS.DATE] || '',
+                    slotLabel: row[SHEETS.SIGNUPS.COLS.SLOT_LABEL] || '',
+                    name: row[SHEETS.SIGNUPS.COLS.NAME] || '',
+                    email: row[SHEETS.SIGNUPS.COLS.EMAIL] || '',
+                    phone: row[SHEETS.SIGNUPS.COLS.PHONE] || '',
+                    category: row[SHEETS.SIGNUPS.COLS.CATEGORY] || '',
+                    notes: row[SHEETS.SIGNUPS.COLS.NOTES] || '',
+                    slotRowId: parseInt(row[SHEETS.SIGNUPS.COLS.SLOT_ROW_ID]) || null,
+                    status: status
+                };
+            })
+            .filter(booking => {
+                const phoneMatch = normalizePhone(booking.phone) === normalizedPhone;
+                const isActive = isActiveBooking(booking.status);
+
+                if (!phoneMatch || !isActive) return false;
+
+                // Upcoming-only filter using shared parseDate helper
+                const bookingDate = parseDate(booking.date);
+                if (!bookingDate || isNaN(bookingDate.getTime())) return false;
+
+                bookingDate.setHours(0, 0, 0, 0);
+                const isUpcoming = bookingDate >= today;
+
+                return isUpcoming;
+            });
+
+        console.log(`✅ [${requestId}] Found ${userBookings.length} active upcoming bookings for ${normalizedPhone}`);
+        
+        return res.status(200).json({ 
+            ok: true, 
+            bookings: userBookings,
+            count: userBookings.length
+        });
+        
+    } catch (err) {
+        console.error(`❌ [${requestId}] Phone lookup failed:`, err.message);
+        return res.status(500).json({ 
+            ok: false, 
+            error: "Failed to retrieve bookings. Please try again." 
+        });
+    }
+}
+
 
     // ============================================================================================
     // FETCH AVAILABLE SLOTS ENDPOINT

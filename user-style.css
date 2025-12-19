@@ -546,6 +546,12 @@ select.form-input {
   box-shadow: var(--shadow-xs);
 }
 
+/* Selected lookup chip “armed” state */
+.lookup-chip.selected {
+  border-color: var(--warning-color);
+  background: var(--warning-light);
+}
+
 .slot-chip {
   border: 2px solid var(--success-color);
   animation: chipSlideIn 0.22s ease-out;
@@ -624,6 +630,16 @@ select.form-input {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Hide lookup cancel X by default */
+.lookup-chip .cancel-btn {
+  visibility: hidden;
+}
+
+/* Show X only when chip is selected */
+.lookup-chip.selected .cancel-btn {
+  visibility: visible;
+}
+
 .chip-remove-btn:active,
 .lookup-chip .cancel-btn:active {
   transform: scale(0.9);
@@ -636,6 +652,7 @@ select.form-input {
   background: var(--danger-color);
   color: white;
 }
+
 
 /* ============================================================ */
 /* LOOKUP SECTION                                               */
