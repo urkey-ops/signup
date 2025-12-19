@@ -216,6 +216,9 @@ export async function lookupBookings() {
             cancelBtn.dataset.date = booking.date;
             cancelBtn.dataset.slot_label = booking.slotLabel;
 
+            // ❌ Hidden by default (CSS will also enforce this)
+            cancelBtn.style.visibility = 'hidden';
+
             // ✅ FIXED: Proper animation + removal handling
             const handleCancel = (ev) => {
                 ev.stopPropagation();
@@ -246,6 +249,27 @@ export async function lookupBookings() {
             };
 
             cancelBtn.addEventListener('click', handleCancel);
+
+            // ✅ Two-step cancel: first click selects chip and reveals X
+            chip.addEventListener('click', () => {
+                // Optional: unselect other chips and hide their X
+                document.querySelectorAll('.lookup-chip.selected').forEach((other) => {
+                    if (other !== chip) {
+                        other.classList.remove('selected');
+                        const otherBtn = other.querySelector('.cancel-btn');
+                        if (otherBtn) otherBtn.style.visibility = 'hidden';
+                    }
+                });
+
+                if (!chip.classList.contains('selected')) {
+                    chip.classList.add('selected');
+                    cancelBtn.style.visibility = 'visible';
+                } else {
+                    // Second tap on the chip itself toggles off, hiding X again
+                    chip.classList.remove('selected');
+                    cancelBtn.style.visibility = 'hidden';
+                }
+            });
 
             chip.appendChild(text);
             chip.appendChild(cancelBtn);
