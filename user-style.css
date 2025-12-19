@@ -3,20 +3,20 @@
 /* Lightning-fast, touch-optimized, iOS-perfect design           */
 /* ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ⚠️ FONT MOVED TO HTML - DO NOT ADD @import HERE */
 
 /* ============================================================ */
 /* ROOT VARIABLES - SEMANTIC COLOR & TOKENS                     */
 /* ============================================================ */
 
 :root {
-  /* Primary Colors (Teal) */
+  /* Primary Colors */
   --primary-color: #14b8a6;
   --primary-hover: #0d9488;
   --primary-dark: #0f766e;
   --primary-light: #ccfbf1;
 
-  /* Secondary Colors (Indigo) */
+  /* Secondary Colors */
   --secondary-color: #6366f1;
   --secondary-hover: #4f46e5;
   --secondary-light: #e0e7ff;
@@ -42,25 +42,21 @@
   --text-secondary: #64748b;
   --text-muted: #94a3b8;
 
-  /* Spacing */
-  --space-xs: 0.25rem;
+  /* Spacing (Consolidated) */
   --space-sm: 0.5rem;
   --space-md: 0.75rem;
   --space-base: 1rem;
   --space-lg: 1.25rem;
   --space-xl: 1.5rem;
-  --space-2xl: 2rem;
 
   /* Sizing */
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
-  --radius-xl: 1.25rem;
   --radius-full: 9999px;
   --touch-min: 44px;
 
-  /* Shadows */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
+  /* Shadows (Simplified) */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 4px 8px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.1);
@@ -71,7 +67,6 @@
   /* Transitions */
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   /* Safe Areas */
   --safe-top: env(safe-area-inset-top);
@@ -79,16 +74,9 @@
   --safe-left: env(safe-area-inset-left);
   --safe-right: env(safe-area-inset-right);
 
-  /* Weekend */
-  --weekend-primary: #8b5cf6;
-  --weekend-light: #f3e8ff;
-  --weekend-border: #c084fc;
-
   /* RGB helpers */
   --primary-rgb: 20, 184, 166;
   --secondary-rgb: 99, 102, 241;
-  --error-rgb: 239, 68, 68;
-  --warning-rgb: 245, 158, 11;
   --success-rgb: 22, 163, 74;
 }
 
@@ -156,7 +144,7 @@ small {
   color: var(--text-secondary);
   font-size: 0.9375rem;
   line-height: 1.6;
-  margin-bottom: var(--space-2xl);
+  margin-bottom: var(--space-xl);
 }
 
 /* ============================================================ */
@@ -196,17 +184,16 @@ header {
 .card {
   background: var(--surface);
   border-radius: var(--radius-lg);
-  padding: var(--space-base);          /* tightened on mobile */
-  margin-bottom: var(--space-xl);      /* tightened on mobile */
+  padding: var(--space-base);
+  margin-bottom: var(--space-xl);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border);
   transition: box-shadow var(--transition-normal);
-  transform: translateZ(0);
   contain: layout style paint;
 }
 
 .card:active {
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .card-compact {
@@ -215,7 +202,7 @@ header {
 }
 
 .card-compact.lookup-section {
-  padding: 0.75rem 1rem;              /* slightly more compact */
+  padding: 0.75rem 1rem;
   padding-bottom: 0 !important;
 }
 
@@ -225,11 +212,9 @@ header {
   border-radius: var(--radius-lg);
   padding: var(--space-base);
   margin-bottom: var(--space-base);
-  box-shadow: var(--shadow-xs);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   scroll-snap-align: start;
   scroll-margin-top: 80px;
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 .date-card h3 {
@@ -259,7 +244,7 @@ header {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
   outline: none;
   text-decoration: none;
   position: relative;
@@ -267,9 +252,6 @@ header {
   -webkit-user-select: none;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 .btn::before {
@@ -311,7 +293,7 @@ header {
 }
 
 .primary-btn {
-  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  background: var(--primary-color);
   color: white;
   box-shadow: 0 4px 14px rgba(var(--primary-rgb), 0.35);
 }
@@ -320,8 +302,12 @@ header {
   box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.25);
 }
 
+.primary-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
 .secondary-btn {
-  background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
+  background: var(--secondary-color);
   color: white;
   box-shadow: 0 3px 10px rgba(var(--secondary-rgb), 0.25);
 }
@@ -330,18 +316,8 @@ header {
   box-shadow: 0 2px 6px rgba(var(--secondary-rgb), 0.2);
 }
 
-.primary-btn:hover,
-.secondary-btn:hover {
-  filter: brightness(1.03);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.16);
-}
-
-.btn:hover:not(:disabled) {
-  will-change: transform, box-shadow;
-}
-
-.btn:not(:hover) {
-  will-change: auto;
+.secondary-btn:hover:not(:disabled) {
+  background: var(--secondary-hover);
 }
 
 /* ============================================================ */
@@ -359,7 +335,7 @@ header {
   font-family: inherit;
   color: var(--text-primary);
   background: var(--surface);
-  transition: border-color var(--transition-normal), box-shadow var(--transition-normal), background-color var(--transition-normal);
+  transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
   -webkit-appearance: none;
   appearance: none;
 }
@@ -411,7 +387,7 @@ select.form-input {
   max-width: 500px;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(16px);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   padding: var(--space-sm) var(--space-lg);
   animation: slideUp 0.25s ease-out;
@@ -450,22 +426,10 @@ select.form-input {
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   font-weight: 500;
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 .slot:active:not(.disabled) {
   transform: scale(0.97);
-}
-
-.slot:hover:not(.disabled) {
-  will-change: transform, box-shadow;
-}
-
-.slot:not(:hover) {
-  will-change: auto;
 }
 
 .slot.selected {
@@ -490,7 +454,7 @@ select.form-input {
 .slot small {
   font-size: 0.75rem;
   opacity: 0.9;
-  margin-top: var(--space-xs);
+  margin-top: 4px;
 }
 
 .slot.selected small {
@@ -527,24 +491,17 @@ select.form-input {
   padding: var(--space-sm) var(--space-md);
   background: var(--surface);
   border-radius: var(--radius-full);
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background-color var(--transition-fast);
+  transition: transform var(--transition-fast), background-color var(--transition-fast);
   box-shadow: var(--shadow-sm);
   font-size: 0.875rem;
   max-width: 100%;
-  will-change: transform;
-  transform: translateZ(0);
   position: relative;
-  overflow: hidden;
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 .lookup-chip {
   border: 2px solid var(--secondary-color);
-  box-shadow: var(--shadow-xs);
 }
 
-/* Selected lookup chip state (calmer semantic color) */
 .lookup-chip.selected {
   border-color: var(--secondary-color);
   background: var(--secondary-light);
@@ -565,35 +522,15 @@ select.form-input {
   animation: chipSlideOut 0.2s ease-in forwards;
 }
 
-.slot-chip::before,
-.lookup-chip::before {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(var(--primary-rgb), 0.2);
-  transform: translate(-50%, -50%);
-  transition: width 0.35s, height 0.35s;
-}
-
-.slot-chip:active::before,
-.lookup-chip:active::before {
-  width: 200%;
-  height: 200%;
-}
-
 .chip-content {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 8px;
   font-size: 0.875rem;
-  line-height: 1.3;          /* slightly more breathing room */
+  line-height: 1.3;
   flex: 1;
   min-width: 0;
-  flex-wrap: wrap;           /* better wrapping on narrow screens */
+  flex-wrap: wrap;
 }
 
 .chip-date {
@@ -629,12 +566,10 @@ select.form-input {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* Hide lookup cancel X by default */
 .lookup-chip .cancel-btn {
   visibility: hidden;
 }
 
-/* Show X only when chip is selected */
 .lookup-chip.selected .cancel-btn {
   visibility: visible;
 }
@@ -755,17 +690,17 @@ select.form-input {
 
 .availability-none {
   color: var(--danger-color);
-  background: rgba(var(--error-rgb), 0.06);
+  background: rgba(239, 68, 68, 0.06);
 }
 
 .availability-low {
   color: var(--warning-color);
-  background: rgba(var(--warning-rgb), 0.06);
+  background: rgba(245, 158, 11, 0.06);
 }
 
 .availability-high {
   color: var(--success-color);
-  background: rgba(var(--success-rgb), 0.06);
+  background: rgba(22, 163, 74, 0.06);
 }
 
 /* ============================================================ */
@@ -950,21 +885,6 @@ select.form-input {
   }
 }
 
-@keyframes hapticPulse {
-  0%, 100% {
-    transform: scale(1);
-  }
-  25% {
-    transform: scale(0.97);
-  }
-  50% {
-    transform: scale(1.02);
-  }
-  75% {
-    transform: scale(1.1) rotate(-5deg);
-  }
-}
-
 @keyframes shake {
   0%, 100% {
     transform: translateX(0);
@@ -980,21 +900,6 @@ select.form-input {
   }
 }
 
-@keyframes celebrate {
-  0%, 100% {
-    transform: scale(1) rotate(0deg);
-  }
-  25% {
-    transform: scale(1.1) rotate(-5deg);
-  }
-  50% {
-    transform: scale(1.2) rotate(5deg);
-  }
-  75% {
-    transform: scale(1.1) rotate(-3deg);
-  }
-}
-
 /* ============================================================ */
 /* RESPONSIVE DESIGN                                            */
 /* ============================================================ */
@@ -1006,8 +911,8 @@ select.form-input {
   }
 
   .card {
-    padding: var(--space-xl);          /* restore roomy padding on larger screens */
-    margin-bottom: var(--space-2xl);
+    padding: var(--space-xl);
+    margin-bottom: calc(var(--space-xl) + var(--space-sm));
   }
 
   .slots-grid {
@@ -1040,23 +945,15 @@ select.form-input {
     width: 32px;
     height: 32px;
   }
+
+  .date-card {
+    padding: var(--space-xl);
+  }
 }
 
 @media (min-width: 768px) {
   .slots-grid {
     grid-template-columns: repeat(4, 1fr);
-  }
-
-  .date-card {
-    padding: var(--space-xl);
-  }
-
-  h1 {
-    font-size: 2rem;
-  }
-
-  h2 {
-    font-size: 1.5rem;
   }
 }
 
@@ -1078,13 +975,6 @@ select.form-input {
 
   .lookup-section.card-compact {
     padding: 0.875rem 1rem;
-  }
-}
-
-@media (max-width: 400px) {
-  .signup-inline-text,
-  .signup-inline-btn {
-    font-size: 0.85rem;
   }
 }
 
@@ -1113,7 +1003,7 @@ select.form-input {
   }
 
   .slot {
-    padding: var(--space-sm) var(--space-xs);
+    padding: var(--space-sm) 4px;
     font-size: 0.8125rem;
     min-height: var(--touch-min);
     line-height: 1.4;
