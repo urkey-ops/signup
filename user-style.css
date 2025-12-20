@@ -1044,6 +1044,152 @@ select.form-input {
   }
 }
 
+
+
+/* ============================================================ */
+/* RESPONSIVE DESIGN                                            */
+/* ============================================================ */
+
+@media (min-width: 640px) {
+  .container {
+    padding: var(--space-xl);
+    padding-bottom: calc(120px + var(--safe-bottom));
+  }
+
+  .card {
+    padding: var(--space-xl);
+    margin-bottom: calc(var(--space-xl) + var(--space-sm));
+  }
+
+  .slots-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-base);
+  }
+
+  .slot {
+    min-height: max(76px, var(--touch-min));
+  }
+
+  .lookup-controls {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .lookup-controls .secondary-btn {
+    width: auto;
+    min-width: 100px;
+  }
+
+  .chip-content,
+  .slot-chip,
+  .lookup-chip {
+    font-size: 0.9375rem;
+  }
+
+  .chip-remove-btn,
+  .lookup-chip .cancel-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .date-card {
+    padding: var(--space-xl);
+  }
+}
+
+@media (min-width: 768px) {
+  .slots-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .signup-inline-wrapper {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .signup-inline-btn {
+    width: auto;
+    align-self: flex-start;
+  }
+
+  .signup-inline-text {
+    font-size: 0.9rem;
+  }
+
+  .lookup-section.card-compact {
+    padding: 0.875rem 1rem;
+  }
+}
+
+@media (max-width: 380px) {
+  .card {
+    padding: var(--space-base);
+    margin-bottom: var(--space-xl);
+  }
+
+  .date-card {
+    padding: var(--space-base);
+  }
+
+  .chip-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    line-height: 1.4;
+  }
+
+ .slot-chip,
+  .lookup-chip {
+    padding: var(--space-sm);
+    font-size: 0.875rem;
+    min-height: calc(var(--touch-min) * 0.8);
+  }
+
+  .slot {
+    padding: var(--space-sm) 4px;
+    font-size: 0.8125rem;
+    min-height: var(--touch-min);
+    line-height: 1.4;
+  }
+
+  .chip-remove-btn,
+  .lookup-chip .cancel-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 1rem;
+  }
+} /* ← ADDED MISSING CLOSING BRACE */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .container {
+    padding-top: var(--space-sm);
+    padding-bottom: calc(100px + var(--safe-bottom));
+  }
+
+  header {
+    padding: var(--space-sm) 0;
+  }
+
+  .card {
+    padding: var(--space-base);
+    margin-bottom: var(--space-base);
+  }
+
+  .slot {
+    min-height: max(60px, var(--touch-min));
+    padding: var(--space-sm);
+    font-size: 0.875rem;
+  }
+
+  #floatingSignupBtnContainer {
+    bottom: 10px;
+    padding: 4px var(--space-base);
+  }
+}
+
 /* ============================================================ */
 /* SAFE AREA IMPROVEMENTS                                       */
 /* ============================================================ */
@@ -1097,6 +1243,15 @@ select.form-input {
 
   .btn:active:not(:disabled) {
     animation: hapticPulse 0.18s ease-out;
+  }
+}
+
+@keyframes hapticPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.95);
   }
 }
 
