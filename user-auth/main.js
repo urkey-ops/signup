@@ -105,7 +105,9 @@ window.login = login;
 window.logout = logout;
 window.checkSession = checkSession;
 window.resetUserTimer = resetTimer;
-window.initializeSession = initializeSession;
+window.addEventListener('user-login-success', () => {
+  initializeSession();
+});
 
 // DOM ready init
 if (document.readyState === 'loading') {
