@@ -397,50 +397,45 @@
       </section>
 
       <!-- Slots Section -->
-      <section class="card" aria-label="Select time slots">
-        <h2>Choose Your Time Slots</h2>
-        <div id="loadingMsg" role="status" aria-live="polite" style="text-align:center; padding: 2rem 0;">
-          <span class="spinner" aria-hidden="true"></span>
-          <span style="margin-left: 10px; color: var(--text-secondary);">Loading available slots…</span>
-        </div>
+      <section class="card slots-card" aria-label="Select time slots">   <!-- ★ added slots-card -->
 
-        <div id="slotsDisplay" style="display:none;">
-          <p class="description">
-            Select one or more time slots. You can choose multiple across different dates.
-            <strong>All times shown in Eastern Time (ET).</strong>
-          </p>
-          <div id="datesContainer" role="region" aria-label="Available time slots"></div>
-          <div style="height: 100px;" aria-hidden="true"></div>
-        </div>
+  <!-- ★ NEW: sticky wrapper for h2 + date nav pills -->
+  <div class="slots-sticky-header">
+    <h2>Choose Your Time Slots</h2>
+    <!-- date-nav pills are injected here by slots-ui.js at runtime -->
+  </div>
+  <!-- ★ spacer so first date card isn't hidden behind sticky header -->
+  <div class="slots-sticky-spacer" aria-hidden="true"></div>
 
-        <!-- Floating Signup Button -->
-        <div
-          id="floatingSignupBtnContainer"
-          style="display:none;"
-          role="region"
-          aria-live="polite"
-          aria-label="Checkout"
-        >
-          <button id="floatingSignupBtn" class="btn primary-btn" type="button">
-            Continue to Sign Up — (<span id="floatingSlotCount">0</span> Slots Selected)
-          </button>
-        </div>
+  <div id="loadingMsg" role="status" aria-live="polite" style="text-align:center;padding:2rem 0">
+    <span class="spinner" aria-hidden="true"></span>
+    <span style="margin-left:10px;color:var(--text-secondary)">Loading available slots...</span>
+  </div>
 
-        <!-- Selected slots summary -->
-        <div
-          id="selectedSlotsSummary"
-          class="selected-slots-summary hidden"
-          role="region"
-          aria-label="Selected slots summary"
-        ></div>
+  <div id="slotsDisplay" style="display:none">
+    <p class="description">
+      Select one or more time slots. You can choose multiple across different dates.
+      <strong>All times shown in Eastern Time (ET).</strong>
+    </p>
+    <div id="datesContainer" role="region" aria-label="Available time slots"></div>
+    <div style="height:100px" aria-hidden="true"></div>
+  </div>
 
-        <div
-          id="slotsMessage"
-          class="msg-box info"
-          role="status"
-          aria-live="polite"
-        ></div>
-      </section>
+  <!-- Floating Signup Button -->
+  <div id="floatingSignupBtnContainer" style="display:none" role="region" aria-live="polite" aria-label="Checkout button">
+    <button id="floatingSignupBtn" class="btn primary-btn" type="button">
+      Continue to Sign Up <span id="floatingSlotCount">0</span> Slots Selected
+    </button>
+  </div>
+
+  <!-- Selected slots summary -->
+  <div id="selectedSlotsSummary" class="selected-slots-summary hidden" role="region" aria-label="Selected slots summary">
+    <div></div>
+  </div>
+
+  <div id="slotsMessage" class="msg-box info" role="status" aria-live="polite"></div>
+
+</section>
 
       <!-- Signup Form -->
       <section
