@@ -1,4 +1,4 @@
-// ============================================================================================
+// ================================================================================================
 // SIGNUP FRONTEND - MAIN ORCHESTRATOR (WITH MINOR IMPROVEMENTS)
 // ================================================================================================
 
@@ -48,88 +48,83 @@ import {
 // MODULE INITIALIZATION
 // ================================================================================================
 
-// Inject styles on module load
 injectSignupStyles();
+
+// ================================================================================================
+// PROGRESS INDICATOR HELPER
+// ================================================================================================
+
+/**
+ * Set the active step on the progress indicator.
+ * Step 1 = Pick Slots, Step 2 = Your Info, Step 3 = Done!
+ * @param {1|2|3} step
+ */
+function setProgressStep(step) {
+    const steps = document.querySelectorAll('.progress-step');
+    const connectors = document.querySelectorAll('.progress-connector');
+    if (!steps.length) return;
+
+    steps.forEach((el, i) => {
+        const stepNum = i + 1;
+        el.classList.remove('active', 'done');
+        if (stepNum < step)       el.classList.add('done');
+        else if (stepNum === step) el.classList.add('active');
+    });
+
+    // Fill connectors up to the active step
+    connectors.forEach((el, i) => {
+        el.style.background = i < step - 1
+            ? 'var(--primary-color)'
+            : 'var(--border)';
+    });
+}
 
 // ================================================================================================
 // CONFIGURATION & STATE
 // ================================================================================================
 
-const REQUEST_TIMEOUT_MS = 30000; // 30 seconds
-const MAX_RETRIES = 2; // Retry network failures up to 2 times
-const RETRY_DELAY_MS = 1000; // Wait 1 second between retries
+const REQUEST_TIMEOUT_MS  = 30000;
+const MAX_RETRIES         = 2;
+const RETRY_DELAY_MS      = 1000;
 
-// Global abort controller for request cancellation
-let abortController = null;
-
-// Debounce timer for submission
+let abortController     = null;
 let submitDebounceTimer = null;
 
 // ================================================================================================
 // HELPER FUNCTIONS
 // ================================================================================================
 
-/**
- * Fetch with timeout support
- * @param {string} url - API URL
- * @param {Object} options - Fetch options
- * @param {number} timeout - Timeout in milliseconds
- * @returns {Promise<Response>}
- */
 async function fetchWithTimeout(url, options, timeout = REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
-    
     try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
+        const response = await fetch(url, { ...options, signal: controller.signal });
         clearTimeout(id);
         return response;
     } catch (err) {
         clearTimeout(id);
-        if (err.name === 'AbortError') {
-            throw new Error('Request timeout - server took too long to respond');
-        }
+        if (err.name === 'AbortError') throw new Error('Request timeout - server took too long to respond');
         throw err;
     }
 }
 
-/**
- * Fetch with automatic retry on network failures
- * @param {string} url - API URL
- * @param {Object} options - Fetch options
- * @param {number} retries - Number of retries remaining
- * @returns {Promise<Response>}
- */
 async function fetchWithRetry(url, options, retries = MAX_RETRIES) {
     try {
         return await fetchWithTimeout(url, options);
     } catch (err) {
-        // Only retry on network failures, not timeouts or other errors
-        const isNetworkError = err.message === 'Failed to fetch' || 
+        const isNetworkError = err.message === 'Failed to fetch' ||
                                err.message.includes('network') ||
                                err.message.includes('NetworkError');
-        
         if (retries > 0 && isNetworkError) {
             const attemptNumber = MAX_RETRIES - retries + 1;
             console.log(`🔄 Network error detected. Retrying... (Attempt ${attemptNumber}/${MAX_RETRIES})`);
-            
-            // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-            
             return fetchWithRetry(url, options, retries - 1);
         }
-        
-        // No more retries or non-retryable error
         throw err;
     }
 }
 
-/**
- * Cancel any pending request
- */
 function cancelPendingRequest() {
     if (abortController) {
         abortController.abort();
@@ -142,20 +137,9 @@ function cancelPendingRequest() {
 // MAIN SIGNUP SUBMISSION
 // ================================================================================================
 
-/**
- * Main signup submission handler (with debouncing)
- * Validates form, sends API request, handles responses (200, 409, errors)
- */
 export async function submitSignup() {
     console.log('🚀 submitSignup() called');
-    
-    // Clear any existing debounce timer
-    if (submitDebounceTimer) {
-        clearTimeout(submitDebounceTimer);
-    }
-    
-    // Debounce: wait 100ms before processing
-    // This prevents accidental double-clicks
+    if (submitDebounceTimer) clearTimeout(submitDebounceTimer);
     return new Promise((resolve) => {
         submitDebounceTimer = setTimeout(async () => {
             await processSignupSubmission();
@@ -164,355 +148,322 @@ export async function submitSignup() {
     });
 }
 
-/**
- * Core submission logic (called after debounce)
- */
 async function processSignupSubmission() {
-    const submitBtn = document.getElementById("signupSubmitBtn");
-    if (!submitBtn) {
-        console.error('❌ Submit button not found');
-        return;
-    }
-    
-    // Immediate DOM-level lock
-    if (submitBtn.disabled) {
-        console.warn('⚠️ Button already disabled - submission in progress');
-        return;
-    }
+    const submitBtn = document.getElementById('signupSubmitBtn');
+    if (!submitBtn) { console.error('❌ Submit button not found'); return; }
+
+    if (submitBtn.disabled) { console.warn('⚠️ Button already disabled'); return; }
     submitBtn.disabled = true;
-    
-    // Check module-level state
+
     if (getIsSubmitting()) {
-        console.warn('⚠️ Submission already in progress (module state)');
+        console.warn('⚠️ Submission already in progress');
         submitBtn.disabled = false;
         return;
     }
-    
-    // Cancel any pending request before starting new one
+
     cancelPendingRequest();
-    
-    // Set submitting state IMMEDIATELY
     updateIsSubmitting(true);
-    console.log('🔒 Submission started - beforeunload disabled');
-    
-    // Set loading state
+
     const originalBtnText = setButtonLoading(submitBtn);
-    
-    // Get and validate form data
-    const formData = getFormData();
-    console.log('📋 Form data retrieved:', {
-        name: formData.name,
-        phone: formData.phone,
-        category: formData.category,
-        slotsCount: formData.selectedSlots.length
-    });
-    
+
+    const formData     = getFormData();
     const sanitizedData = {
-        name: sanitizeInput(formData.name, CONFIG.MAX_NAME_LENGTH),
-        phone: normalizePhone(formData.phone),
-        email: sanitizeInput(formData.email, CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase(),
-        category: sanitizeInput(formData.category, CONFIG.MAX_CATEGORY_LENGTH),
-        notes: sanitizeInput(formData.notes, CONFIG.MAX_NOTES_LENGTH),
+        name:          sanitizeInput(formData.name,     CONFIG.MAX_NAME_LENGTH),
+        phone:         normalizePhone(formData.phone),
+        email:         sanitizeInput(formData.email,    CONFIG.MAX_EMAIL_LENGTH)?.toLowerCase(),
+        category:      sanitizeInput(formData.category, CONFIG.MAX_CATEGORY_LENGTH),
+        notes:         sanitizeInput(formData.notes,    CONFIG.MAX_NOTES_LENGTH),
         selectedSlots: formData.selectedSlots
     };
-    
-    // Helper to reset button state
+
     const resetSubmitState = () => {
         updateIsSubmitting(false);
-        console.log('🔓 Submission ended - beforeunload re-enabled');
         resetButtonState(submitBtn, originalBtnText);
         cancelPendingRequest();
     };
-    
-    // Validate form
+
+    // Validate
     const validation = validateSignupForm({
-        name: sanitizedData.name,
-        phone: formData.phone,
-        email: sanitizedData.email,
-        category: sanitizedData.category,
-        notes: sanitizedData.notes,
+        name:          sanitizedData.name,
+        phone:         formData.phone,
+        email:         sanitizedData.email,
+        category:      sanitizedData.category,
+        notes:         sanitizedData.notes,
         selectedSlots: sanitizedData.selectedSlots
     });
-    
+
     if (!validation.valid) {
-        console.error('❌ Validation failed:', validation.error);
         showFormError(validation.error);
         resetSubmitState();
         return;
     }
-    
-    console.log('✅ Validation passed');
-    
-    // Check cooldown
+
+    // Cooldown
     const submitCheck = canSubmit();
     if (!submitCheck.canSubmit) {
-        console.warn('⚠️ Cooldown active:', submitCheck.waitTime, 'seconds remaining');
         showFormError(`Please wait ${submitCheck.waitTime} seconds before submitting again.`);
         resetSubmitState();
         return;
     }
-    
-    console.log('✅ Cooldown check passed');
-    
-    // Show loading message
+
     showFormInfo('⏳ Processing your booking...', 0);
-    
+
     try {
         const slotIds = sanitizedData.selectedSlots.map(s => s.id);
-        
         const payload = {
-            name: sanitizedData.name,
-            phone: sanitizedData.phone,
-            email: sanitizedData.email,
-            notes: sanitizedData.notes,
+            name:     sanitizedData.name,
+            phone:    sanitizedData.phone,
+            email:    sanitizedData.email,
+            notes:    sanitizedData.notes,
             category: sanitizedData.category,
             slotIds
         };
-        
-        console.log('📤 Sending POST request to:', API_URL);
-        console.log('📦 Payload:', payload);
-        
-        // Create new abort controller for this request
+
         abortController = new AbortController();
-        
-        // Send request with retry and timeout
+
         const response = await fetchWithRetry(API_URL, {
-            method: 'POST',
+            method:      'POST',
             credentials: 'include',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload),
-            signal: abortController.signal
+            headers:     { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body:        JSON.stringify(payload),
+            signal:      abortController.signal
         });
-        
+
         updateLastApiCall(Date.now());
-        
-        console.log('📥 Response received - Status:', response.status);
-        console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
-        
+
         const data = await response.json();
-        console.log('📋 Response data:', data);
-        
-        // Handle success (200)
+
+        // ── Success ──────────────────────────────────────────────────────────
         if (response.ok && data.ok) {
-            console.log('✅ Booking successful!');
-            
-            // Invalidate cache
-            if (API_CACHE) {
-                API_CACHE.data = null;
-                API_CACHE.timestamp = 0;
-                console.log('🗑️ Cache invalidated');
-            }
-            
-            // Store booked slots before clearing
+            if (API_CACHE) { API_CACHE.data = null; API_CACHE.timestamp = 0; }
+
             const bookedSlots = [...sanitizedData.selectedSlots];
-            
-            // Clear state
             updateSelectedSlots([]);
-            console.log('🧹 Selected slots cleared');
-            
-            // Display success
-            console.log('🎉 Displaying success page');
-            displayBookingSuccess(
-                bookedSlots,
-                sanitizedData.category,
-                sanitizedData.email
-            );
-            
-            // Reset submission state
+
+            // Advance progress to Step 3 — Done!
+            setProgressStep(3);
+
+            displayBookingSuccess(bookedSlots, sanitizedData.category, sanitizedData.email);
+
+            // Wire "Add to Calendar" button now that success section is visible
+            wireCalendarButton(bookedSlots);
+
             resetSubmitState();
             return;
         }
-        
-        // Handle conflicts (409)
+
+        // ── Conflicts (409) ───────────────────────────────────────────────────
         if (response.status === 409) {
-            console.log('⚠️ Booking conflicts detected');
-            
-            const msgEl = document.getElementById("signupMessage");
-            if (!msgEl) {
-                console.error('❌ Message element not found');
-                resetSubmitState();
-                return;
-            }
-            
-            // Display conflict UI with callbacks
+            const msgEl = document.getElementById('signupMessage');
+            if (!msgEl) { resetSubmitState(); return; }
+
             displayConflictUI(
-                msgEl,
-                data,
-                // Book valid slots callback
-                async () => {
-                    await handleBookValidSlots(data.slotStatus, submitSignup);
-                },
-                // Remove conflicts callback
-                () => {
-                    handleRemoveConflicts(data.slotStatus, msgEl);
-                },
-                // Back to slots callback
-                () => {
+                msgEl, data,
+                async () => { await handleBookValidSlots(data.slotStatus, submitSignup); },
+                ()      => { handleRemoveConflicts(data.slotStatus, msgEl); },
+                ()      => {
                     handleBackToSlots(() => {
                         window.dispatchEvent(new CustomEvent('reloadSlots'));
                         hideSignupForm();
+                        setProgressStep(1);
                     });
                 }
             );
-            
+
             resetSubmitState();
             return;
         }
-        
-        // Handle other errors (400, 429, 500)
-        console.error('❌ Booking failed - Status:', response.status);
-        console.error('❌ Error data:', data);
-        
+
+        // ── Other errors ──────────────────────────────────────────────────────
         let errorMsg = data.error || getErrorMessage(response.status, 'Booking failed');
-        if (response.status === 429) {
-            errorMsg += ' Too many requests. Please wait a minute and try again.';
-        }
+        if (response.status === 429) errorMsg += ' Too many requests. Please wait a minute and try again.';
         showFormError(errorMsg);
         resetSubmitState();
-        
+
     } catch (err) {
-        console.error('❌ Signup error (catch block):', err);
-        console.error('❌ Error stack:', err.stack);
-        
-        // Handle aborted requests (user cancelled or navigated away)
-        if (err.name === 'AbortError') {
-            console.log('🚫 Request was cancelled');
-            resetSubmitState();
-            return;
-        }
-        
-        // Determine error message based on error type
+        if (err.name === 'AbortError') { resetSubmitState(); return; }
+
         let errorMsg;
-        if (err.message.includes('timeout')) {
+        if (err.message.includes('timeout'))
             errorMsg = 'Request timed out. The server is taking too long to respond. Please try again.';
-        } else if (err.message === 'Failed to fetch' || err.message.includes('network')) {
+        else if (err.message === 'Failed to fetch' || err.message.includes('network'))
             errorMsg = 'Unable to connect to the server. Please check your internet connection and try again.';
-        } else {
+        else
             errorMsg = 'An unexpected error occurred. Please try again.';
-        }
-        
+
         showFormError(errorMsg);
         resetSubmitState();
     }
 }
 
 // ================================================================================================
-// PUBLIC API (exported to window for global access)
+// ADD TO CALENDAR
 // ================================================================================================
 
 /**
- * Navigate to signup form (called from floating button)
+ * Wire the #addToCalendarBtn to generate .ics file downloads for booked slots.
+ * @param {Array} bookedSlots - [{id, date, label}, ...]
  */
-export function goToSignupForm() {
-    console.log('📝 Navigating to signup form');
-    showSignupForm();
+function wireCalendarButton(bookedSlots) {
+    const btn = document.getElementById('addToCalendarBtn');
+    if (!btn || !bookedSlots || bookedSlots.length === 0) return;
+
+    btn.addEventListener('click', () => downloadCalendarFile(bookedSlots), { once: true });
 }
 
 /**
- * Return to slot selection (called from "back" buttons)
+ * Build and trigger an .ics download for all booked slots.
+ * @param {Array} slots
  */
-export function backToSlotSelection() {
-    console.log('🔙 Returning to slot selection');
-    
-    // Cancel any pending requests when navigating away
-    cancelPendingRequest();
-    
-    // Reset submission state
-    updateIsSubmitting(false);
-    
-    hideSignupForm();
+function downloadCalendarFile(slots) {
+    const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seva Booking//EN', 'CALSCALE:GREGORIAN'];
+
+    slots.forEach(slot => {
+        const { startDt, endDt } = parseSlotDateTime(slot.date, slot.label);
+        if (!startDt || !endDt) return;
+
+        const uid = `seva-${slot.id}-${Date.now()}@sevabooking`;
+        lines.push(
+            'BEGIN:VEVENT',
+            `UID:${uid}`,
+            `DTSTAMP:${toIcsDate(new Date())}`,
+            `DTSTART;TZID=America/New_York:${toIcsDate(startDt)}`,
+            `DTEND;TZID=America/New_York:${toIcsDate(endDt)}`,
+            'SUMMARY:Greeter Seva — Mandir',
+            'DESCRIPTION:Thank you for your seva! Jai Swaminarayan 🙏',
+            'END:VEVENT'
+        );
+    });
+
+    lines.push('END:VCALENDAR');
+
+    const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = 'seva-booking.ics';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('📅 Calendar file downloaded');
 }
 
-// Make functions available globally for onclick handlers
-window.goToSignupForm = goToSignupForm;
+/**
+ * Parse "YYYY-MM-DD" date + "9AM - 12PM" label into Date objects.
+ * Handles formats like "9AM - 12PM", "9:00 AM - 12:00 PM", "9AM-12PM".
+ */
+function parseSlotDateTime(dateStr, label) {
+    if (!dateStr || !label) return {};
+
+    // Normalise: "9AM - 12PM" → ["9AM", "12PM"]
+    const parts = label.replace(/\s/g, '').split(/[-–]/);
+    if (parts.length < 2) return {};
+
+    const startHour = parseHour(parts[0]);
+    const endHour   = parseHour(parts[1]);
+    if (startHour === null || endHour === null) return {};
+
+    const [year, month, day] = dateStr.split('-').map(Number);
+
+    const startDt = new Date(year, month - 1, day, startHour, 0, 0);
+    const endDt   = new Date(year, month - 1, day, endHour,   0, 0);
+
+    return { startDt, endDt };
+}
+
+function parseHour(str) {
+    const m = str.match(/^(\d{1,2})(?::(\d{2}))?(am|pm)?$/i);
+    if (!m) return null;
+    let h = Number(m[1]);
+    const period = m[3]?.toLowerCase();
+    if (period === 'pm' && h !== 12) h += 12;
+    if (period === 'am' && h === 12) h = 0;
+    return h;
+}
+
+function toIcsDate(date) {
+    const pad = n => String(n).padStart(2, '0');
+    return (
+        `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}` +
+        `T${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`
+    );
+}
+
+// ================================================================================================
+// PUBLIC API
+// ================================================================================================
+
+export function goToSignupForm() {
+    console.log('📝 Navigating to signup form');
+    showSignupForm();
+    setProgressStep(2);
+}
+
+export function backToSlotSelection() {
+    console.log('🔙 Returning to slot selection');
+    cancelPendingRequest();
+    updateIsSubmitting(false);
+    hideSignupForm();
+    setProgressStep(1);
+}
+
+window.goToSignupForm      = goToSignupForm;
 window.backToSlotSelection = backToSlotSelection;
 
 // ================================================================================================
 // CLEANUP
 // ================================================================================================
 
-/**
- * Cleanup function - call when unmounting or leaving page
- */
 export function cleanup() {
-    console.log('🧹 Cleaning up signup module...');
-    
-    // Cancel pending requests
     cancelPendingRequest();
-    
-    // Clear debounce timer
-    if (submitDebounceTimer) {
-        clearTimeout(submitDebounceTimer);
-        submitDebounceTimer = null;
-    }
-    
-    // Reset state
+    if (submitDebounceTimer) { clearTimeout(submitDebounceTimer); submitDebounceTimer = null; }
     updateIsSubmitting(false);
-    
     console.log('✅ Signup module cleaned up');
 }
 
-// Cleanup on page unload
 window.addEventListener('beforeunload', cleanup);
 
 // ================================================================================================
-// INITIALIZATION (FIXED - RUNS IMMEDIATELY)
+// INITIALIZATION
 // ================================================================================================
 
 function initializeSignup() {
     console.log('📝 Signup module initializing...');
-    
-    // Setup form submission
+
     const signupForm = document.getElementById('signupForm');
     if (signupForm) {
-        signupForm.addEventListener('submit', (e) => {
-            console.log('📝 Form submit event fired');
-            e.preventDefault();
-            submitSignup();
-        });
+        signupForm.addEventListener('submit', (e) => { e.preventDefault(); submitSignup(); });
         console.log('✅ Form submission handler attached');
     } else {
         console.error('❌ Signup form not found');
     }
-    
-    // Setup back button in signup form
+
     const backBtn = document.getElementById('backToSlotsBtn');
     if (backBtn) {
         backBtn.addEventListener('click', backToSlotSelection);
         console.log('✅ Back button handler attached');
-    } else {
-        console.warn('⚠️ Back button not found - will be added to HTML');
     }
-    
-    // Setup "Book Another Slot" button in success page
+
     const resetPageBtn = document.getElementById('resetPageBtn');
     if (resetPageBtn) {
         resetPageBtn.addEventListener('click', () => {
-            console.log('🔄 Book Another Slot clicked');
             updateIsSubmitting(false);
             cancelPendingRequest();
             backToSlotSelection();
+            // Reset progress back to step 1 when booking another slot
+            setProgressStep(1);
         });
         console.log('✅ Book Another Slot button initialized');
-    } else {
-        console.warn('⚠️ Reset page button not found');
     }
-    
-    // Setup real-time validation
+
     setupRealtimeValidation();
-    console.log('✅ Real-time validation initialized');
-    
     console.log('✅ Signup module initialized');
 }
 
-// ✅ FIX: Run immediately if DOM is ready, otherwise wait
 if (document.readyState === 'loading') {
-    console.log('⏳ Waiting for DOMContentLoaded...');
     document.addEventListener('DOMContentLoaded', initializeSignup);
 } else {
-    console.log('✅ DOM already ready, initializing immediately');
     initializeSignup();
 }
