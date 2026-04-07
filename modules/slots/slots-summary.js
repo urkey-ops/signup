@@ -15,20 +15,6 @@ let removalTimeout   = null;
 // SLOT TIME-OF-DAY ICON (mirrors slots-ui.js — kept local to avoid circular import)
 // ================================================================================================
 
-function getSlotIcon(label) {
-  if (!label || typeof label !== 'string') return '';
-  const firstPart = label.split(/\s*[-–]\s*/)[0].trim().toLowerCase();
-  const match = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-  if (!match) return '';
-  let hour = Number(match[1]);
-  const period = match[3] ? match[3].toLowerCase() : null;
-  if (period === 'pm' && hour !== 12) hour += 12;
-  if (period === 'am' && hour === 12) hour = 0;
-  if (hour >= 5  && hour <= 11) return '☀️';
-  if (hour >= 12 && hour <= 16) return '🌤';
-  if (hour >= 17 && hour <= 21) return '🌇';
-  return '';
-}
 
 // ================================================================================================
 // SUMMARY DISPLAY
