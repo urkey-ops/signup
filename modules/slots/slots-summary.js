@@ -76,7 +76,7 @@ function createSlotChip(slot) {
     .replace(/\s*-\s*/g, '-')
     .replace(/\s/g, '');
 
-  const icon = getSlotIcon(slot.label);
+ 
 
   const chip = document.createElement('div');
   chip.className        = 'slot-chip';
@@ -92,7 +92,8 @@ function createSlotChip(slot) {
   const chipTime = document.createElement('span');
   chipTime.className   = 'chip-time';
   // Prepend icon to the time text inside the chip
-  chipTime.textContent = icon ? `${icon} ${shortTime}` : shortTime;
+  chipTime.textContent = shortTime;
+
 
   chipContent.appendChild(chipDate);
   chipContent.appendChild(chipTime);
@@ -193,12 +194,10 @@ export function updateFloatingButton() {
     // Build a compact date summary below the button: "Apr 12 ☀️ · Apr 13 🌤"
     if (summaryLine) {
       const sorted = [...selectedSlots].sort((a, b) => new Date(a.date) - new Date(b.date));
-      const parts  = sorted.map(s => {
-        const d    = new Date(s.date);
-        const mDay = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const icon = getSlotIcon(s.label);
-        return icon ? `${mDay} ${icon}` : mDay;
-      });
+     const parts  = sorted.map(s => {
+  const d    = new Date(s.date);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+});
       summaryLine.textContent = parts.join(' · ');
     }
 
