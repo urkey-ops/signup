@@ -1,25 +1,66 @@
 // ================================================================================================
-// SLOTS UI - DOM RENDERING & INTERACTIONS (FULLY CSS CONSISTENT)
+// SLOTS UI - DOM RENDERING & INTERACTIONS
 // ================================================================================================
 
 import { getSelectedSlots, CONFIG } from '../../config.js';
 import { showMessage } from '../../utils.js';
 import { sortSlotsByTime } from './slots-api.js';
 
-// Module-level listener reference for cleanup
 let currentSlotListener = null;
-
-// Date nav IntersectionObserver reference for cleanup
 let dateNavObserver = null;
+let headerResizeObserver = null;
 
 // ================================================================================================
-// SKELETON UI - LOADING STATE (FAST VISUAL FEEDBACK)
+// STICKY HEADER OFFSET — measure real header height at runtime
 // ================================================================================================
 
 /**
- * Show skeleton loading UI while slots are being fetched
- * Uses last known slot count for realistic placeholders
+ * Measure the page <header> height and write it as --slots-header-offset
+ * so the sticky .slots-sticky-header sits flush below it on every device.
+ * Also sets scroll-margin-top on each .date-card to match.
  */
+function syncStickyOffset() {
+  const pageHeader = document.querySelector('header');
+  const stickyEl = document.querySelector('.slots-sticky-header');
+
+  const headerH = pageHeader ? pageHeader.offsetHeight : 56;
+  const stickyH = stickyEl ? stickyEl.offsetHeight : 0;
+  const offset = headerH + stickyH;
+
+  // Write CSS custom property so .slots-sticky-header top tracks it
+  document.documentElement.style.setProperty('--slots-header-offset', `${headerH}px`);
+
+  // Keep date-card scroll-margin-top in sync so scrollIntoView lands correctly
+  document.querySelectorAll('.date-card').forEach(card => {
+    card.style.scrollMarginTop = `${offset + 12}px`;
+  });
+}
+
+/**
+ * Watch the page header for size changes (e.g. content reflow, font load)
+ * and keep the offset in sync automatically.
+ */
+function watchHeaderHeight() {
+  if (headerResizeObserver) {
+    headerResizeObserver.disconnect();
+    headerResizeObserver = null;
+  }
+
+  const pageHeader = document.querySelector('header');
+  if (!pageHeader || typeof ResizeObserver === 'undefined') return;
+
+  headerResizeObserver = new ResizeObserver(() => syncStickyOffset());
+  headerResizeObserver.observe(pageHeader);
+
+  // Also watch the sticky header itself once it exists
+  const stickyEl = document.querySelector('.slots-sticky-header');
+  if (stickyEl) headerResizeObserver.observe(stickyEl);
+}
+
+// ================================================================================================
+// SKELETON UI
+// ================================================================================================
+
 export function showSkeletonUI(lastSlotsCount = 10) {
   const datesContainer = document.getElementById('datesContainer');
   const slotsDisplay = document.getElementById('slotsDisplay');
@@ -30,16 +71,12 @@ export function showSkeletonUI(lastSlotsCount = 10) {
     return;
   }
 
-  // Remove date nav if present from previous render
   destroyDateNav();
 
   loadingMsg.style.display = 'none';
   slotsDisplay.style.display = 'block';
 
-  // Decide number of date cards (default 3)
-  const dateCardsCount = Math.min(Math.ceil(lastSlotsCount / 4), 3);
-
-  // Create skeleton cards
+  const dateCardsCount = Math.min(Math.ceil(lastSlotsCount / 3), 3);
   const fragment = document.createDocumentFragment();
 
   for (let i = 0; i < dateCardsCount; i++) {
@@ -52,7 +89,7 @@ export function showSkeletonUI(lastSlotsCount = 10) {
 
     const grid = document.createElement('div');
     grid.className = 'slots-grid';
-    for (let j = 0; j < 4; j++) {
+    for (let j = 0; j < 3; j++) {
       const slot = document.createElement('div');
       slot.className = 'slot skeleton-slot';
       const line1 = document.createElement('div');
@@ -76,41 +113,25 @@ export function showSkeletonUI(lastSlotsCount = 10) {
 // DATE CARD CREATION
 // ================================================================================================
 
-/**
- * Format date string with day of week
- * @param {string} dateString - Date string (YYYY-MM-DD)
- * @returns {string} Formatted date (e.g., "Mon, Jan 15")
- */
 function formatDateWithDay(dateString) {
   const [year, month, day] = dateString.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
-/**
- * Format date for pill label — short form e.g. "Sat 3"
- * @param {string} dateString - YYYY-MM-DD
- * @returns {string}
- */
 function formatDatePill(dateString) {
   const [year, month, day] = dateString.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   return date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
 }
 
-/**
- * Create a date card with slots
- * @param {string} date - Date string
- * @param {Array} slots - Array of slot objects
- * @returns {HTMLElement} Date card element
- */
 export function createDateCard(date, slots) {
   const card = document.createElement('div');
   card.className = 'date-card card fade-in';
-  card.dataset.dateSection = date; // used by scroll spy
+  card.dataset.dateSection = date;
 
   const title = document.createElement('h3');
-  title.textContent = `📅 ${formatDateWithDay(date)}`;
+  title.textContent = `\uD83D\uDCC5 ${formatDateWithDay(date)}`;
   card.appendChild(title);
 
   const grid = document.createElement('div');
@@ -126,11 +147,6 @@ export function createDateCard(date, slots) {
   return card;
 }
 
-/**
- * Create a slot button element
- * @param {Object} slot - Slot data object
- * @returns {HTMLElement} Slot button element
- */
 export function createSlotElement(slot) {
   const selectedSlots = getSelectedSlots();
 
@@ -171,25 +187,26 @@ export function createSlotElement(slot) {
 }
 
 // ================================================================================================
-// DATE NAV — PILL STRIP + NEXT AVAILABLE BUTTON
+// DATE NAV — sticky pill strip inside .slots-sticky-header
 // ================================================================================================
 
 /**
- * Build and inject the sticky date pill strip + "Next Available" button
- * @param {Object} groupedSlots - Slots grouped by date { 'YYYY-MM-DD': [...] }
+ * Build and inject the date pill strip + "Next Available" button.
+ * Injects into .slots-sticky-header (already in HTML), not before datesContainer.
  */
 export function renderDateNav(groupedSlots) {
-  // Remove any existing nav first
   destroyDateNav();
 
-  const slotsDisplay = document.getElementById('slotsDisplay');
-  const datesContainer = document.getElementById('datesContainer');
-  if (!slotsDisplay || !datesContainer) return;
+  // Target: the sticky header wrapper already in the DOM
+  const stickyHeader = document.querySelector('.slots-sticky-header');
+  if (!stickyHeader) {
+    console.warn('slots-sticky-header not found — date nav skipped');
+    return;
+  }
 
   const sortedDates = Object.keys(groupedSlots).sort((a, b) => new Date(a) - new Date(b));
-  if (sortedDates.length <= 1) return; // not useful for a single date
+  if (sortedDates.length === 0) return;
 
-  // Build nav wrapper
   const nav = document.createElement('div');
   nav.id = 'date-nav';
   nav.className = 'date-nav';
@@ -209,7 +226,10 @@ export function renderDateNav(groupedSlots) {
     pill.type = 'button';
     pill.className = `date-pill${isFull ? ' date-pill-full' : ''}`;
     pill.dataset.navDate = date;
-    pill.setAttribute('aria-label', `Jump to ${formatDateWithDay(date)}${isFull ? ' (full)' : ` — ${totalAvailable} spot${totalAvailable !== 1 ? 's' : ''} left`}`);
+    pill.setAttribute(
+      'aria-label',
+      `Jump to ${formatDateWithDay(date)}${isFull ? ' (full)' : ` \u2014 ${totalAvailable} spot${totalAvailable !== 1 ? 's' : ''} left`}`
+    );
 
     const pillLabel = document.createElement('span');
     pillLabel.className = 'pill-label';
@@ -222,18 +242,16 @@ export function renderDateNav(groupedSlots) {
 
     pill.appendChild(pillLabel);
     pill.appendChild(pillCount);
-
     pill.addEventListener('click', () => scrollToDate(date));
     strip.appendChild(pill);
   });
 
   nav.appendChild(strip);
 
-  // Next Available button — find first date with available > 0
-  const nextDate = sortedDates.find(date => {
-    const slots = groupedSlots[date] || [];
-    return slots.some(s => (s.available ?? 0) > 0);
-  });
+  // Next Available button
+  const nextDate = sortedDates.find(date =>
+    (groupedSlots[date] || []).some(s => (s.available ?? 0) > 0)
+  );
 
   if (nextDate) {
     const nextBtn = document.createElement('button');
@@ -241,69 +259,49 @@ export function renderDateNav(groupedSlots) {
     nextBtn.id = 'next-available-btn';
     nextBtn.className = 'next-available-btn';
     nextBtn.setAttribute('aria-label', `Jump to next available date: ${formatDateWithDay(nextDate)}`);
-    nextBtn.innerHTML = `<span>Next Available</span><span class="next-arrow">↓</span>`;
+    nextBtn.innerHTML = `<span>Next Available</span><span class="next-arrow">\u2193</span>`;
     nextBtn.addEventListener('click', () => scrollToDate(nextDate));
     nav.appendChild(nextBtn);
   }
 
-  // Insert nav before datesContainer
-  slotsDisplay.insertBefore(nav, datesContainer);
+  stickyHeader.appendChild(nav);
+
+  // Measure and sync sticky offset now that nav is in DOM
+  syncStickyOffset();
+  watchHeaderHeight();
 
   // Start scroll spy
   initScrollSpy(sortedDates);
 }
 
-/**
- * Smooth scroll to a date section card
- * @param {string} date - YYYY-MM-DD
- */
 function scrollToDate(date) {
   const card = document.querySelector(`[data-date-section="${date}"]`);
   if (!card) return;
 
-  // Account for sticky nav height
-  const nav = document.getElementById('date-nav');
-  const navHeight = nav ? nav.offsetHeight : 0;
-  const top = card.getBoundingClientRect().top + window.scrollY - navHeight - 12;
-
-  window.scrollTo({ top, behavior: 'smooth' });
-
-  // Highlight the pill immediately on click
+  // Use the card's own scrollMarginTop so it lands in the right spot
+  card.scrollIntoView({ behavior: 'smooth', block: 'start' });
   setActivePill(date);
 }
 
-/**
- * Set active state on a pill and scroll it into view within the strip
- * @param {string} date - YYYY-MM-DD
- */
 function setActivePill(date) {
-  const pills = document.querySelectorAll('.date-pill');
-  pills.forEach(p => p.classList.remove('date-pill-active'));
-
+  document.querySelectorAll('.date-pill').forEach(p => p.classList.remove('date-pill-active'));
   const activePill = document.querySelector(`.date-pill[data-nav-date="${date}"]`);
   if (activePill) {
     activePill.classList.add('date-pill-active');
-    // Scroll the pill into view within the strip
     activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
   }
 }
 
-/**
- * Setup IntersectionObserver scroll spy on date section cards
- * @param {Array} sortedDates - Array of date strings in order
- */
 function initScrollSpy(sortedDates) {
-  // Disconnect previous observer
-  if (dateNavObserver) {
-    dateNavObserver.disconnect();
-    dateNavObserver = null;
-  }
+  if (dateNavObserver) { dateNavObserver.disconnect(); dateNavObserver = null; }
 
-  const options = {
-    root: null,
-    rootMargin: '-20% 0px -70% 0px', // trigger when card is in top 30% of viewport
-    threshold: 0
-  };
+  // rootMargin: top offset = sticky header height so intersection is measured below it
+  const stickyEl = document.querySelector('.slots-sticky-header');
+  const stickyH = stickyEl ? stickyEl.offsetHeight : 80;
+  const pageHeaderH = document.querySelector('header')?.offsetHeight ?? 56;
+  const totalOffset = pageHeaderH + stickyH;
+
+  const rootMarginTop = `-${totalOffset + 4}px`;
 
   dateNavObserver = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
@@ -312,19 +310,18 @@ function initScrollSpy(sortedDates) {
         if (date) setActivePill(date);
       }
     });
-  }, options);
+  }, {
+    root: null,
+    rootMargin: `${rootMarginTop} 0px -65% 0px`,
+    threshold: 0
+  });
 
-  // Observe each date card
   sortedDates.forEach(date => {
     const card = document.querySelector(`[data-date-section="${date}"]`);
     if (card) dateNavObserver.observe(card);
   });
 }
 
-/**
- * Update pill counts after SSE slot-availability changes
- * @param {Object} groupedSlots - Updated slots grouped by date
- */
 export function updateDateNavCounts(groupedSlots) {
   if (!groupedSlots) return;
 
@@ -332,23 +329,19 @@ export function updateDateNavCounts(groupedSlots) {
     const totalAvailable = slots.reduce((sum, s) => sum + (s.available ?? 0), 0);
     const isFull = totalAvailable === 0;
 
-    // Update count badge
     const countEl = document.querySelector(`.pill-count[data-pill-date="${date}"]`);
-    if (countEl) {
-      countEl.textContent = isFull ? 'Full' : `${totalAvailable}`;
-    }
+    if (countEl) countEl.textContent = isFull ? 'Full' : `${totalAvailable}`;
 
-    // Update pill full state
     const pill = document.querySelector(`.date-pill[data-nav-date="${date}"]`);
     if (pill) {
       pill.classList.toggle('date-pill-full', isFull);
-      pill.setAttribute('aria-label',
-        `Jump to ${formatDateWithDay(date)}${isFull ? ' (full)' : ` — ${totalAvailable} spot${totalAvailable !== 1 ? 's' : ''} left`}`
+      pill.setAttribute(
+        'aria-label',
+        `Jump to ${formatDateWithDay(date)}${isFull ? ' (full)' : ` \u2014 ${totalAvailable} spot${totalAvailable !== 1 ? 's' : ''} left`}`
       );
     }
   });
 
-  // Hide next-available-btn if all dates are full
   const anyAvailable = Object.values(groupedSlots).some(slots =>
     slots.some(s => (s.available ?? 0) > 0)
   );
@@ -356,14 +349,9 @@ export function updateDateNavCounts(groupedSlots) {
   if (nextBtn) nextBtn.style.display = anyAvailable ? '' : 'none';
 }
 
-/**
- * Remove date nav and disconnect observer
- */
 function destroyDateNav() {
-  if (dateNavObserver) {
-    dateNavObserver.disconnect();
-    dateNavObserver = null;
-  }
+  if (dateNavObserver) { dateNavObserver.disconnect(); dateNavObserver = null; }
+  if (headerResizeObserver) { headerResizeObserver.disconnect(); headerResizeObserver = null; }
   const existing = document.getElementById('date-nav');
   if (existing) existing.remove();
 }
@@ -372,19 +360,10 @@ function destroyDateNav() {
 // SLOT RENDERING
 // ================================================================================================
 
-/**
- * Render slots in the DOM
- * @param {Object} groupedSlots - Slots grouped by date
- * @param {Function} onSlotClick - Callback for slot click
- */
 export function renderSlots(groupedSlots, onSlotClick) {
   const datesContainer = document.getElementById('datesContainer');
-  if (!datesContainer) {
-    console.error('datesContainer not found');
-    return;
-  }
+  if (!datesContainer) { console.error('datesContainer not found'); return; }
 
-  // Clean up previous listener
   if (currentSlotListener) {
     datesContainer.removeEventListener('click', currentSlotListener);
     currentSlotListener = null;
@@ -393,10 +372,7 @@ export function renderSlots(groupedSlots, onSlotClick) {
   datesContainer.innerHTML = '';
 
   const dates = Object.keys(groupedSlots);
-  if (dates.length === 0) {
-    console.log('No slots to render');
-    return;
-  }
+  if (dates.length === 0) { console.log('No slots to render'); return; }
 
   const fragment = document.createDocumentFragment();
   const sortedDates = dates.sort((a, b) => new Date(a) - new Date(b));
@@ -404,29 +380,27 @@ export function renderSlots(groupedSlots, onSlotClick) {
   sortedDates.forEach(date => {
     const dateSlots = groupedSlots[date];
     const availableSlots = dateSlots.filter(slot => slot.available > 0);
-
     if (availableSlots.length > 0) {
-      const card = createDateCard(date, availableSlots);
-      fragment.appendChild(card);
+      fragment.appendChild(createDateCard(date, availableSlots));
     }
   });
 
   datesContainer.appendChild(fragment);
 
-  // Setup click delegation
+  // Sync scroll margins after cards are in DOM
+  requestAnimationFrame(() => syncStickyOffset());
+
+  // Click delegation
   currentSlotListener = (e) => {
     const slot = e.target.closest('.slot');
     if (!slot || slot.classList.contains('disabled')) return;
-
     const slotId = parseInt(slot.dataset.slotId);
     const date = slot.dataset.date;
     const label = slot.dataset.label;
-
     if (slotId && date && label && typeof onSlotClick === 'function') {
       onSlotClick(date, label, slotId, slot);
     }
   };
-
   datesContainer.addEventListener('click', currentSlotListener);
 
   // Keyboard accessibility
@@ -440,46 +414,31 @@ export function renderSlots(groupedSlots, onSlotClick) {
     }
   });
 
-  console.log(`✅ Rendered ${sortedDates.length} date cards`);
+  console.log(`\u2705 Rendered ${sortedDates.length} date cards`);
 }
 
 // ================================================================================================
 // UI STATE MANAGEMENT
 // ================================================================================================
 
-/**
- * Show/hide loading message and slots display
- * @param {boolean} showSlots - True to show slots, false to show loading
- */
 export function toggleDisplay(showSlots) {
   const loadingMsg = document.getElementById('loadingMsg');
   const slotsDisplay = document.getElementById('slotsDisplay');
-
   if (loadingMsg) loadingMsg.style.display = showSlots ? 'none' : 'block';
   if (slotsDisplay) slotsDisplay.style.display = showSlots ? 'block' : 'none';
 }
 
-/**
- * Reset all slot selection UI states
- */
 export function resetSlotSelectionUI() {
-  const slotButtons = document.querySelectorAll('.slot.selected');
-  slotButtons.forEach(slot => {
+  document.querySelectorAll('.slot.selected').forEach(slot => {
     slot.classList.remove('selected');
     slot.setAttribute('aria-pressed', 'false');
   });
-  console.log('✅ Slot UI selection reset');
+  console.log('\u2705 Slot UI selection reset');
 }
 
-/**
- * Update a single slot's UI state
- * @param {number} slotId - Slot ID
- * @param {boolean} selected - True if selected
- */
 export function updateSlotUI(slotId, selected) {
   const slotElement = document.getElementById(`slot-btn-${slotId}`);
   if (!slotElement) return;
-
   if (selected) {
     slotElement.classList.add('selected');
     slotElement.setAttribute('aria-pressed', 'true');
@@ -493,9 +452,6 @@ export function updateSlotUI(slotId, selected) {
 // EMPTY & ERROR STATES
 // ================================================================================================
 
-/**
- * Show "no slots available" message
- */
 export function showNoSlotsMessage() {
   const datesContainer = document.getElementById('datesContainer');
   if (!datesContainer) return;
@@ -508,7 +464,7 @@ export function showNoSlotsMessage() {
 
   const icon = document.createElement('div');
   icon.className = 'empty-state-icon';
-  icon.textContent = '📅';
+  icon.textContent = '\uD83D\uDCC5';
   container.appendChild(icon);
 
   const heading = document.createElement('h3');
@@ -521,24 +477,17 @@ export function showNoSlotsMessage() {
 
   const refreshBtn = document.createElement('button');
   refreshBtn.className = 'btn secondary-btn';
-  refreshBtn.textContent = '🔄 Refresh';
-  refreshBtn.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('reloadSlots'));
-  });
+  refreshBtn.textContent = '\uD83D\uDD04 Refresh';
+  refreshBtn.addEventListener('click', () => window.dispatchEvent(new CustomEvent('reloadSlots')));
   container.appendChild(refreshBtn);
 
   datesContainer.appendChild(container);
   toggleDisplay(true);
 }
 
-/**
- * Show error message
- * @param {string} errorMessage - Error message to display
- */
 export function showErrorMessage(errorMessage) {
   const loadingMsg = document.getElementById('loadingMsg');
   const datesContainer = document.getElementById('datesContainer');
-
   if (!loadingMsg || !datesContainer) return;
 
   destroyDateNav();
@@ -547,15 +496,13 @@ export function showErrorMessage(errorMessage) {
 
   const errorText = document.createElement('p');
   errorText.className = 'error-text';
-  errorText.textContent = `⚠️ ${errorMessage}`;
+  errorText.textContent = `\u26A0\uFE0F ${errorMessage}`;
   loadingMsg.appendChild(errorText);
 
   const retryBtn = document.createElement('button');
   retryBtn.className = 'btn secondary-btn';
-  retryBtn.textContent = '🔄 Retry';
-  retryBtn.addEventListener('click', () => {
-    window.dispatchEvent(new CustomEvent('reloadSlots'));
-  });
+  retryBtn.textContent = '\uD83D\uDD04 Retry';
+  retryBtn.addEventListener('click', () => window.dispatchEvent(new CustomEvent('reloadSlots')));
   loadingMsg.appendChild(retryBtn);
 
   loadingMsg.style.display = 'block';
@@ -563,9 +510,6 @@ export function showErrorMessage(errorMessage) {
   if (slotsDisplay) slotsDisplay.style.display = 'none';
 }
 
-/**
- * Cleanup slot listeners and date nav (called on module unload)
- */
 export function cleanupSlotListeners() {
   const datesContainer = document.getElementById('datesContainer');
   if (datesContainer && currentSlotListener) {
@@ -573,5 +517,5 @@ export function cleanupSlotListeners() {
     currentSlotListener = null;
   }
   destroyDateNav();
-  console.log('🧹 Slot listeners cleaned up');
+  console.log('\uD83E\uDDF9 Slot listeners cleaned up');
 }
