@@ -704,7 +704,7 @@
         const result = await window.login(password);
         if (result.ok) {
           displayMessage('loginMsg', '✓ Welcome! Loading…', 'success');
-          setTimeout(() => location.reload(), 400);
+         await window.initializeSession();
         } else {
           let errorMsg = result.error || 'Invalid password';
           if (result.attemptsRemaining !== undefined && result.attemptsRemaining > 0) {
