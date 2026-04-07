@@ -10,7 +10,7 @@ export function injectSlotsStyles() {
   style.textContent = `
 
 /* ============================================================ */
-/* SLOTS CARD — override contain so sticky children work        */
+/* SLOTS CARD                                                   */
 /* ============================================================ */
 
 .slots-card {
@@ -19,9 +19,7 @@ export function injectSlotsStyles() {
 }
 
 /* ============================================================ */
-/* STICKY SLOTS HEADER — h2 + date nav pinned below page header */
-/* top: 56px matches the page header height. JS auto-measures   */
-/* and sets --slots-header-offset at runtime (see slots-ui.js)  */
+/* STICKY SLOTS HEADER                                          */
 /* ============================================================ */
 
 .slots-sticky-header {
@@ -29,8 +27,7 @@ export function injectSlotsStyles() {
   top: var(--slots-header-offset, 56px);
   z-index: 90;
   background: var(--surface);
-  /* Bleed to card edges on all screen sizes */
-  margin-left: calc(-1 * var(--space-base));
+  margin-left:  calc(-1 * var(--space-base));
   margin-right: calc(-1 * var(--space-base));
   padding: var(--space-base) var(--space-base) 0;
   border-bottom: 1px solid var(--border-light);
@@ -39,34 +36,25 @@ export function injectSlotsStyles() {
   transition: box-shadow var(--transition-normal);
 }
 
-/* Tablet+ card has more padding */
 @media (min-width: 640px) {
   .slots-sticky-header {
-    margin-left: calc(-1 * var(--space-xl));
+    margin-left:  calc(-1 * var(--space-xl));
     margin-right: calc(-1 * var(--space-xl));
-    padding-left: var(--space-xl);
+    padding-left:  var(--space-xl);
     padding-right: var(--space-xl);
   }
 }
 
-.slots-sticky-header h2 {
-  margin-bottom: var(--space-md);
-}
+.slots-sticky-header h2 { margin-bottom: var(--space-md); }
 
-/* Spacer below sticky header so first date card isn't hidden */
-.slots-sticky-spacer {
-  height: var(--space-lg);
-}
+.slots-sticky-spacer { height: var(--space-lg); }
 
 /* ============================================================ */
 /* DATE NAV — pill strip + next available button               */
 /* ============================================================ */
 
-.date-nav {
-  padding-bottom: var(--space-md);
-}
+.date-nav { padding-bottom: var(--space-md); }
 
-/* Horizontal scrollable pill strip */
 .date-pill-strip {
   display: flex;
   gap: 8px;
@@ -78,19 +66,18 @@ export function injectSlotsStyles() {
   padding-bottom: 2px;
   padding-right: 16px;
 }
-
 .date-pill-strip::-webkit-scrollbar { display: none; }
 
-/* Individual date pill */
+/* Date pill — now shows weekday / date-number / count in 3 rows */
 .date-pill {
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
   flex-shrink: 0;
-  min-width: 58px;
+  min-width: 52px;
   min-height: 44px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   border: 1.5px solid var(--border);
   border-radius: var(--radius-full);
   background: var(--surface-warm);
@@ -116,7 +103,6 @@ export function injectSlotsStyles() {
 
 .date-pill:active { transform: scale(0.95); }
 
-/* Active — currently in viewport */
 .date-pill.date-pill-active {
   background: var(--primary-color);
   border-color: var(--primary-color);
@@ -126,27 +112,38 @@ export function injectSlotsStyles() {
 
 .date-pill.date-pill-active .pill-count { color: rgba(255,255,255,0.85); }
 
-/* Full — no spots */
 .date-pill.date-pill-full {
   opacity: 0.5;
   border-style: dashed;
 }
-
 .date-pill.date-pill-full:hover {
   background: var(--surface-warm);
   border-color: var(--border);
 }
 
-.pill-label {
-  font-size: 0.75rem;
+/* Weekday row — e.g. "Tue" */
+.pill-weekday {
+  font-size: 0.68rem;
   font-weight: 600;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  line-height: 1;
 }
 
+/* Day number row — e.g. "12" */
+.pill-day {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* Availability count row */
 .pill-count {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: var(--primary-color);
   font-weight: 500;
+  line-height: 1;
 }
 
 /* Next Available button */
@@ -192,13 +189,81 @@ export function injectSlotsStyles() {
 }
 
 /* ============================================================ */
+/* SLOT ELEMENT — time-of-day icon row                         */
+/* ============================================================ */
+
+/* Flex row: icon + label text */
+.slot-label-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-content: center;
+}
+
+/* The icon itself — slightly larger for legibility */
+.slot-tod-icon {
+  font-size: 1.05em;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.slot-label-text {
+  font-size: inherit;
+  line-height: 1.3;
+}
+
+/* ============================================================ */
+/* FLOATING BUTTON — badge + summary line                      */
+/* ============================================================ */
+
+/* Badge that sits on the button */
+.floating-btn-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  margin-left: 8px;
+  background: rgba(255,255,255,0.25);
+  border: 1.5px solid rgba(255,255,255,0.6);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* Pop animation when count increments */
+@keyframes badgePop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.45); }
+  70%  { transform: scale(0.9); }
+  100% { transform: scale(1); }
+}
+
+.floating-btn-badge.badge-pop {
+  animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Summary line below the floating button */
+.floating-btn-summary {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.88);
+  text-align: center;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  min-height: 1em;
+  padding: 0 4px;
+  word-break: break-word;
+}
+
+/* ============================================================ */
 /* SKELETON LOADING                                             */
 /* ============================================================ */
 
-.skeleton-card {
-  pointer-events: none;
-  user-select: none;
-}
+.skeleton-card { pointer-events: none; user-select: none; }
 
 .skeleton-title,
 .skeleton-slot,
@@ -221,25 +286,162 @@ export function injectSlotsStyles() {
 .skeleton-text-small { height: 11px; width: 65%; }
 
 /* ============================================================ */
+/* EMPTY STATE                                                  */
+/* ============================================================ */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  gap: var(--space-md);
+}
+
+.empty-state-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  margin-bottom: var(--space-sm);
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  max-width: 30ch;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ============================================================ */
+/* PROGRESS STEPS                                               */
+/* ============================================================ */
+
+.progress-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: var(--space-base) var(--space-base) 0;
+  margin-bottom: var(--space-base);
+}
+
+.progress-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.4;
+  transition: opacity 0.3s ease;
+}
+
+.progress-step.active  { opacity: 1; }
+.progress-step.done    { opacity: 0.75; }
+
+.step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--border);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  font-weight: 700;
+  transition: background 0.3s, color 0.3s;
+}
+
+.progress-step.active .step-num {
+  background: var(--primary-color);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.35);
+}
+
+.progress-step.done .step-num {
+  background: var(--success-color, #4caf50);
+  color: #fff;
+}
+
+.step-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
+.progress-step.active .step-label { color: var(--primary-color); font-weight: 600; }
+
+.progress-connector {
+  flex: 1;
+  max-width: 48px;
+  height: 2px;
+  background: var(--border);
+  margin: 0 4px;
+  margin-bottom: 18px; /* Offset for the label below step-num */
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+
+/* ============================================================ */
+/* FORM ROW — phone + email side by side at tablet+            */
+/* ============================================================ */
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-base);
+}
+
+@media (min-width: 560px) {
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ============================================================ */
+/* FORM BUTTON ROW                                              */
+/* ============================================================ */
+
+.form-btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+
+.form-btn-back   { flex: 1; min-width: 140px; }
+.form-btn-submit { flex: 2; min-width: 190px; }
+
+/* ============================================================ */
 /* REDUCED MOTION                                               */
 /* ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  .next-arrow { animation: none; }
+  .next-arrow                 { animation: none; }
   .date-pill, .next-available-btn { transition: none; }
+  .floating-btn-badge.badge-pop   { animation: none; }
 }
 
 @media (prefers-contrast: high) {
-  .date-pill { border-width: 2px; }
+  .date-pill             { border-width: 2px; }
   .date-pill.date-pill-active { border-width: 3px; }
 }
 `;
 
   document.head.appendChild(style);
-  console.log('\u2705 Slots styles injected');
+  console.log('✅ Slots styles injected');
 }
 
 export function removeSlotsStyles() {
   const el = document.getElementById('slots-styles');
-  if (el) { el.remove(); console.log('\uD83D\uDDD1\uFE0F Slots styles removed'); }
+  if (el) { el.remove(); console.log('🗑️ Slots styles removed'); }
 }
