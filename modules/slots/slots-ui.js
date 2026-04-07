@@ -24,25 +24,7 @@ let headerResizeObserver = null;
  * @param {string} label - e.g. "9AM - 12PM"
  * @returns {string} emoji
  */
-function getSlotIcon(label) {
-  if (!label || typeof label !== 'string') return '';
 
-  // Grab the first token before the dash
-  const firstPart = label.split(/\s*[-–]\s*/)[0].trim().toLowerCase();
-  const match = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
-  if (!match) return '';
-
-  let hour = Number(match[1]);
-  const period = match[3] ? match[3].toLowerCase() : null;
-
-  if (period === 'pm' && hour !== 12) hour += 12;
-  if (period === 'am' && hour === 12) hour = 0;
-
-  if (hour >= 5  && hour <= 11) return '☀️';
-  if (hour >= 12 && hour <= 16) return '🌤';
-  if (hour >= 17 && hour <= 21) return '🌇';
-  return '';
-}
 
 // ================================================================================================
 // STICKY HEADER OFFSET — measure real header height at runtime
@@ -183,21 +165,9 @@ export function createSlotElement(slot) {
   div.setAttribute('tabindex', '0');
 
   // Row: icon + label
-  const labelRow = document.createElement('span');
-  labelRow.className = 'slot-label-row';
-
-  const icon = document.createElement('span');
-  icon.className   = 'slot-tod-icon';
-  icon.textContent = getSlotIcon(slot.slotLabel);
-  icon.setAttribute('aria-hidden', 'true');
-
   const labelText = document.createElement('span');
-  labelText.className   = 'slot-label-text';
-  labelText.textContent = slot.slotLabel || 'Unknown Time';
-
-  labelRow.appendChild(icon);
-  labelRow.appendChild(labelText);
-  div.appendChild(labelRow);
+labelText.textContent = slot.slotLabel || 'Unknown Time';
+div.appendChild(labelText);
 
   div.appendChild(document.createElement('br'));
 
