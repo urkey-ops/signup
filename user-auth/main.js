@@ -55,27 +55,27 @@ async function initializeSession() {
     try {
         const data = await checkSession();
         
-        if (data.ok) {
-            // ⚡ Preload slots and WAIT before signaling ready
-            try {
-                const { fetchSlots } = await import('../modules/slots/slots-api.js');
-                const slotsData = await fetchSlots();
-                if (slotsData && slotsData.ok) {
-                    window.__PRELOADED_SLOTS__ = slotsData;
-                    console.log('⚡ Slots preloaded during session init');
-                }
-            } catch (e) {
-                console.warn('⚠️ Slots preload failed (will fall back later)', e);
-            }
-            
-            // ✅ Now show UI and signal ready AFTER preload
-            loginSection.style.display = 'none';
-            mainApp.style.display = 'block';
-            logoutBtn.style.display = 'block';
-            resetTimer();
-            startSessionValidation();
-            dispatchAuthReady();
-        } else {
+       // AFTER
+if (data.ok) {
+  // Reveal UI and signal ready IMMEDIATELY
+  loginSection.style.display = 'none';
+  mainApp.style.display = 'block';
+  logoutBtn.style.display = 'block';
+  resetTimer();
+  startSessionValidation();
+  dispatchAuthReady();  // ← fires right away, no waiting
+
+  // Slots preload continues in background (best-effort)
+  // slots-api.js will use window.PRELOADED_SLOTS if it arrives
+  // before loadSlots() runs — otherwise loadSlots() fetches normally
+  import('../modules/slots/slots-api.js')
+    .then(({ fetchSlots }) => fetchSlots())
+    .then(slotsData => {
+      if (slotsData?.ok) window.PRELOADED_SLOTS = slotsData;
+      console.log('Slots preloaded in background');
+    })
+    .catch(e => console.warn('Slots preload failed, will fall back later', e));
+} else {
             loginSection.style.display = 'flex';
             mainApp.style.display = 'none';
             logoutBtn.style.display = 'none';
@@ -105,6 +105,7 @@ window.login = login;
 window.logout = logout;
 window.checkSession = checkSession;
 window.resetUserTimer = resetTimer;
+window.initializeSession = initializeSession;
 
 // DOM ready init
 if (document.readyState === 'loading') {
