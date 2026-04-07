@@ -1,334 +1,242 @@
-
 // ================================================================================================
-// SLOTS - MAIN ORCHESTRATOR (WITH MINOR IMPROVEMENTS)
-// ================================================================================================
-
-import { getSelectedSlots, invalidateCache, getIsSubmitting } from './config.js';
-import { injectSlotsStyles } from './modules/slots/slots-styles.js';
-import {
-  fetchSlots,
-  reloadSlots,
-  filterFutureSlots,
-  sortDates,
-  isValidSlotsData,
-  countAvailableSlots
-} from './modules/slots/slots-api.js';
-import {
-  showSkeletonUI,
-  renderSlots,
-  renderDateNav,
-  updateDateNavCounts,
-  toggleDisplay,
-  showNoSlotsMessage,
-  showErrorMessage,
-  resetSlotSelectionUI,
-  cleanupSlotListeners
-} from './modules/slots/slots-ui.js';
-import {
-  updateSummaryDisplay,
-  updateFloatingButton,
-  clearPendingRemovals,
-  cleanupFloatingButton
-} from './modules/slots/slots-summary.js';
-import {
-  toggleSlot,
-  selectMultipleSlots,
-  deselectMultipleSlots,
-  clearAllSelections,
-  isSlotSelected,
-  getSelectionCount,
-  isSelectionFull
-} from './modules/slots/slots-selection.js';
-
-// ================================================================================================
-// MODULE INITIALIZATION
-// ================================================================================================
-
-injectSlotsStyles();
-
-// ================================================================================================
-// CONFIGURATION & STATE
-// ================================================================================================
-
-const MAX_LOAD_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
-const RELOAD_DEBOUNCE_MS = 300;
-
-let isLoading = false;
-let loadAbortController = null;
-let reloadDebounceTimer = null;
-
-// Store last rendered slots for SSE updates
-let lastRenderedSlots = null;
-
-// ================================================================================================
-// HELPER FUNCTIONS
-// ================================================================================================
-
-function cancelPendingLoad() {
-  if (loadAbortController) {
-    loadAbortController.abort();
-    loadAbortController = null;
-    console.log('🚫 Pending slot load cancelled');
-  }
-}
-
-function resetLoadingState() {
-  isLoading = false;
-  cancelPendingLoad();
-}
-
-// ================================================================================================
-// MAIN LOAD FUNCTION
+// SLOTS STYLES - CSS-IN-JS FOR SLOTS MODULE
 // ================================================================================================
 
 /**
- * Load and display available slots (with retry and abort support)
- * @param {number} retryCount - Current retry attempt (internal use)
+ * Inject all slots-related styles into the document head
+ * Only runs once, subsequent calls are ignored
  */
-export async function loadSlots(retryCount = 0) {
-  if (isLoading) {
-    console.warn('⚠️ Slots already loading, skipping duplicate request');
-    return;
-  }
+export function injectSlotsStyles() {
+  if (document.getElementById('slots-styles')) return;
 
-  isLoading = true;
-  console.log(`📅 Loading slots... ${retryCount > 0 ? `(Retry ${retryCount}/${MAX_LOAD_RETRIES})` : ''}`);
+  const style = document.createElement('style');
+  style.id = 'slots-styles';
+  style.textContent = `
+/* ================================================================================================
+   SLOTS MODULE SKELETON STYLES (LOADING STATES)
+================================================================================================ */
 
-  if (loadAbortController) loadAbortController.abort();
-  loadAbortController = new AbortController();
+@keyframes shimmer {
+  0%   { background-position: -468px 0; }
+  100% { background-position:  468px 0; }
+}
 
-  try {
-    showSkeletonUI();
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
-    const signupSection = document.getElementById('signupSection');
-    if (signupSection) signupSection.style.display = 'none';
+.skeleton-card {
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-xl);
+  animation: fadeIn var(--transition-slow) ease;
+}
 
-    const data = await fetchSlots(loadAbortController.signal);
+.skeleton-title {
+  height: 24px;
+  width: 150px;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-base);
+}
 
-    if (!data) {
-      if (retryCount < MAX_LOAD_RETRIES) {
-        console.log(`🔄 Retrying slot load... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
-        resetLoadingState();
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        return loadSlots(retryCount + 1);
-      }
-      showErrorMessage('Failed to load slots. Please try again.');
-      resetLoadingState();
-      return;
-    }
+.skeleton-slot {
+  background: linear-gradient(90deg, #f8f8f8 25%, #f0f0f0 50%, #f8f8f8 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border: 1px solid #e0e0e0;
+  pointer-events: none;
+  min-height: 64px;
+  border-radius: var(--radius-md);
+  padding: var(--space-base);
+}
 
-    if (data.error) {
-      if (retryCount < MAX_LOAD_RETRIES) {
-        console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
-        resetLoadingState();
-        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-        return loadSlots(retryCount + 1);
-      }
-      showErrorMessage(data.error);
-      resetLoadingState();
-      return;
-    }
+.skeleton-text {
+  height: 16px;
+  background: #e0e0e0;
+  border-radius: var(--radius-sm);
+  margin: var(--space-sm) auto;
+  width: 80%;
+}
 
-    if (!isValidSlotsData(data)) {
-      console.error('❌ Invalid data structure received:', data);
-      showErrorMessage('Invalid data received from server.');
-      resetLoadingState();
-      return;
-    }
+.skeleton-text-small {
+  height: 12px;
+  background: #e8e8e8;
+  border-radius: var(--radius-sm);
+  margin: var(--space-xs) auto;
+  width: 50%;
+}
 
-    const futureSlots = filterFutureSlots(data);
-    const dateCount = Object.keys(futureSlots).length;
-    const availableCount = countAvailableSlots(futureSlots);
+/* ================================================================================================
+   DATE NAV — STICKY PILL STRIP + NEXT AVAILABLE BUTTON
+================================================================================================ */
 
-    console.log(`📊 Total dates: ${dateCount}, Available slots: ${availableCount}`);
+.date-nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary, #fff);
+  padding: 10px 0 8px;
+  margin: 0 0 4px;
+  /* Subtle bottom shadow to separate from content */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  border-radius: 0 0 var(--radius-md, 8px) var(--radius-md, 8px);
+  /* Negative margins to stretch edge-to-edge within the card */
+  margin-left: calc(-1 * var(--space-xl, 1.5rem));
+  margin-right: calc(-1 * var(--space-xl, 1.5rem));
+  padding-left: var(--space-xl, 1.5rem);
+  padding-right: var(--space-xl, 1.5rem);
+}
 
-    if (availableCount === 0) {
-      showNoSlotsMessage();
-      resetLoadingState();
-      return;
-    }
+/* Horizontal scrollable pill strip */
+.date-pill-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  /* Hide scrollbar visually but keep scroll functional */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+  /* Padding so last pill isn't clipped */
+  padding-right: 16px;
+}
 
-    // Render slots
-    try {
-      renderSlots(futureSlots, handleSlotClick);
-      toggleDisplay(true);
-    } catch (renderErr) {
-      console.error('❌ Error rendering slots:', renderErr);
-      showErrorMessage('Failed to display slots. Please refresh the page.');
-      resetLoadingState();
-      return;
-    }
+.date-pill-strip::-webkit-scrollbar {
+  display: none;
+}
 
-    // Render date nav after slots are in DOM
-    renderDateNav(futureSlots);
+/* Individual date pill */
+.date-pill {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  min-width: 56px;
+  min-height: 44px; /* touch target */
+  padding: 6px 12px;
+  border: 1.5px solid var(--border-color, #e0d5c5);
+  border-radius: 999px;
+  background: var(--bg-secondary, #faf7f2);
+  color: var(--text-primary, #1a0f00);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+  white-space: nowrap;
+  line-height: 1.2;
+}
 
-    // Store for SSE updates
-    lastRenderedSlots = futureSlots;
+.date-pill:hover {
+  border-color: var(--primary-color, #c2692a);
+  background: var(--primary-light, #fdf0e6);
+}
 
-    updateSummaryDisplay();
-    updateFloatingButton();
+.date-pill:active {
+  transform: scale(0.96);
+}
 
-    console.log(`✅ Successfully loaded ${availableCount} available slots`);
+/* Active pill — currently in viewport */
+.date-pill.date-pill-active {
+  background: var(--primary-color, #c2692a);
+  border-color: var(--primary-color, #c2692a);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(194, 105, 42, 0.3);
+}
 
-  } catch (err) {
-    if (err.name === 'AbortError') {
-      console.log('🚫 Slot loading was cancelled');
-      resetLoadingState();
-      return;
-    }
+.date-pill.date-pill-active .pill-count {
+  color: rgba(255,255,255,0.85);
+}
 
-    console.error('❌ Error loading slots:', err);
+/* Full pill — no available slots */
+.date-pill.date-pill-full {
+  opacity: 0.55;
+  border-style: dashed;
+}
 
-    if (retryCount < MAX_LOAD_RETRIES) {
-      console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
-      resetLoadingState();
-      await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-      return loadSlots(retryCount + 1);
-    }
+.date-pill.date-pill-full:hover {
+  background: var(--bg-secondary, #faf7f2);
+  border-color: var(--border-color, #e0d5c5);
+}
 
-    showErrorMessage('An unexpected error occurred. Please refresh the page.');
-    resetLoadingState();
+.pill-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
 
-  } finally {
-    isLoading = false;
-    loadAbortController = null;
-  }
+.pill-count {
+  font-size: 11px;
+  color: var(--primary-color, #c2692a);
+  font-weight: 500;
+}
+
+/* Next Available button */
+.next-available-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #c2692a 0%, #a8501c 100%);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  box-shadow: 0 2px 8px rgba(194, 105, 42, 0.3);
+  min-height: 36px;
+  letter-spacing: 0.02em;
+}
+
+.next-available-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(194, 105, 42, 0.4);
+}
+
+.next-available-btn:active {
+  transform: scale(0.97);
+}
+
+.next-arrow {
+  font-size: 14px;
+  animation: bounceDown 1.4s ease-in-out infinite;
+}
+
+@keyframes bounceDown {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(3px); }
+}
+
+/* ================================================================================================
+   REDUCED MOTION — disable animations for accessibility
+================================================================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .next-arrow { animation: none; }
+  .date-pill, .next-available-btn { transition: none; }
+}
+`;
+
+  document.head.appendChild(style);
+  console.log('✅ Slots styles injected');
 }
 
 /**
- * Handle slot click event
+ * Remove slots styles from document (cleanup utility)
  */
-function handleSlotClick(date, label, slotId, element) {
-  const wasSelected = isSlotSelected(slotId);
-  toggleSlot(date, label, slotId, element);
-
-  if (!wasSelected) {
-    console.log(`✓ Slot selected: ${label} on ${date} (ID: ${slotId})`);
-  } else {
-    console.log(`✗ Slot deselected: ${label} on ${date} (ID: ${slotId})`);
+export function removeSlotsStyles() {
+  const styleEl = document.getElementById('slots-styles');
+  if (styleEl) {
+    styleEl.remove();
+    console.log('🗑️ Slots styles removed');
   }
-}
-
-// ================================================================================================
-// EXPORTED FUNCTIONS (PUBLIC API)
-// ================================================================================================
-
-/**
- * Force reload slots from API (bypass cache) with debouncing
- */
-export async function forceReloadSlots() {
-  if (reloadDebounceTimer) {
-    console.log('⏳ Reload already scheduled, skipping duplicate');
-    clearTimeout(reloadDebounceTimer);
-  }
-
-  reloadDebounceTimer = setTimeout(async () => {
-    console.log('🔄 Force reloading slots...');
-    cancelPendingLoad();
-    invalidateCache();
-    isLoading = false;
-    lastRenderedSlots = null;
-    await loadSlots();
-    reloadDebounceTimer = null;
-  }, RELOAD_DEBOUNCE_MS);
-}
-
-export { resetSlotSelectionUI };
-export { updateSummaryDisplay };
-export { toggleSlot };
-export {
-  selectMultipleSlots,
-  deselectMultipleSlots,
-  clearAllSelections,
-  isSlotSelected,
-  getSelectionCount,
-  isSelectionFull
-};
-
-// ================================================================================================
-// SSE LIVE UPDATE HANDLER
-// ================================================================================================
-
-/**
- * Called by SSE client when slot availability changes
- * Updates pill counts without full re-render
- * @param {Object} updatedGroupedSlots - Patched slots grouped by date
- */
-export function onSlotsAvailabilityChanged(updatedGroupedSlots) {
-  lastRenderedSlots = updatedGroupedSlots;
-  updateDateNavCounts(updatedGroupedSlots);
-}
-
-// ================================================================================================
-// BEFOREUNLOAD WARNING
-// ================================================================================================
-
-function setupBeforeUnloadWarning() {
-  window.addEventListener('beforeunload', (e) => {
-    if (getIsSubmitting()) return;
-
-    const successSection = document.getElementById('successMessage');
-    const signupSection = document.getElementById('signupSection');
-    if (!successSection || !signupSection) return;
-
-    if (successSection.style.display === 'block' || signupSection.style.display === 'block') return;
-
-    const selectedSlots = getSelectedSlots();
-    if (selectedSlots.length > 0) {
-      e.preventDefault();
-      e.returnValue = 'You have selected slots but have not completed your booking. Are you sure you want to leave?';
-      return e.returnValue;
-    }
-  });
-}
-
-// ================================================================================================
-// CLEANUP
-// ================================================================================================
-
-export function cleanup() {
-  console.log('🧹 Cleaning up slots module...');
-  cancelPendingLoad();
-  if (reloadDebounceTimer) { clearTimeout(reloadDebounceTimer); reloadDebounceTimer = null; }
-  cleanupSlotListeners();
-  cleanupFloatingButton();
-  clearPendingRemovals();
-  isLoading = false;
-  lastRenderedSlots = null;
-  console.log('✅ Slots module cleaned up');
-}
-
-// ================================================================================================
-// INITIALIZATION
-// ================================================================================================
-
-function initialize() {
-  console.log('📅 Slots module initializing...');
-
-  setupBeforeUnloadWarning();
-
-  window.addEventListener('reloadSlots', (e) => {
-    console.log('🔄 Reload slots event triggered');
-    if (e instanceof Event) forceReloadSlots();
-    else console.warn('⚠️ Invalid reload event received');
-  });
-
-  // SSE availability change event
-  window.addEventListener('slots-availability-changed', (e) => {
-    if (e.detail?.groupedSlots) {
-      onSlotsAvailabilityChanged(e.detail.groupedSlots);
-    }
-  });
-
-  window.addEventListener('unload', cleanup);
-  window.addEventListener('beforeunload', cleanup);
-
-  console.log('✅ Slots module initialized');
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
 }
