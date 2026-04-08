@@ -1390,3 +1390,91 @@ select.form-input:focus {
     border: 1px solid #000;
   }
 }
+
+
+/* ============================================================
+   PROGRESS INDICATOR  (A+C)
+   ============================================================ */
+.progress-steps {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 600;
+  font-family: var(--font-body);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  transition: color var(--transition-fast),
+              background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              transform var(--transition-fast);
+  user-select: none;
+}
+
+.progress-connector {
+  width: 18px;
+  height: 1.5px;
+  background: var(--border);
+  flex-shrink: 0;
+  border-radius: 2px;
+  transition: background-color var(--transition-normal);
+}
+
+.progress-step.active {
+  color: white;
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.35);
+  transform: scale(1.08);
+}
+
+.progress-step.done {
+  color: var(--primary-color);
+  background: var(--primary-lighter);
+  border-color: var(--primary-color);
+}
+
+.progress-connector.done {
+  background: var(--primary-color);
+}
+
+.progress-subtitle {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  margin: 2px 0 0 0;
+  line-height: 1.3;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.progress-subtitle.transitioning {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+/* Hide connectors on very small screens */
+@media (max-width: 380px) {
+  .progress-connector { display: none; }
+  .progress-step {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    min-height: 26px;
+    font-size: 0.72rem;
+  }
+}
