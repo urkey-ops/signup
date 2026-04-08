@@ -59,24 +59,42 @@ injectSignupStyles();
  * Step 1 = Pick Slots, Step 2 = Your Info, Step 3 = Done!
  * @param {1|2|3} step
  */
+const PROGRESS_SUBTITLES = {
+  1: 'Choose your session times',
+  2: 'Almost there — your details',
+  3: 'Booking confirmed 🙏'
+};
+
 function setProgressStep(step) {
-    const steps = document.querySelectorAll('.progress-step');
-    const connectors = document.querySelectorAll('.progress-connector');
-    if (!steps.length) return;
+  // Update step circles
+  const steps      = document.querySelectorAll('.progress-step');
+  const connectors = document.querySelectorAll('.progress-connector');
 
-    steps.forEach((el, i) => {
-        const stepNum = i + 1;
-        el.classList.remove('active', 'done');
-        if (stepNum < step)       el.classList.add('done');
-        else if (stepNum === step) el.classList.add('active');
-    });
+  steps.forEach((el, i) => {
+    const n = i + 1;
+    el.classList.remove('active', 'done');
+    if (n < step)       el.classList.add('done');
+    else if (n === step) el.classList.add('active');
+    el.setAttribute('aria-label',
+      `Step ${n}: ${n === 1 ? 'Pick slots' : n === 2 ? 'Your info' : 'Done'}` +
+      (n === step ? ', current step' : n < step ? ', completed' : '')
+    );
+  });
 
-    // Fill connectors up to the active step
-    connectors.forEach((el, i) => {
-        el.style.background = i < step - 1
-            ? 'var(--primary-color)'
-            : 'var(--border)';
-    });
+  // Fill connectors up to active step
+  connectors.forEach((el, i) => {
+    el.classList.toggle('done', i < step - 1);
+  });
+
+  // Animate subtitle swap
+  const subtitle = document.getElementById('progressSubtitle');
+  if (subtitle && PROGRESS_SUBTITLES[step]) {
+    subtitle.classList.add('transitioning');
+    setTimeout(() => {
+      subtitle.textContent = PROGRESS_SUBTITLES[step];
+      subtitle.classList.remove('transitioning');
+    }, 150);
+  }
 }
 
 // ================================================================================================
@@ -459,6 +477,7 @@ function initializeSignup() {
     }
 
     setupRealtimeValidation();
+    setProgressStep(1); // ← add this line at the end
     console.log('✅ Signup module initialized');
 }
 
