@@ -1381,7 +1381,9 @@ select.form-input:focus {
   #floatingSignupBtnContainer,
   .lookup-section,
   .top-accent-bar,
-  .site-footer {
+  .site-footer,
+  .progress-steps,
+  .progress-subtitle {
     display: none;
   }
 
