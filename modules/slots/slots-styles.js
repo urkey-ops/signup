@@ -192,25 +192,7 @@ export function injectSlotsStyles() {
 /* SLOT ELEMENT — time-of-day icon row                         */
 /* ============================================================ */
 
-/* Flex row: icon + label text */
-.slot-label-row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  justify-content: center;
-}
 
-/* The icon itself — slightly larger for legibility */
-.slot-tod-icon {
-  font-size: 1.05em;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.slot-label-text {
-  font-size: inherit;
-  line-height: 1.3;
-}
 
 /* ============================================================ */
 /* FLOATING BUTTON — badge + summary line                      */
@@ -320,76 +302,7 @@ export function injectSlotsStyles() {
   line-height: 1.6;
 }
 
-/* ============================================================ */
-/* PROGRESS STEPS                                               */
-/* ============================================================ */
 
-.progress-steps {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  padding: var(--space-base) var(--space-base) 0;
-  margin-bottom: var(--space-base);
-}
-
-.progress-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  opacity: 0.4;
-  transition: opacity 0.3s ease;
-}
-
-.progress-step.active  { opacity: 1; }
-.progress-step.done    { opacity: 0.75; }
-
-.step-num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--border);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  transition: background 0.3s, color 0.3s;
-}
-
-.progress-step.active .step-num {
-  background: var(--primary-color);
-  color: #fff;
-  box-shadow: 0 2px 8px rgba(var(--primary-rgb), 0.35);
-}
-
-.progress-step.done .step-num {
-  background: var(--success-color, #4caf50);
-  color: #fff;
-}
-
-.step-label {
-  font-size: 0.68rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  letter-spacing: 0.02em;
-}
-
-.progress-step.active .step-label { color: var(--primary-color); font-weight: 600; }
-
-.progress-connector {
-  flex: 1;
-  max-width: 48px;
-  height: 2px;
-  background: var(--border);
-  margin: 0 4px;
-  margin-bottom: 18px; /* Offset for the label below step-num */
-  border-radius: 1px;
-  transition: background 0.3s;
-}
 
 /* ============================================================ */
 /* FORM ROW — phone + email side by side at tablet+            */
