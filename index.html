@@ -286,15 +286,23 @@
     <!-- Decorative top bar -->
     <div class="top-accent-bar" aria-hidden="true"></div>
 
-    <header>
-      <div class="header-inner">
-        <div class="header-icon" aria-hidden="true">🙏</div>
-        <div>
-          <h1>Greeter Seva Sign-Up</h1>
-          <p class="header-subtitle">Mandir Volunteer Booking</p>
-        </div>
-      </div>
-    </header>
+  <header>
+  <div class="header-inner">
+    <div class="header-icon" aria-hidden="true"></div>
+    <div>
+      <h1>Greeter Seva Sign-Up</h1>
+      <p class="header-subtitle">Mandir Volunteer Booking</p>
+      <p id="progressSubtitle" class="progress-subtitle">Choose your session times</p>
+    </div>
+    <nav class="progress-steps" aria-label="Booking progress">
+      <span class="progress-step active" data-step="1" aria-label="Step 1: Pick slots, current step">1</span>
+      <span class="progress-connector" aria-hidden="true"></span>
+      <span class="progress-step" data-step="2" aria-label="Step 2: Your info">2</span>
+      <span class="progress-connector" aria-hidden="true"></span>
+      <span class="progress-step" data-step="3" aria-label="Step 3: Done">3</span>
+    </nav>
+  </div>
+</header>
 
     <!-- Welcome Card — trimmed to 1 sentence on mobile -->
     <div class="header-description">
