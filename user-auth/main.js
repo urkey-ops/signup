@@ -64,17 +64,6 @@ if (data.ok) {
   resetTimer();
   startSessionValidation();
   dispatchAuthReady();  // ← fires right away, no waiting
-
-  // Slots preload continues in background (best-effort)
-  // slots-api.js will use window.PRELOADED_SLOTS if it arrives
-  // before loadSlots() runs — otherwise loadSlots() fetches normally
-  import('../modules/slots/slots-api.js')
-    .then(({ fetchSlots }) => fetchSlots())
-    .then(slotsData => {
-      if (slotsData?.ok) window.PRELOADED_SLOTS = slotsData;
-      console.log('Slots preloaded in background');
-    })
-    .catch(e => console.warn('Slots preload failed, will fall back later', e));
 } else {
             loginSection.style.display = 'flex';
             mainApp.style.display = 'none';
