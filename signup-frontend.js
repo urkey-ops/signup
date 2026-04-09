@@ -262,6 +262,7 @@ async function processSignupSubmission() {
             setProgressStep(3);
 
             displayBookingSuccess(bookedSlots, sanitizedData.category, sanitizedData.email);
+            if (window.resumeIdleTimer) window.resumeIdleTimer();
 
             // Wire "Add to Calendar" button now that success section is visible
             wireCalendarButton(bookedSlots);
@@ -416,7 +417,9 @@ function toIcsDate(date) {
 export function goToSignupForm() {
     console.log('📝 Navigating to signup form');
     showSignupForm();
+    if (window.pauseIdleTimer) window.pauseIdleTimer();   // ← ADD
     setProgressStep(2);
+    
 }
 
 export function backToSlotSelection() {
@@ -424,6 +427,7 @@ export function backToSlotSelection() {
     cancelPendingRequest();
     updateIsSubmitting(false);
     hideSignupForm();
+    if (window.resumeIdleTimer) window.resumeIdleTimer(); // ← ADD
     setProgressStep(1);
 }
 
