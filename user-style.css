@@ -1482,14 +1482,14 @@ select.form-input:focus {
 
 @keyframes calendar-card-pulse {
   0%   { box-shadow: 0 0 0 0 oklch(from var(--color-primary) l c h / 0.35); }
-  70%  { box-shadow: 0 0 0 10px oklch(from var(--color-primary) l c h / 0); }
+  70%  { box-shadow: 0 0 0 14px oklch(from var(--color-primary) l c h / 0); }
   100% { box-shadow: 0 0 0 0 oklch(from var(--color-primary) l c h / 0); }
 }
 
 @keyframes calendar-card-enter {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -1501,23 +1501,23 @@ select.form-input:focus {
   /* Layout */
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
   width: 100%;
-  padding: var(--space-5) var(--space-6);
-  margin-top: var(--space-6);
+  padding: var(--space-6) var(--space-8);
+  margin-top: var(--space-8);
 
-  /* Ticket look */
-  background: var(--color-primary-highlight);
+  /* Ticket look — stronger tint */
+  background: color-mix(in oklch, var(--color-primary) 10%, var(--color-surface));
   border: 2px dashed var(--color-primary);
   border-radius: var(--radius-xl);
   cursor: pointer;
 
-  /* Entrance animation */
+  /* Entrance + pulse */
   animation:
-    calendar-card-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both,
-    calendar-card-pulse 2s ease-out 0.4s 2;  /* pulse twice after entrance, then stops */
+    calendar-card-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) both,
+    calendar-card-pulse 2s ease-out 0.5s 2;
 
-  /* Transitions for hover/active */
+  /* Hover/active transitions */
   transition:
     transform var(--transition-interactive),
     box-shadow var(--transition-interactive),
@@ -1530,24 +1530,25 @@ select.form-input:focus {
 }
 
 .calendar-ticket-card:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  background: color-mix(in oklch, var(--color-primary) 12%, var(--color-surface));
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  background: color-mix(in oklch, var(--color-primary) 16%, var(--color-surface));
+  border-style: solid;   /* dashed → solid on hover feels intentional */
 }
 
 .calendar-ticket-card:active:not(:disabled) {
-  transform: translateY(0);
+  transform: translateY(0px);
   box-shadow: var(--shadow-sm);
 }
 
 .calendar-ticket-card:focus-visible {
   outline: 2px solid var(--color-primary);
-  outline-offset: 3px;
+  outline-offset: 4px;
 }
 
 /* ── Icon ── */
 .calendar-ticket-icon {
-  font-size: 2rem;
+  font-size: 2.5rem;    /* bigger emoji */
   line-height: 1;
   flex-shrink: 0;
 }
@@ -1556,35 +1557,35 @@ select.form-input:focus {
 .calendar-ticket-text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
   flex: 1;
 }
 
 .calendar-ticket-title {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);    /* bumped up from lg → xl */
   font-weight: 700;
   color: var(--color-primary);
   line-height: 1.2;
 }
 
 .calendar-ticket-subtitle {
-  font-size: var(--text-sm);
+  font-size: var(--text-base);  /* bumped up from sm → base */
   color: var(--color-text-muted);
-  line-height: 1.3;
+  line-height: 1.4;
 }
 
 /* ── Arrow ── */
 .calendar-ticket-arrow {
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   color: var(--color-primary);
   flex-shrink: 0;
-  opacity: 0.7;
+  opacity: 0.8;
 }
 
-/* ── Saved state (after tap) ── */
+/* ── Saved state ── */
 .calendar-ticket-card.calendar-saved {
-  background: var(--color-success-highlight);
-  border-color: var(--color-success);
+  background: color-mix(in oklch, var(--color-success) 10%, var(--color-surface));
+  border: 2px solid var(--color-success);
   cursor: default;
   animation: none;
   transform: none;
@@ -1600,7 +1601,23 @@ select.form-input:focus {
   box-shadow: none;
 }
 
-/* ── Reduced motion — kill pulse and entrance slide ── */
+/* ── Mobile — make it even bigger on small screens ── */
+@media (max-width: 480px) {
+  .calendar-ticket-card {
+    padding: var(--space-6) var(--space-6);
+    gap: var(--space-4);
+  }
+
+  .calendar-ticket-title {
+    font-size: var(--text-lg);
+  }
+
+  .calendar-ticket-icon {
+    font-size: 2.25rem;
+  }
+}
+
+/* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   .calendar-ticket-card {
     animation: none;
