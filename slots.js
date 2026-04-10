@@ -313,21 +313,14 @@ function initialize() {
     else console.warn('⚠️ Invalid reload event received');
   });
 
-  // SSE availability change event
   window.addEventListener('slots-availability-changed', (e) => {
     if (e.detail?.groupedSlots) {
       onSlotsAvailabilityChanged(e.detail.groupedSlots);
     }
   });
 
-  window.addEventListener('unload', cleanup);
-  window.addEventListener('beforeunload', cleanup);
+  // ✅ pagehide replaces unload — modern, bfcache-safe
+  window.addEventListener('pagehide', cleanup);
 
   console.log('✅ Slots module initialized');
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initialize);
-} else {
-  initialize();
 }
