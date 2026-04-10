@@ -230,7 +230,7 @@ export function displayBookingSuccess(bookedSlots, category, email) {
     const chip = document.createElement('div');
     chip.className = 'slot-chip';
 
-    const readableDate = new Date(slot.date).toLocaleDateString('en-US', {
+    const readableDate = new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -255,23 +255,27 @@ export function displayBookingSuccess(bookedSlots, category, email) {
     chipContent.appendChild(chipDate);
     chipContent.appendChild(chipTime);
     chip.appendChild(chipContent);
-
     chipsContainer.appendChild(chip);
   });
 
   container.appendChild(chipsContainer);
   confirmationDetails.appendChild(container);
 
+  // ── Calendar ticket card container ──────────────────────────────────────
+  // injectCalendarCard() in signup-frontend.js will populate this
+  const calendarContainer = document.createElement('div');
+  calendarContainer.id = 'calendarCardContainer';
+  confirmationDetails.appendChild(calendarContainer);
+  // ────────────────────────────────────────────────────────────────────────
+
   // Hide all other sections and show success
   if (signupSection) signupSection.style.display = 'none';
-  if (slotsSection) slotsSection.style.display = 'none';
-  if (lookupSection) lookupSection.style.display = 'none';
-  
+  if (slotsSection)  slotsSection.style.display  = 'none';
+  if (lookupSection) lookupSection.style.display  = 'none';
+
   successSection.style.display = 'block';
-  
-  // Scroll to top first, then to success section
+
   window.scrollTo({ top: 0, behavior: 'instant' });
-  
   setTimeout(() => {
     successSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, 100);
