@@ -1475,3 +1475,134 @@ select.form-input:focus {
     font-size: 0.7rem;
   }
 }
+
+/* ================================================================================================
+   CALENDAR TICKET CARD
+   ================================================================================================ */
+
+@keyframes calendar-card-pulse {
+  0%   { box-shadow: 0 0 0 0 oklch(from var(--color-primary) l c h / 0.35); }
+  70%  { box-shadow: 0 0 0 10px oklch(from var(--color-primary) l c h / 0); }
+  100% { box-shadow: 0 0 0 0 oklch(from var(--color-primary) l c h / 0); }
+}
+
+@keyframes calendar-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.calendar-ticket-card {
+  /* Layout */
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  width: 100%;
+  padding: var(--space-5) var(--space-6);
+  margin-top: var(--space-6);
+
+  /* Ticket look */
+  background: var(--color-primary-highlight);
+  border: 2px dashed var(--color-primary);
+  border-radius: var(--radius-xl);
+  cursor: pointer;
+
+  /* Entrance animation */
+  animation:
+    calendar-card-enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) both,
+    calendar-card-pulse 2s ease-out 0.4s 2;  /* pulse twice after entrance, then stops */
+
+  /* Transitions for hover/active */
+  transition:
+    transform var(--transition-interactive),
+    box-shadow var(--transition-interactive),
+    background var(--transition-interactive),
+    border-color var(--transition-interactive);
+
+  /* Reset button defaults */
+  text-align: left;
+  font-family: var(--font-body, sans-serif);
+}
+
+.calendar-ticket-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  background: color-mix(in oklch, var(--color-primary) 12%, var(--color-surface));
+}
+
+.calendar-ticket-card:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.calendar-ticket-card:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 3px;
+}
+
+/* ── Icon ── */
+.calendar-ticket-icon {
+  font-size: 2rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Text block ── */
+.calendar-ticket-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  flex: 1;
+}
+
+.calendar-ticket-title {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.2;
+}
+
+.calendar-ticket-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.3;
+}
+
+/* ── Arrow ── */
+.calendar-ticket-arrow {
+  font-size: var(--text-lg);
+  color: var(--color-primary);
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+/* ── Saved state (after tap) ── */
+.calendar-ticket-card.calendar-saved {
+  background: var(--color-success-highlight);
+  border-color: var(--color-success);
+  cursor: default;
+  animation: none;
+  transform: none;
+  box-shadow: none;
+}
+
+.calendar-ticket-card.calendar-saved .calendar-ticket-title {
+  color: var(--color-success);
+}
+
+.calendar-ticket-card.calendar-saved:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Reduced motion — kill pulse and entrance slide ── */
+@media (prefers-reduced-motion: reduce) {
+  .calendar-ticket-card {
+    animation: none;
+  }
+}
