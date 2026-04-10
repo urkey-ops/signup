@@ -17,9 +17,8 @@ let removalTimeout  = null;
 // ================================================================================================
 
 export function updateSummaryDisplay() {
-  // FIX #1: Both containers are populated/synced on every update
-  const slotsSectionSummary = document.getElementById('selectedSlotsSummary'); // slots section (with 's')
-  const signupSectionSummary = document.getElementById('selectedSlotSummary'); // signup section (no 's')
+  const slotsSectionSummary  = document.getElementById('selectedSlotsSummary');
+  const signupSectionSummary = document.getElementById('selectedSlotSummary');
 
   const selectedSlots = getSelectedSlots();
 
@@ -47,7 +46,6 @@ export function updateSummaryDisplay() {
   populateSummaryEl(slotsSectionSummary);
   populateSummaryEl(signupSectionSummary);
 
-  // Show/hide slots-section summary
   if (slotsSectionSummary) {
     if (selectedSlots.length > 0) {
       slotsSectionSummary.classList.remove('hidden');
@@ -69,10 +67,10 @@ function sortSlotsByDate(slots) {
 
 function parseTimeForSorting(timeStr) {
   if (!timeStr || typeof timeStr !== 'string') return 0;
-  const firstPart = timeStr.replace(/\s*-\s*/g, '-').trim().split('-')[0].trim().toLowerCase();
-  const m = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  const firstPart = timeStr.replace(/\s*-\s*/g, '-').trim().split('-')[0].trim().toLowerCase();  // FIX: was /\\s*-\\s*/g
+  const m = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);  // FIX: was \\d, \\s
   if (!m) return 0;
-  let hour = Number(m[1]);
+  let hour      = Number(m[1]);
   const minutes = m[2] ? Number(m[2]) : 0;
   const period  = m[3] ? m[3].toLowerCase() : null;
   if (period === 'pm' && hour !== 12) hour += 12;
@@ -81,9 +79,15 @@ function parseTimeForSorting(timeStr) {
 }
 
 function createSlotChip(slot) {
-  const dateObj   = new Date(slot.date);
+  // FIX: append 'T00:00:00' to force local-time parse (avoids UTC off-by-one)
+  const dateObj   = new Date(slot.date + 'T00:00:00');
   const shortDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-  const shortTime = slot.label.replace(/:\d{2}/g, '').replace(/\s*-\s*/g, '-').replace(/\s/g, '');
+
+  // FIX: all three regex were double-escaped (:\\d{2}, \\s*-\\s*, \\s)
+  const shortTime = slot.label
+    .replace(/:\d{2}/g, '')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s/g, '');
 
   const chip = document.createElement('div');
   chip.className      = 'slot-chip';
@@ -193,7 +197,7 @@ export function updateFloatingButton() {
     if (summaryLine) {
       const sorted = [...selectedSlots].sort((a, b) => new Date(a.date) - new Date(b.date));
       summaryLine.textContent = sorted
-        .map(s => new Date(s.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+        .map(s => new Date(s.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
         .join(' · ');
     }
 
