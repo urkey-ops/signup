@@ -49,7 +49,8 @@ export function isPastDate(dateStr) {
 }
 
 /**
- * Display message with proper styling using CSS classes
+ * Display message with proper styling using CSS classes.
+ * All types auto-hide except 'error' — errors stay visible until next message.
  * @param {string} msgId - Element ID
  * @param {string} message - Message text
  * @param {string} type - 'success' | 'error' | 'warning' | 'info'
@@ -58,13 +59,26 @@ export function displayMessage(msgId, message, type = 'success') {
     const msgBox = document.getElementById(msgId);
     if (!msgBox) return;
 
+    // Clear any previous auto-hide timer on this element
+    if (msgBox._hideTimer) {
+        clearTimeout(msgBox._hideTimer);
+        msgBox._hideTimer = null;
+    }
+
     msgBox.classList.remove('success', 'error', 'warning', 'info');
     msgBox.classList.add(type);
     msgBox.textContent = message;
     msgBox.style.display = 'block';
 
-    if (type === 'success') {
-        setTimeout(() => { msgBox.style.display = 'none'; }, 5000);
+    // error = 0 → stays visible until next message (admin must acknowledge)
+    const DURATIONS = { success: 5000, info: 5000, warning: 8000, error: 0 };
+    const duration  = DURATIONS[type] ?? 5000;
+
+    if (duration > 0) {
+        msgBox._hideTimer = setTimeout(() => {
+            msgBox.style.display = 'none';
+            msgBox._hideTimer   = null;
+        }, duration);
     }
 }
 
