@@ -4,15 +4,21 @@
 //         sorting is handled internally inside slots-ui.js renderSlots()
 // ================================================================================================
 
+
+
 import { getSelectedSlots, invalidateCache, getIsSubmitting } from './config.js';
 import { injectSlotsStyles } from './modules/slots/slots-styles.js';
+
+// CORRECT import line — add reloadSlots back:
 import {
   fetchSlots,
+  reloadSlots,        // ← add this back
   filterFutureSlots,
   isValidSlotsData,
   countAvailableSlots
-  // sortDates removed — FIX #4
+  // sortDates intentionally removed (Fix #4)
 } from './modules/slots/slots-api.js';
+
 import {
   showSkeletonUI,
   renderSlots,
