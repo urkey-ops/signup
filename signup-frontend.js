@@ -254,7 +254,6 @@ async function processSignupSubmission() {
             displayBookingSuccess(bookedSlots, sanitizedData.category, sanitizedData.email);
             if (window.resumeIdleTimer) window.resumeIdleTimer();
 
-            // Inject ticket card + wire button
             injectCalendarCard(bookedSlots);
 
             resetSubmitState();
@@ -309,12 +308,6 @@ async function processSignupSubmission() {
 // ADD TO CALENDAR — TICKET CARD
 // ================================================================================================
 
-/**
- * Format booked slot dates into a short human-readable subtitle.
- * e.g. "Apr 12, Apr 19" or "Apr 12" for a single slot.
- * @param {Array} slots - [{date: 'YYYY-MM-DD', label: '...'}]
- * @returns {string}
- */
 function formatSlotDatesForSubtitle(slots) {
     const seen = new Set();
     const formatted = [];
@@ -322,7 +315,7 @@ function formatSlotDatesForSubtitle(slots) {
     slots.forEach(slot => {
         if (!slot.date || seen.has(slot.date)) return;
         seen.add(slot.date);
-        const d = new Date(slot.date + 'T00:00:00'); // force local time parse
+        const d = new Date(slot.date + 'T00:00:00');
         formatted.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
     });
 
@@ -332,11 +325,6 @@ function formatSlotDatesForSubtitle(slots) {
     return formatted.slice(0, -1).join(', ') + ' & ' + formatted.at(-1);
 }
 
-/**
- * Inject the calendar ticket card into #calendarCardContainer (if present)
- * and wire the download + saved-state logic.
- * @param {Array} bookedSlots
- */
 function injectCalendarCard(bookedSlots) {
     const container = document.getElementById('calendarCardContainer');
     if (!container || !bookedSlots || bookedSlots.length === 0) return;
@@ -362,7 +350,6 @@ function injectCalendarCard(bookedSlots) {
     const btn = document.getElementById('addToCalendarBtn');
     btn.addEventListener('click', () => {
         downloadCalendarFile(bookedSlots);
-        // Transition to saved state
         btn.classList.add('calendar-saved');
         btn.setAttribute('aria-label', 'Seva sessions saved to calendar');
         btn.disabled = true;
@@ -377,10 +364,6 @@ function injectCalendarCard(bookedSlots) {
     }, { once: true });
 }
 
-/**
- * Build and trigger an .ics download for all booked slots.
- * @param {Array} slots
- */
 function downloadCalendarFile(slots) {
     const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Seva Booking//EN', 'CALSCALE:GREGORIAN'];
 
@@ -403,6 +386,7 @@ function downloadCalendarFile(slots) {
 
     lines.push('END:VCALENDAR');
 
+    // RFC 5545 requires CRLF line endings — '\r\n' not '\\r\\n'
     const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
@@ -416,11 +400,9 @@ function downloadCalendarFile(slots) {
     console.log('📅 Calendar file downloaded');
 }
 
-/**
- * Parse "YYYY-MM-DD" + "9AM - 12PM" into Date objects.
- */
 function parseSlotDateTime(dateStr, label) {
     if (!dateStr || !label) return {};
+    // Strip whitespace and split on dash/en-dash
     const parts = label.replace(/\s/g, '').split(/[-–]/);
     if (parts.length < 2) return {};
     const startHour = parseHour(parts[0]);
