@@ -68,7 +68,6 @@ export function injectSlotsStyles() {
 }
 .date-pill-strip::-webkit-scrollbar { display: none; }
 
-/* Date pill — now shows weekday / date-number / count in 3 rows */
 .date-pill {
   display: inline-flex;
   flex-direction: column;
@@ -121,7 +120,6 @@ export function injectSlotsStyles() {
   border-color: var(--border);
 }
 
-/* Weekday row — e.g. "Tue" */
 .pill-weekday {
   font-size: 0.68rem;
   font-weight: 600;
@@ -131,14 +129,12 @@ export function injectSlotsStyles() {
   line-height: 1;
 }
 
-/* Day number row — e.g. "12" */
 .pill-day {
   font-size: 0.9rem;
   font-weight: 700;
   line-height: 1.1;
 }
 
-/* Availability count row */
 .pill-count {
   font-size: 0.65rem;
   color: var(--primary-color);
@@ -146,14 +142,14 @@ export function injectSlotsStyles() {
   line-height: 1;
 }
 
-/* Next Available button */
+/* Next Available button — solid fill, consistent with main .btn styles */
 .next-available-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-top: var(--space-md);
   padding: 7px 16px;
-  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%);
+  background: var(--primary-color);      /* FIX: was linear-gradient(...) */
   color: #fff;
   border: none;
   border-radius: var(--radius-full);
@@ -161,7 +157,7 @@ export function injectSlotsStyles() {
   font-size: 0.8125rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
   box-shadow: var(--shadow-primary);
   min-height: 36px;
   letter-spacing: 0.02em;
@@ -169,6 +165,7 @@ export function injectSlotsStyles() {
 }
 
 .next-available-btn:hover {
+  background: var(--primary-hover);      /* FIX: solid hover instead of glow alone */
   transform: translateY(-1px);
   box-shadow: 0 5px 16px rgba(var(--primary-rgb), 0.4);
 }
@@ -189,16 +186,9 @@ export function injectSlotsStyles() {
 }
 
 /* ============================================================ */
-/* SLOT ELEMENT — time-of-day icon row                         */
-/* ============================================================ */
-
-
-
-/* ============================================================ */
 /* FLOATING BUTTON — badge + summary line                      */
 /* ============================================================ */
 
-/* Badge that sits on the button */
 .floating-btn-badge {
   display: inline-flex;
   align-items: center;
@@ -216,7 +206,6 @@ export function injectSlotsStyles() {
   line-height: 1;
 }
 
-/* Pop animation when count increments */
 @keyframes badgePop {
   0%   { transform: scale(1); }
   40%  { transform: scale(1.45); }
@@ -228,7 +217,6 @@ export function injectSlotsStyles() {
   animation: badgePop 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Summary line below the floating button */
 .floating-btn-summary {
   margin: 6px 0 0;
   font-size: 0.78rem;
@@ -302,8 +290,6 @@ export function injectSlotsStyles() {
   line-height: 1.6;
 }
 
-
-
 /* ============================================================ */
 /* FORM ROW — phone + email side by side at tablet+            */
 /* ============================================================ */
@@ -339,13 +325,13 @@ export function injectSlotsStyles() {
 /* ============================================================ */
 
 @media (prefers-reduced-motion: reduce) {
-  .next-arrow                 { animation: none; }
-  .date-pill, .next-available-btn { transition: none; }
-  .floating-btn-badge.badge-pop   { animation: none; }
+  .next-arrow                       { animation: none; }
+  .date-pill, .next-available-btn   { transition: none; }
+  .floating-btn-badge.badge-pop     { animation: none; }
 }
 
 @media (prefers-contrast: high) {
-  .date-pill             { border-width: 2px; }
+  .date-pill                  { border-width: 2px; }
   .date-pill.date-pill-active { border-width: 3px; }
 }
 `;
