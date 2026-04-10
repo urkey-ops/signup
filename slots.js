@@ -1,16 +1,17 @@
 // ================================================================================================
-// SLOTS - MAIN ORCHESTRATOR (WITH MINOR IMPROVEMENTS)
+// SLOTS - MAIN ORCHESTRATOR
+// FIX #4: Removed dead import 'sortDates' — was imported but never called;
+//         sorting is handled internally inside slots-ui.js renderSlots()
 // ================================================================================================
 
 import { getSelectedSlots, invalidateCache, getIsSubmitting } from './config.js';
 import { injectSlotsStyles } from './modules/slots/slots-styles.js';
 import {
   fetchSlots,
-  reloadSlots,
   filterFutureSlots,
-  sortDates,
   isValidSlotsData,
   countAvailableSlots
+  // sortDates removed — FIX #4
 } from './modules/slots/slots-api.js';
 import {
   showSkeletonUI,
@@ -39,36 +40,31 @@ import {
   isSelectionFull
 } from './modules/slots/slots-selection.js';
 
-// ================================================================================================
 // MODULE INITIALIZATION
-// ================================================================================================
-
 injectSlotsStyles();
 
 // ================================================================================================
-// CONFIGURATION & STATE
+// CONFIGURATION / STATE
 // ================================================================================================
 
-const MAX_LOAD_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
+const MAX_LOAD_RETRIES   = 2;
+const RETRY_DELAY_MS     = 1000;
 const RELOAD_DEBOUNCE_MS = 300;
 
-let isLoading = false;
+let isLoading           = false;
 let loadAbortController = null;
 let reloadDebounceTimer = null;
-
-// Store last rendered slots for SSE updates
-let lastRenderedSlots = null;
+let lastRenderedSlots   = null;
 
 // ================================================================================================
-// HELPER FUNCTIONS
+// HELPERS
 // ================================================================================================
 
 function cancelPendingLoad() {
   if (loadAbortController) {
     loadAbortController.abort();
     loadAbortController = null;
-    console.log('🚫 Pending slot load cancelled');
+    console.log('Pending slot load cancelled');
   }
 }
 
@@ -81,18 +77,14 @@ function resetLoadingState() {
 // MAIN LOAD FUNCTION
 // ================================================================================================
 
-/**
- * Load and display available slots (with retry and abort support)
- * @param {number} retryCount - Current retry attempt (internal use)
- */
 export async function loadSlots(retryCount = 0) {
   if (isLoading) {
-    console.warn('⚠️ Slots already loading, skipping duplicate request');
+    console.warn('Slots already loading, skipping duplicate request');
     return;
   }
 
   isLoading = true;
-  console.log(`📅 Loading slots... ${retryCount > 0 ? `(Retry ${retryCount}/${MAX_LOAD_RETRIES})` : ''}`);
+  console.log(`Loading slots... ${retryCount > 0 ? `Retry ${retryCount}/${MAX_LOAD_RETRIES}` : ''}`);
 
   if (loadAbortController) loadAbortController.abort();
   loadAbortController = new AbortController();
@@ -107,7 +99,7 @@ export async function loadSlots(retryCount = 0) {
 
     if (!data) {
       if (retryCount < MAX_LOAD_RETRIES) {
-        console.log(`🔄 Retrying slot load... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+        console.log(`Retrying slot load... ${retryCount + 1}/${MAX_LOAD_RETRIES}`);
         resetLoadingState();
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
         return loadSlots(retryCount + 1);
@@ -119,7 +111,7 @@ export async function loadSlots(retryCount = 0) {
 
     if (data.error) {
       if (retryCount < MAX_LOAD_RETRIES) {
-        console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+        console.log(`Retrying after error... ${retryCount + 1}/${MAX_LOAD_RETRIES}`);
         resetLoadingState();
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
         return loadSlots(retryCount + 1);
@@ -130,17 +122,16 @@ export async function loadSlots(retryCount = 0) {
     }
 
     if (!isValidSlotsData(data)) {
-      console.error('❌ Invalid data structure received:', data);
+      console.error('Invalid data structure received', data);
       showErrorMessage('Invalid data received from server.');
       resetLoadingState();
       return;
     }
 
-    const futureSlots = filterFutureSlots(data);
-    const dateCount = Object.keys(futureSlots).length;
+    const futureSlots    = filterFutureSlots(data);
+    const dateCount      = Object.keys(futureSlots).length;
     const availableCount = countAvailableSlots(futureSlots);
-
-    console.log(`📊 Total dates: ${dateCount}, Available slots: ${availableCount}`);
+    console.log(`Total dates: ${dateCount}, Available slots: ${availableCount}`);
 
     if (availableCount === 0) {
       showNoSlotsMessage();
@@ -148,39 +139,34 @@ export async function loadSlots(retryCount = 0) {
       return;
     }
 
-    // Render slots
     try {
       renderSlots(futureSlots, handleSlotClick);
       toggleDisplay(true);
     } catch (renderErr) {
-      console.error('❌ Error rendering slots:', renderErr);
+      console.error('Error rendering slots', renderErr);
       showErrorMessage('Failed to display slots. Please refresh the page.');
       resetLoadingState();
       return;
     }
 
-    // Render date nav after slots are in DOM
     renderDateNav(futureSlots);
-
-    // Store for SSE updates
     lastRenderedSlots = futureSlots;
 
     updateSummaryDisplay();
     updateFloatingButton();
-
-    console.log(`✅ Successfully loaded ${availableCount} available slots`);
+    console.log(`Successfully loaded ${availableCount} available slots`);
 
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.log('🚫 Slot loading was cancelled');
+      console.log('Slot loading was cancelled');
       resetLoadingState();
       return;
     }
 
-    console.error('❌ Error loading slots:', err);
+    console.error('Error loading slots', err);
 
     if (retryCount < MAX_LOAD_RETRIES) {
-      console.log(`🔄 Retrying after error... (${retryCount + 1}/${MAX_LOAD_RETRIES})`);
+      console.log(`Retrying after error... ${retryCount + 1}/${MAX_LOAD_RETRIES}`);
       resetLoadingState();
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
       return loadSlots(retryCount + 1);
@@ -195,35 +181,31 @@ export async function loadSlots(retryCount = 0) {
   }
 }
 
-/**
- * Handle slot click event
- */
+// ================================================================================================
+// SLOT CLICK HANDLER
+// ================================================================================================
+
 function handleSlotClick(date, label, slotId, element) {
   const wasSelected = isSlotSelected(slotId);
   toggleSlot(date, label, slotId, element);
-
   if (!wasSelected) {
-    console.log(`✓ Slot selected: ${label} on ${date} (ID: ${slotId})`);
+    console.log(`Slot selected: ${label} on ${date} ID: ${slotId}`);
   } else {
-    console.log(`✗ Slot deselected: ${label} on ${date} (ID: ${slotId})`);
+    console.log(`Slot deselected: ${label} on ${date} ID: ${slotId}`);
   }
 }
 
 // ================================================================================================
-// EXPORTED FUNCTIONS (PUBLIC API)
+// PUBLIC API
 // ================================================================================================
 
-/**
- * Force reload slots from API (bypass cache) with debouncing
- */
 export async function forceReloadSlots() {
   if (reloadDebounceTimer) {
-    console.log('⏳ Reload already scheduled, skipping duplicate');
+    console.log('Reload already scheduled, skipping duplicate');
     clearTimeout(reloadDebounceTimer);
   }
-
   reloadDebounceTimer = setTimeout(async () => {
-    console.log('🔄 Force reloading slots...');
+    console.log('Force reloading slots...');
     cancelPendingLoad();
     invalidateCache();
     isLoading = false;
@@ -236,24 +218,12 @@ export async function forceReloadSlots() {
 export { resetSlotSelectionUI };
 export { updateSummaryDisplay };
 export { toggleSlot };
-export {
-  selectMultipleSlots,
-  deselectMultipleSlots,
-  clearAllSelections,
-  isSlotSelected,
-  getSelectionCount,
-  isSelectionFull
-};
+export { selectMultipleSlots, deselectMultipleSlots, clearAllSelections, isSlotSelected, getSelectionCount, isSelectionFull };
 
 // ================================================================================================
 // SSE LIVE UPDATE HANDLER
 // ================================================================================================
 
-/**
- * Called by SSE client when slot availability changes
- * Updates pill counts without full re-render
- * @param {Object} updatedGroupedSlots - Patched slots grouped by date
- */
 export function onSlotsAvailabilityChanged(updatedGroupedSlots) {
   lastRenderedSlots = updatedGroupedSlots;
   updateDateNavCounts(updatedGroupedSlots);
@@ -268,17 +238,18 @@ function setupBeforeUnloadWarning() {
     if (getIsSubmitting()) return;
 
     const successSection = document.getElementById('successMessage');
-    const signupSection = document.getElementById('signupSection');
-    if (!successSection || !signupSection) return;
+    const signupSection  = document.getElementById('signupSection');
 
-    if (successSection.style.display === 'block' || signupSection.style.display === 'block') return;
+    if (!successSection || !signupSection) return;
+    if (successSection.style.display === 'block') return;
+    if (signupSection.style.display === 'block') return;
 
     const selectedSlots = getSelectedSlots();
-    if (selectedSlots.length > 0) {
-      e.preventDefault();
-      e.returnValue = 'You have selected slots but have not completed your booking. Are you sure you want to leave?';
-      return e.returnValue;
-    }
+    if (selectedSlots.length === 0) return;
+
+    e.preventDefault();
+    e.returnValue = 'You have selected slots but have not completed your booking. Are you sure you want to leave?';
+    return e.returnValue;
   });
 }
 
@@ -287,7 +258,7 @@ function setupBeforeUnloadWarning() {
 // ================================================================================================
 
 export function cleanup() {
-  console.log('🧹 Cleaning up slots module...');
+  console.log('Cleaning up slots module...');
   cancelPendingLoad();
   if (reloadDebounceTimer) { clearTimeout(reloadDebounceTimer); reloadDebounceTimer = null; }
   cleanupSlotListeners();
@@ -295,7 +266,7 @@ export function cleanup() {
   clearPendingRemovals();
   isLoading = false;
   lastRenderedSlots = null;
-  console.log('✅ Slots module cleaned up');
+  console.log('Slots module cleaned up');
 }
 
 // ================================================================================================
@@ -303,14 +274,17 @@ export function cleanup() {
 // ================================================================================================
 
 function initialize() {
-  console.log('📅 Slots module initializing...');
+  console.log('Slots module initializing...');
 
   setupBeforeUnloadWarning();
 
   window.addEventListener('reloadSlots', (e) => {
-    console.log('🔄 Reload slots event triggered');
-    if (e instanceof Event) forceReloadSlots();
-    else console.warn('⚠️ Invalid reload event received');
+    console.log('Reload slots event triggered');
+    if (e instanceof Event) {
+      forceReloadSlots();
+    } else {
+      console.warn('Invalid reload event received');
+    }
   });
 
   window.addEventListener('slots-availability-changed', (e) => {
@@ -319,8 +293,9 @@ function initialize() {
     }
   });
 
-  // ✅ pagehide replaces unload — modern, bfcache-safe
   window.addEventListener('pagehide', cleanup);
 
-  console.log('✅ Slots module initialized');
+  console.log('Slots module initialized');
 }
+
+initialize();
