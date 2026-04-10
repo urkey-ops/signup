@@ -54,11 +54,6 @@ injectSignupStyles();
 // PROGRESS INDICATOR HELPER
 // ================================================================================================
 
-/**
- * Set the active step on the progress indicator.
- * Step 1 = Pick Slots, Step 2 = Your Info, Step 3 = Done!
- * @param {1|2|3} step
- */
 const PROGRESS_SUBTITLES = {
   1: 'Choose your session times',
   2: 'Almost there — your details',
@@ -66,14 +61,13 @@ const PROGRESS_SUBTITLES = {
 };
 
 function setProgressStep(step) {
-  // Update step circles
   const steps      = document.querySelectorAll('.progress-step');
   const connectors = document.querySelectorAll('.progress-connector');
 
   steps.forEach((el, i) => {
     const n = i + 1;
     el.classList.remove('active', 'done');
-    if (n < step)       el.classList.add('done');
+    if (n < step)        el.classList.add('done');
     else if (n === step) el.classList.add('active');
     el.setAttribute('aria-label',
       `Step ${n}: ${n === 1 ? 'Pick slots' : n === 2 ? 'Your info' : 'Done'}` +
@@ -81,12 +75,10 @@ function setProgressStep(step) {
     );
   });
 
-  // Fill connectors up to active step
   connectors.forEach((el, i) => {
     el.classList.toggle('done', i < step - 1);
   });
 
-  // Animate subtitle swap
   const subtitle = document.getElementById('progressSubtitle');
   if (subtitle && PROGRESS_SUBTITLES[step]) {
     subtitle.classList.add('transitioning');
@@ -101,9 +93,9 @@ function setProgressStep(step) {
 // CONFIGURATION & STATE
 // ================================================================================================
 
-const REQUEST_TIMEOUT_MS  = 30000;
-const MAX_RETRIES         = 2;
-const RETRY_DELAY_MS      = 1000;
+const REQUEST_TIMEOUT_MS = 30000;
+const MAX_RETRIES        = 2;
+const RETRY_DELAY_MS     = 1000;
 
 let abortController     = null;
 let submitDebounceTimer = null;
@@ -184,7 +176,7 @@ async function processSignupSubmission() {
 
     const originalBtnText = setButtonLoading(submitBtn);
 
-    const formData     = getFormData();
+    const formData      = getFormData();
     const sanitizedData = {
         name:          sanitizeInput(formData.name,     CONFIG.MAX_NAME_LENGTH),
         phone:         normalizePhone(formData.phone),
@@ -258,14 +250,12 @@ async function processSignupSubmission() {
             const bookedSlots = [...sanitizedData.selectedSlots];
             updateSelectedSlots([]);
 
-            // Advance progress to Step 3 — Done!
             setProgressStep(3);
-
             displayBookingSuccess(bookedSlots, sanitizedData.category, sanitizedData.email);
             if (window.resumeIdleTimer) window.resumeIdleTimer();
 
-            // Wire "Add to Calendar" button now that success section is visible
-            wireCalendarButton(bookedSlots);
+            // Inject ticket card + wire button
+            injectCalendarCard(bookedSlots);
 
             resetSubmitState();
             return;
@@ -316,18 +306,75 @@ async function processSignupSubmission() {
 }
 
 // ================================================================================================
-// ADD TO CALENDAR
+// ADD TO CALENDAR — TICKET CARD
 // ================================================================================================
 
 /**
- * Wire the #addToCalendarBtn to generate .ics file downloads for booked slots.
- * @param {Array} bookedSlots - [{id, date, label}, ...]
+ * Format booked slot dates into a short human-readable subtitle.
+ * e.g. "Apr 12, Apr 19" or "Apr 12" for a single slot.
+ * @param {Array} slots - [{date: 'YYYY-MM-DD', label: '...'}]
+ * @returns {string}
  */
-function wireCalendarButton(bookedSlots) {
-    const btn = document.getElementById('addToCalendarBtn');
-    if (!btn || !bookedSlots || bookedSlots.length === 0) return;
+function formatSlotDatesForSubtitle(slots) {
+    const seen = new Set();
+    const formatted = [];
 
-    btn.addEventListener('click', () => downloadCalendarFile(bookedSlots), { once: true });
+    slots.forEach(slot => {
+        if (!slot.date || seen.has(slot.date)) return;
+        seen.add(slot.date);
+        const d = new Date(slot.date + 'T00:00:00'); // force local time parse
+        formatted.push(d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    });
+
+    if (formatted.length === 0) return 'your seva sessions';
+    if (formatted.length === 1) return formatted[0];
+    if (formatted.length === 2) return formatted.join(' & ');
+    return formatted.slice(0, -1).join(', ') + ' & ' + formatted.at(-1);
+}
+
+/**
+ * Inject the calendar ticket card into #calendarCardContainer (if present)
+ * and wire the download + saved-state logic.
+ * @param {Array} bookedSlots
+ */
+function injectCalendarCard(bookedSlots) {
+    const container = document.getElementById('calendarCardContainer');
+    if (!container || !bookedSlots || bookedSlots.length === 0) return;
+
+    const subtitle = formatSlotDatesForSubtitle(bookedSlots);
+
+    container.innerHTML = `
+        <button
+            id="addToCalendarBtn"
+            class="calendar-ticket-card"
+            type="button"
+            aria-label="Add seva sessions to calendar"
+        >
+            <span class="calendar-ticket-icon" aria-hidden="true">📅</span>
+            <span class="calendar-ticket-text">
+                <span class="calendar-ticket-title">Add to Calendar</span>
+                <span class="calendar-ticket-subtitle">Save your seva — ${subtitle}</span>
+            </span>
+            <span class="calendar-ticket-arrow" aria-hidden="true">↓</span>
+        </button>
+    `;
+
+    const btn = document.getElementById('addToCalendarBtn');
+    btn.addEventListener('click', () => {
+        downloadCalendarFile(bookedSlots);
+        // Transition to saved state
+        btn.classList.add('calendar-saved');
+        btn.setAttribute('aria-label', 'Seva sessions saved to calendar');
+        btn.disabled = true;
+        btn.innerHTML = `
+            <span class="calendar-ticket-icon" aria-hidden="true">✅</span>
+            <span class="calendar-ticket-text">
+                <span class="calendar-ticket-title">Saved to Calendar!</span>
+                <span class="calendar-ticket-subtitle">Check your calendar app</span>
+            </span>
+        `;
+        console.log('📅 Calendar card marked as saved');
+    }, { once: true });
 }
 
 /**
@@ -370,26 +417,20 @@ function downloadCalendarFile(slots) {
 }
 
 /**
- * Parse "YYYY-MM-DD" date + "9AM - 12PM" label into Date objects.
- * Handles formats like "9AM - 12PM", "9:00 AM - 12:00 PM", "9AM-12PM".
+ * Parse "YYYY-MM-DD" + "9AM - 12PM" into Date objects.
  */
 function parseSlotDateTime(dateStr, label) {
     if (!dateStr || !label) return {};
-
-    // Normalise: "9AM - 12PM" → ["9AM", "12PM"]
     const parts = label.replace(/\s/g, '').split(/[-–]/);
     if (parts.length < 2) return {};
-
     const startHour = parseHour(parts[0]);
     const endHour   = parseHour(parts[1]);
     if (startHour === null || endHour === null) return {};
-
     const [year, month, day] = dateStr.split('-').map(Number);
-
-    const startDt = new Date(year, month - 1, day, startHour, 0, 0);
-    const endDt   = new Date(year, month - 1, day, endHour,   0, 0);
-
-    return { startDt, endDt };
+    return {
+        startDt: new Date(year, month - 1, day, startHour, 0, 0),
+        endDt:   new Date(year, month - 1, day, endHour,   0, 0)
+    };
 }
 
 function parseHour(str) {
@@ -417,9 +458,8 @@ function toIcsDate(date) {
 export function goToSignupForm() {
     console.log('📝 Navigating to signup form');
     showSignupForm();
-    if (window.pauseIdleTimer) window.pauseIdleTimer();   // ← ADD
+    if (window.pauseIdleTimer) window.pauseIdleTimer();
     setProgressStep(2);
-    
 }
 
 export function backToSlotSelection() {
@@ -427,7 +467,7 @@ export function backToSlotSelection() {
     cancelPendingRequest();
     updateIsSubmitting(false);
     hideSignupForm();
-    if (window.resumeIdleTimer) window.resumeIdleTimer(); // ← ADD
+    if (window.resumeIdleTimer) window.resumeIdleTimer();
     setProgressStep(1);
 }
 
@@ -474,14 +514,13 @@ function initializeSignup() {
             updateIsSubmitting(false);
             cancelPendingRequest();
             backToSlotSelection();
-            // Reset progress back to step 1 when booking another slot
             setProgressStep(1);
         });
         console.log('✅ Book Another Slot button initialized');
     }
 
     setupRealtimeValidation();
-    setProgressStep(1); // ← add this line at the end
+    setProgressStep(1);
     console.log('✅ Signup module initialized');
 }
 
