@@ -11,7 +11,7 @@ export function injectSignupStyles() {
     if (document.getElementById('signup-styles')) {
         return;
     }
-    
+
     const style = document.createElement('style');
     style.id = 'signup-styles';
     style.textContent = `
@@ -22,20 +22,20 @@ export function injectSignupStyles() {
 
 /* Conflict action buttons container (409 response UI) */
 .conflict-actions {
-    display: flex; 
-    gap: var(--space-sm); 
-    flex-wrap: wrap; 
-    justify-content: center; 
-    margin-top: var(--space-md); 
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: var(--space-md);
     padding: var(--space-base);
 }
 
 .conflict-actions button {
-    padding: var(--space-md) var(--space-lg); 
-    border: none; 
+    padding: var(--space-md) var(--space-lg);
+    border: none;
     border-radius: var(--radius-md);
-    cursor: pointer; 
-    font-weight: 600; 
+    cursor: pointer;
+    font-weight: 600;
     font-size: 1rem;
     min-height: var(--touch-min);
     font-family: var(--font-family);
@@ -43,43 +43,47 @@ export function injectSignupStyles() {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* Primary conflict button */
+/* Primary conflict button — solid fill, consistent with main .btn styles */
 .conflict-actions .primary-btn {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+    background: var(--primary-color);
     color: white;
-    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.25);
+}
+
+.conflict-actions .primary-btn:hover {
+    background: var(--primary-dark);
 }
 
 .conflict-actions .primary-btn:active {
-    box-shadow: 0 1px 4px rgba(16, 185, 129, 0.2);
     transform: scale(0.98);
 }
 
-/* Secondary conflict button */
+/* Secondary conflict button — solid fill, consistent with main .btn styles */
 .conflict-actions .secondary-btn {
-    background: linear-gradient(135deg, var(--secondary-color), var(--secondary-hover));
+    background: var(--secondary-color);
     color: white;
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.conflict-actions .secondary-btn:hover {
+    background: var(--secondary-hover);
 }
 
 .conflict-actions .secondary-btn:active {
-    box-shadow: 0 1px 4px rgba(59, 130, 246, 0.15);
     transform: scale(0.98);
 }
 
 /* Conflict details accordion */
 .conflict-details {
-    background: var(--background) !important; 
-    padding: var(--space-lg); 
-    border-radius: var(--radius-lg); 
+    background: var(--background) !important;
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
     margin-top: var(--space-md);
     border: 1px solid var(--border);
     color: var(--text-primary) !important;
 }
 
 .conflict-details summary {
-    font-weight: 600; 
-    color: var(--text-primary); 
+    font-weight: 600;
+    color: var(--text-primary);
     cursor: pointer;
     padding: var(--space-sm) 0;
     list-style: none;
@@ -111,12 +115,13 @@ export function injectSignupStyles() {
     color: var(--secondary-hover);
 }
 
+/* Slot detail rows — neutral border, surface elevation for depth */
 .conflict-details div {
-    margin: var(--space-sm) 0; 
-    padding: var(--space-md); 
-    background: var(--surface); 
+    margin: var(--space-sm) 0;
+    padding: var(--space-md);
+    background: var(--surface);
     border-radius: var(--radius-md);
-    border-left: 4px solid var(--secondary-color);
+    border: 1px solid var(--border);
     color: var(--text-primary) !important;
     font-size: 0.9375rem;
 }
@@ -135,7 +140,7 @@ export function injectSignupStyles() {
     transform: none !important;
 }
     `;
-    
+
     document.head.appendChild(style);
     console.log('✅ Signup styles injected (color-matched)');
 }
