@@ -551,6 +551,7 @@ async function handlePost(req, res, requestId) {
 }
 
 // ================================================================================================
+// ================================================================================================
 // PATCH HANDLER: CANCEL BOOKING
 // ================================================================================================
 
@@ -590,7 +591,6 @@ async function handlePatch(req, res, requestId) {
             return res.status(404).json({ ok: false, error: 'Booking not found.' });
         }
 
-        // Verify phone matches
         const bookingPhone = normalizePhone(signupRow[SHEETS.SIGNUPS.COLS.PHONE] || '');
         if (bookingPhone !== normalizedPhone) {
             console.warn(`⚠️ [${requestId}] Phone mismatch: expected=${normalizedPhone}, got=${bookingPhone}`);
@@ -600,15 +600,14 @@ async function handlePatch(req, res, requestId) {
             });
         }
 
-        // Check if already cancelled
         const currentStatus = signupRow[SHEETS.SIGNUPS.COLS.STATUS] || 'ACTIVE';
         if (currentStatus.startsWith('CANCELLED')) {
             console.warn(`⚠️ [${requestId}] Booking already cancelled`);
             return res.status(400).json({ ok: false, error: 'This booking has already been cancelled.' });
         }
 
-        const currentTaken  = parseInt(slotResponse.data.values?.[0]?.[0] || 0);
-        const newTaken      = Math.max(0, currentTaken - 1);
+        const currentTaken    = parseInt(slotResponse.data.values?.[0]?.[0] || 0);
+        const newTaken        = Math.max(0, currentTaken - 1);
         const cancelTimestamp = new Date().toISOString();
 
         await sheets.spreadsheets.batchUpdate({
@@ -618,4 +617,58 @@ async function handlePatch(req, res, requestId) {
                     {
                         updateCells: {
                             range: {
-                                
+                                sheetId:          ENV.SIGNUPS_GID,
+                                startRowIndex:    signupRowId - 1,
+                                endRowIndex:      signupRowId,
+                                startColumnIndex: SHEETS.SIGNUPS.COLS.STATUS,
+                                endColumnIndex:   SHEETS.SIGNUPS.COLS.STATUS + 1
+                            },
+                            rows:   [{ values: [{ userEnteredValue: { stringValue: `CANCELLED:${cancelTimestamp}` } }] }],
+                            fields: 'userEnteredValue'
+                        }
+                    },
+                    {
+                        updateCells: {
+                            range: {
+                                sheetId:          ENV.SLOTS_GID,
+                                startRowIndex:    slotRowId - 1,
+                                endRowIndex:      slotRowId,
+                                startColumnIndex: SHEETS.SLOTS.COLS.TAKEN,
+                                endColumnIndex:   SHEETS.SLOTS.COLS.TAKEN + 1
+                            },
+                            rows:   [{ values: [{ userEnteredValue: { numberValue: newTaken } }] }],
+                            fields: 'userEnteredValue'
+                        }
+                    }
+                ]
+            }
+        });
+
+        console.log(`✅ [${requestId}] Cancellation successful: signupRow=${signupRowId}, slotRow=${slotRowId}`);
+
+        invalidateCache();
+
+        return res.status(200).json({
+            ok:      true,
+            message: 'Booking cancelled successfully.',
+            cancelledSlot: {
+                date:  signupRow[SHEETS.SIGNUPS.COLS.DATE],
+                label: signupRow[SHEETS.SIGNUPS.COLS.SLOT_LABEL]
+            }
+        });
+
+    } catch (err) {
+        console.error(`❌ [${requestId}] Cancellation failed:`, err.message);
+        console.error('Stack:', err.stack);
+        return res.status(500).json({
+            ok:    false,
+            error: 'Cancellation failed due to a server error. Please try again.'
+        });
+    }
+}
+
+// ================================================================================================
+// EXPORTS
+// ================================================================================================
+
+module.exports = { handleGet, handlePost, handlePatch };
