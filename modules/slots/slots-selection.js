@@ -1,213 +1,147 @@
 // ================================================================================================
-// SLOTS SELECTION - SLOT SELECTION LOGIC & STATE MANAGEMENT
+// SLOTS SELECTION - SLOT TOGGLE, MULTI-SELECT, DESELECT LOGIC
+// FIX #2: showMessage now targets #slotsMessage (inline) instead of global toast
 // ================================================================================================
 
 import { getSelectedSlots, updateSelectedSlots, CONFIG } from '../../config.js';
 import { showMessage } from '../../utils.js';
-import { updateSlotUI } from './slots-ui.js';
 import { updateSummaryDisplay, updateFloatingButton } from './slots-summary.js';
 
 // ================================================================================================
-// SLOT SELECTION
+// SLOT TOGGLE
 // ================================================================================================
 
-/**
- * Toggle slot selection (select/deselect)
- * @param {string} date - Slot date
- * @param {string} slotLabel - Slot time label
- * @param {number} rowId - Slot row ID
- * @param {HTMLElement} element - Slot DOM element (optional)
- */
-export function toggleSlot(date, slotLabel, rowId, element) {
-    const selectedSlots = getSelectedSlots();
-    const existingIndex = selectedSlots.findIndex(slot => slot.id === rowId);
-    
-    if (existingIndex > -1) {
-        // Deselect slot
-        deselectSlot(rowId, element);
-    } else {
-        // Select slot (with validation)
-        selectSlot(date, slotLabel, rowId, element);
-    }
-    
-    // Update UI
-    updateSummaryDisplay();
-    updateFloatingButton();
-}
+export function toggleSlot(date, label, slotId, element) {
+  const selectedSlots = getSelectedSlots();
+  const alreadySelected = isSlotSelected(slotId);
 
-/**
- * Select a slot (with max limit validation)
- * @param {string} date - Slot date
- * @param {string} slotLabel - Slot time label
- * @param {number} rowId - Slot row ID
- * @param {HTMLElement} element - Slot DOM element (optional)
- * @returns {boolean} True if selected successfully
- */
-function selectSlot(date, slotLabel, rowId, element) {
-    const selectedSlots = getSelectedSlots();
-    
-    // Check maximum limit
+  if (alreadySelected) {
+    const newSlots = selectedSlots.filter(s => s.id !== slotId);
+    updateSelectedSlots(newSlots);
+    if (element) {
+      element.classList.remove('selected');
+      element.setAttribute('aria-pressed', 'false');
+    }
+  } else {
     if (selectedSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
-        showMessage(
-            `You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots at a time. Please complete your current booking first.`, 
-            'warning',
-            4000
-        );
-        return false;
+      // FIX #2: use inline container, not global toast
+      const inlineMsg = document.getElementById('slotsMessage');
+      const msg = `You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slot${CONFIG.MAX_SLOTS_PER_BOOKING !== 1 ? 's' : ''} per booking.`;
+      if (inlineMsg) {
+        showMessage(inlineMsg, msg, 'warning', 4000);
+      } else {
+        showMessage(msg, 'warning', 4000);
+      }
+      return;
     }
-    
-    // Add to selection
-    const newSlots = [...selectedSlots, { id: rowId, date, label: slotLabel }];
+
+    const newSlots = [...selectedSlots, { id: slotId, date, label }];
     updateSelectedSlots(newSlots);
-    
-    // Update UI
     if (element) {
-        updateSlotUI(rowId, true);
+      element.classList.add('selected');
+      element.setAttribute('aria-pressed', 'true');
     }
-    
-    console.log(`✅ Slot selected: ${date} ${slotLabel}`);
-    return true;
+  }
+
+  updateSummaryDisplay();
+  updateFloatingButton();
 }
 
-/**
- * Deselect a slot
- * @param {number} rowId - Slot row ID
- * @param {HTMLElement} element - Slot DOM element (optional)
- * @returns {boolean} True if deselected successfully
- */
-function deselectSlot(rowId, element) {
-    const selectedSlots = getSelectedSlots();
-    const newSlots = selectedSlots.filter(slot => slot.id !== rowId);
-    updateSelectedSlots(newSlots);
-    
-    // Update UI
-    if (element) {
-        updateSlotUI(rowId, false);
-    }
-    
-    console.log(`➖ Slot deselected: ${rowId}`);
-    return true;
-}
+// ================================================================================================
+// MULTI-SELECT / DESELECT
+// ================================================================================================
 
-/**
- * Select multiple slots at once
- * @param {Array} slots - Array of slot objects [{id, date, label}]
- * @returns {Object} {success: boolean, added: number, skipped: number}
- */
 export function selectMultipleSlots(slots) {
-    if (!Array.isArray(slots) || slots.length === 0) {
-        return { success: false, added: 0, skipped: 0 };
+  if (!Array.isArray(slots) || slots.length === 0) return;
+
+  const selectedSlots = getSelectedSlots();
+  const existingIds   = new Set(selectedSlots.map(s => s.id));
+  const available     = CONFIG.MAX_SLOTS_PER_BOOKING - selectedSlots.length;
+
+  const toAdd = slots.filter(s => !existingIds.has(s.id)).slice(0, available);
+
+  if (toAdd.length === 0) {
+    const inlineMsg = document.getElementById('slotsMessage');
+    const msg = `You can only select up to ${CONFIG.MAX_SLOTS_PER_BOOKING} slots per booking.`;
+    if (inlineMsg) {
+      showMessage(inlineMsg, msg, 'warning', 4000);
+    } else {
+      showMessage(msg, 'warning', 4000);
     }
-    
-    const selectedSlots = getSelectedSlots();
-    let added = 0;
-    let skipped = 0;
-    
-    const newSlots = [...selectedSlots];
-    
-    for (const slot of slots) {
-        // Skip if already selected
-        if (newSlots.some(s => s.id === slot.id)) {
-            skipped++;
-            continue;
-        }
-        
-        // Skip if max limit reached
-        if (newSlots.length >= CONFIG.MAX_SLOTS_PER_BOOKING) {
-            skipped++;
-            continue;
-        }
-        
-        newSlots.push(slot);
-        updateSlotUI(slot.id, true);
-        added++;
+    return;
+  }
+
+  updateSelectedSlots([...selectedSlots, ...toAdd]);
+
+  toAdd.forEach(slot => {
+    const el = document.querySelector(`[data-slot-id="${slot.id}"]`);
+    if (el) {
+      el.classList.add('selected');
+      el.setAttribute('aria-pressed', 'true');
     }
-    
-    if (added > 0) {
-        updateSelectedSlots(newSlots);
-        updateSummaryDisplay();
-        updateFloatingButton();
+  });
+
+  if (toAdd.length < slots.length) {
+    const skipped   = slots.length - toAdd.length;
+    const inlineMsg = document.getElementById('slotsMessage');
+    const msg       = `Added ${toAdd.length} slot${toAdd.length !== 1 ? 's' : ''}. ${skipped} skipped (limit reached).`;
+    if (inlineMsg) {
+      showMessage(inlineMsg, msg, 'warning', 4000);
+    } else {
+      showMessage(msg, 'warning', 4000);
     }
-    
-    console.log(`✅ Bulk selection: ${added} added, ${skipped} skipped`);
-    return { success: added > 0, added, skipped };
+  }
+
+  updateSummaryDisplay();
+  updateFloatingButton();
 }
 
-/**
- * Deselect multiple slots at once
- * @param {Array<number>} slotIds - Array of slot IDs to deselect
- * @returns {number} Number of slots deselected
- */
 export function deselectMultipleSlots(slotIds) {
-    if (!Array.isArray(slotIds) || slotIds.length === 0) {
-        return 0;
+  if (!Array.isArray(slotIds) || slotIds.length === 0) return;
+
+  const idSet    = new Set(slotIds);
+  const newSlots = getSelectedSlots().filter(s => !idSet.has(s.id));
+  updateSelectedSlots(newSlots);
+
+  slotIds.forEach(id => {
+    const el = document.querySelector(`[data-slot-id="${id}"]`);
+    if (el) {
+      el.classList.remove('selected');
+      el.setAttribute('aria-pressed', 'false');
     }
-    
-    const selectedSlots = getSelectedSlots();
-    const newSlots = selectedSlots.filter(slot => !slotIds.includes(slot.id));
-    const removed = selectedSlots.length - newSlots.length;
-    
-    if (removed > 0) {
-        updateSelectedSlots(newSlots);
-        
-        // Update UI for each deselected slot
-        slotIds.forEach(id => {
-            updateSlotUI(id, false);
-        });
-        
-        updateSummaryDisplay();
-        updateFloatingButton();
-    }
-    
-    console.log(`➖ Bulk deselection: ${removed} slots removed`);
-    return removed;
+  });
+
+  updateSummaryDisplay();
+  updateFloatingButton();
 }
 
-/**
- * Clear all selected slots
- */
 export function clearAllSelections() {
-    const selectedSlots = getSelectedSlots();
-    
-    if (selectedSlots.length === 0) {
-        console.log('No slots to clear');
-        return;
+  getSelectedSlots().forEach(slot => {
+    const el = document.querySelector(`[data-slot-id="${slot.id}"]`);
+    if (el) {
+      el.classList.remove('selected');
+      el.setAttribute('aria-pressed', 'false');
     }
-    
-    // Update UI for all slots
-    selectedSlots.forEach(slot => {
-        updateSlotUI(slot.id, false);
-    });
-    
-    updateSelectedSlots([]);
-    updateSummaryDisplay();
-    updateFloatingButton();
-    
-    console.log('🧹 All selections cleared');
+  });
+
+  updateSelectedSlots([]);
+  updateSummaryDisplay();
+  updateFloatingButton();
+  console.log('All slot selections cleared');
 }
 
-/**
- * Check if a slot is currently selected
- * @param {number} slotId - Slot ID
- * @returns {boolean} True if selected
- */
+// ================================================================================================
+// QUERY HELPERS
+// ================================================================================================
+
 export function isSlotSelected(slotId) {
-    const selectedSlots = getSelectedSlots();
-    return selectedSlots.some(slot => slot.id === slotId);
+  return getSelectedSlots().some(s => s.id === slotId);
 }
 
-/**
- * Get count of selected slots
- * @returns {number} Number of selected slots
- */
 export function getSelectionCount() {
-    return getSelectedSlots().length;
+  return getSelectedSlots().length;
 }
 
-/**
- * Check if selection limit is reached
- * @returns {boolean} True if at max capacity
- */
 export function isSelectionFull() {
-    return getSelectedSlots().length >= CONFIG.MAX_SLOTS_PER_BOOKING;
+  return getSelectedSlots().length >= CONFIG.MAX_SLOTS_PER_BOOKING;
 }
