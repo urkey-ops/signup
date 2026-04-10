@@ -181,78 +181,98 @@ export function resetFormState() {
  * @param {string} email - User email (optional)
  */
 export function displayBookingSuccess(bookedSlots, category, email) {
-  const successSection = document.getElementById('successMessage');
+  const successSection      = document.getElementById('successMessage');
   const confirmationDetails = document.getElementById('confirmationDetails');
-  const signupSection = document.getElementById('signupSection');
-  const slotsSection = document.querySelector('.card[aria-label="Select time slots"]');
-  const lookupSection = document.querySelector('.lookup-section');
+  const signupSection       = document.getElementById('signupSection');
+  const slotsSection        = document.querySelector('.card[aria-label="Select time slots"]');
+  const lookupSection       = document.querySelector('.lookup-section');
 
   if (!successSection || !confirmationDetails) {
     console.error('Success section elements not found');
     return;
   }
 
-  // Clear previous content
   confirmationDetails.innerHTML = '';
 
-  // Create confirmation container
   const container = document.createElement('div');
   container.className = 'selected-slots-summary';
   container.style.marginBottom = 'var(--space-xl)';
 
-  // Heading
   const heading = document.createElement('h3');
   heading.textContent = 'Your bookings:';
   container.appendChild(heading);
 
-  // Booking chips
   const chipsContainer = document.createElement('div');
   chipsContainer.className = 'chips-container';
 
-  // Sort chronologically
-  const sortedSlots = [...bookedSlots].sort((a, b) => {
-    const dateA = new Date(a.date);
-    const dateB = new Date(b.date);
-    if (dateA.getTime() !== dateB.getTime()) return dateA - dateB;
+  // ── ROBUST TIME PARSER (fixes 12PM → 720 not 1440) ──────────────────────
+  const parseTime = (label) => {
+    if (!label) return 0;
+    const start  = label.replace(/\s*[-–]\s*/g, '-').split('-')[0].trim();
+    const m      = start.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+    if (!m) return 0;
+    let hour     = Number(m[1]);
+    const mins   = m[2] ? Number(m[2]) : 0;
+    const period = m[3] ? m[3].toLowerCase() : null;
+    if (period === 'pm' && hour !== 12) hour += 12;  // 12PM stays 12, not 24
+    if (period === 'am' && hour === 12) hour  = 0;
+    return hour * 60 + mins;
+  };
 
-    const timeA = a.label.match(/(\d+)(AM|PM)/i);
-    const timeB = b.label.match(/(\d+)(AM|PM)/i);
-    const hourA = timeA
-      ? parseInt(timeA[1], 10) + (timeA[2].toUpperCase() === 'PM' ? 12 : 0)
-      : 0;
-    const hourB = timeB
-      ? parseInt(timeB[1], 10) + (timeB[2].toUpperCase() === 'PM' ? 12 : 0)
-      : 0;
-    return hourA - hourB;
+  // ── ROBUST DATE NORMALIZER (handles ISO + MM/DD/YYYY from Sheets) ────────
+  const toISO = (d) => {
+    if (!d) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d)) return d;
+    const p = d.split('/');
+    if (p.length === 3)
+      return `${p[2]}-${p[0].padStart(2, '0')}-${p[1].padStart(2, '0')}`;
+    return d;
+  };
+
+  // ── CHRONOLOGICAL SORT: date first, then time ────────────────────────────
+  const sortedSlots = [...bookedSlots].sort((a, b) => {
+    const dateDiff = toISO(a.date).localeCompare(toISO(b.date));
+    if (dateDiff !== 0) return dateDiff;
+    return parseTime(a.label) - parseTime(b.label);
   });
 
   sortedSlots.forEach((slot) => {
     const chip = document.createElement('div');
     chip.className = 'slot-chip';
 
-    const readableDate = new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    });
+    const iso         = toISO(slot.date);
+    const readableDate = iso
+      ? new Date(iso + 'T00:00:00').toLocaleDateString('en-US', {
+          weekday: 'short',
+          month:   'short',
+          day:     'numeric',
+        })
+      : slot.date;
 
     const shortTime = slot.label
       .replace(/:\d{2}/g, '')
-      .replace(/\s*-\s*/g, '-')
-      .replace(/\s/g, '');
+      .replace(/\s*-\s*/g, ' - ')   // normalize spacing around dash
+      .trim();
 
-    const chipContent = document.createElement('span');
+    const chipContent  = document.createElement('span');
     chipContent.className = 'chip-content';
 
-    const chipDate = document.createElement('span');
+    const chipDate     = document.createElement('span');
     chipDate.className = 'chip-date';
     chipDate.textContent = readableDate;
 
-    const chipTime = document.createElement('span');
+    // ── FIX: separator span so date and time don't jam together ─────────────
+    const chipSep      = document.createElement('span');
+    chipSep.className  = 'chip-sep';
+    chipSep.textContent = ' · ';
+    chipSep.setAttribute('aria-hidden', 'true');
+
+    const chipTime     = document.createElement('span');
     chipTime.className = 'chip-time';
     chipTime.textContent = shortTime;
 
     chipContent.appendChild(chipDate);
+    chipContent.appendChild(chipSep);
     chipContent.appendChild(chipTime);
     chip.appendChild(chipContent);
     chipsContainer.appendChild(chip);
@@ -261,14 +281,11 @@ export function displayBookingSuccess(bookedSlots, category, email) {
   container.appendChild(chipsContainer);
   confirmationDetails.appendChild(container);
 
-  // ── Calendar ticket card container ──────────────────────────────────────
-  // injectCalendarCard() in signup-frontend.js will populate this
-  const calendarContainer = document.createElement('div');
-  calendarContainer.id = 'calendarCardContainer';
+  // Calendar card container — injectCalendarCard() in signup-frontend.js populates this
+  const calendarContainer    = document.createElement('div');
+  calendarContainer.id       = 'calendarCardContainer';
   confirmationDetails.appendChild(calendarContainer);
-  // ────────────────────────────────────────────────────────────────────────
 
-  // Hide all other sections and show success
   if (signupSection) signupSection.style.display = 'none';
   if (slotsSection)  slotsSection.style.display  = 'none';
   if (lookupSection) lookupSection.style.display  = 'none';
