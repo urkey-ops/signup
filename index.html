@@ -509,32 +509,16 @@
         </form>
       </section>
 
-      <!-- Success Message -->
-      <section
-        id="successMessage"
-        style="display:none;"
-        class="card success-card"
-        aria-labelledby="success-heading"
-      >
-        <div class="success-icon" aria-hidden="true">🎉</div>
-        <h2 id="success-heading">Booking Confirmed!</h2>
-        <p class="description">Jai Swaminarayan! Your seva slot has been reserved. Thank you for your generous service.</p>
-        <div id="confirmationDetails" role="status" aria-live="polite"></div>
-
-        <!-- Add to Calendar button -->
-        <button
-          id="addToCalendarBtn"
-          class="btn secondary-btn"
-          type="button"
-          style="margin-top: 1rem;"
-        >
-          📅 Add to Calendar
-        </button>
-
-        <button id="resetPageBtn" class="btn primary-btn" type="button" style="margin-top: 0.75rem;">
-          Book Another Slot
-        </button>
-      </section>
+     <!-- Success Message -->
+<section id="successMessage" style="display:none" class="card success-card" aria-labelledby="success-heading">
+  <div class="success-icon" aria-hidden="true"></div>
+  <h2 id="success-heading">Booking Confirmed!</h2>
+  <p class="description">Jai Swaminarayan! Your seva slot has been reserved. Thank you for your generous service.</p>
+  <div id="confirmationDetails" role="status" aria-live="polite"></div>
+  <!-- FIX #3: Removed static #addToCalendarBtn — signup-frontend.js injectCalendarCard() creates it here dynamically -->
+  <div id="calendarCardContainer"></div>
+  <button id="resetPageBtn" class="btn primary-btn" type="button" style="margin-top: 0.75rem">Book Another Slot</button>
+</section>
     </main>
 
     <!-- Footer -->
