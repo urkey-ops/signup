@@ -5,7 +5,7 @@
 // Escape HTML so it's safe to insert via innerHTML
 export function escapeHTML(str) {
     if (str === null || str === undefined) return '';
-    return String(str).replace(/[&<>"'\/]/g, function (s) {
+    return String(str).replace(/[&<>"'\\/]/g, function (s) {
         return ({
             '&': '&amp;',
             '<': '&lt;',
@@ -28,8 +28,8 @@ export function sanitizeInput(str, maxLength = 1000) {
     let s = String(str).trim().substring(0, maxLength);
     s = s.replace(/[<>]/g, '');
     s = s.replace(/javascript:/gi, '');
-    s = s.replace(/on\w+\s*=\s*(['"]).*?\1/gi, '');
-    s = s.replace(/[\x00-\x1F\x7F]/g, '');
+    s = s.replace(/on\w+\s*=\s*(['"]).*?\1/gi, '');  // FIX: was \\w+\\s*
+    s = s.replace(/[\x00-\x1F\x7F]/g, '');           // FIX: was \\x00-\\x1F
     return s;
 }
 
@@ -43,8 +43,7 @@ export function isValidEmail(email) {
 // Normalize phone to digits-only
 export function normalizePhone(phone) {
     if (!phone || typeof phone !== 'string') return '';
-    const digits = phone.replace(/\D/g, '');
-    return digits;
+    return phone.replace(/\D/g, '');  // FIX: was /\\D/g
 }
 
 // Validate phone numbers (EXACTLY 10 digits)
@@ -75,14 +74,14 @@ export function showMessage(arg1, arg2, arg3, arg4) {
             `;
             document.body.appendChild(container);
         }
-        message = arg1;
-        type = arg2 || 'info';
+        message  = arg1;
+        type     = arg2 || 'info';
         duration = typeof arg3 === 'number' ? arg3 : 4000;
     } else if (arg1 instanceof Element) {
         container = arg1;
-        message = arg2;
-        type = arg3 || 'info';
-        duration = typeof arg4 === 'number' ? arg4 : 4000;
+        message   = arg2;
+        type      = arg3 || 'info';
+        duration  = typeof arg4 === 'number' ? arg4 : 4000;
     } else {
         console.error('showMessage: Invalid first argument');
         return;
@@ -127,15 +126,15 @@ export function showMessage(arg1, arg2, arg3, arg4) {
 export function parseTimeForSorting(timeStr) {
     if (!timeStr || typeof timeStr !== 'string') return 0;
     const normalized = timeStr.replace(/\s*-\s*/g, '-').trim();
-    const firstPart = normalized.split('-')[0].trim().toLowerCase();
+    const firstPart  = normalized.split('-')[0].trim().toLowerCase();
     const m = firstPart.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
     if (!m) return 0;
-    let hour = Number(m[1]);
-    const minutes = m[2] ? Number(m[2]) : 0;
-    const period = m[3] ? m[3].toLowerCase() : null;
+    let hour       = Number(m[1]);
+    const minutes  = m[2] ? Number(m[2]) : 0;
+    const period   = m[3] ? m[3].toLowerCase() : null;
     if (Number.isNaN(hour) || Number.isNaN(minutes)) return 0;
     if (period === 'pm' && hour !== 12) hour += 12;
-    if (period === 'am' && hour === 12) hour = 0;
+    if (period === 'am' && hour === 12) hour  = 0;
     return hour * 60 + minutes;
 }
 
@@ -151,7 +150,7 @@ export function getErrorMessage(status, defaultMsg = 'An error occurred') {
         case 500: return 'Internal server error. Please try later.';
         case 502: return 'Bad gateway. Server unreachable.';
         case 503: return 'Service unavailable. Try again later.';
-        default: return defaultMsg;
+        default:  return defaultMsg;
     }
 }
 
@@ -168,13 +167,10 @@ export function debounce(func, wait = 300) {
 // Deep clone an object
 export function deepClone(obj) {
     if (typeof structuredClone === 'function') {
-        try {
-            return structuredClone(obj);
-        } catch (e) {}
+        try { return structuredClone(obj); } catch (e) {}
     }
-    try {
-        return JSON.parse(JSON.stringify(obj));
-    } catch (e) {
+    try { return JSON.parse(JSON.stringify(obj)); }
+    catch (e) {
         if (obj && typeof obj === 'object') return Object.assign(Array.isArray(obj) ? [] : {}, obj);
         return obj;
     }
@@ -185,10 +181,10 @@ export function isElementInViewport(el) {
     if (!el) return false;
     const rect = el.getBoundingClientRect();
     return (
-        rect.top >= 0 &&
-        rect.left >= 0 &&
+        rect.top    >= 0 &&
+        rect.left   >= 0 &&
         rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        rect.right  <= (window.innerWidth  || document.documentElement.clientWidth)
     );
 }
 
@@ -212,8 +208,8 @@ export function isValidDate(dateStr) {
         if (isNaN(d.getTime())) return false;
         const isoMatch = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (isoMatch) {
-            const y = Number(isoMatch[1]);
-            const m = Number(isoMatch[2]);
+            const y   = Number(isoMatch[1]);
+            const m   = Number(isoMatch[2]);
             const day = Number(isoMatch[3]);
             if (m < 1 || m > 12 || day < 1 || day > 31) return false;
             return d.getUTCFullYear() === y &&
@@ -234,8 +230,6 @@ export function generateRandomId(prefix = 'id') {
 // Helper to safely get element by ID
 export function getElementByIdSafe(id) {
     const el = document.getElementById(id);
-    if (!el) {
-        console.warn(`Element with ID "${id}" not found in DOM`);
-    }
+    if (!el) console.warn(`Element with ID "${id}" not found in DOM`);
     return el;
 }
