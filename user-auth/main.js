@@ -4,9 +4,9 @@ import { login, logout, checkSession } from './api.js';
 // CONFIGURATION
 // ================================================================================================
 
-const IDLE_TIMEOUT = 15 * 60 * 1000;          // 15 minutes (increased from 5)
-const SESSION_CHECK_INTERVAL = 60 * 1000;      // 1 minute
-const IDLE_THROTTLE_MS = 1000;                 // Throttle activity events to 1/sec
+const IDLE_TIMEOUT = 15 * 60 * 1000;
+const SESSION_CHECK_INTERVAL = 60 * 1000;
+const IDLE_THROTTLE_MS = 1000;
 
 // ================================================================================================
 // STATE
@@ -16,7 +16,7 @@ let timeoutId = null;
 let sessionCheckInterval = null;
 let isLoggingOut = false;
 let lastActivity = Date.now();
-let isSignupFormOpen = false;   // ← tracks if user is on the signup form
+let isSignupFormOpen = false;
 
 // ================================================================================================
 // AUTH READY
@@ -36,6 +36,7 @@ function handleSessionExpired() {
     isLoggingOut = true;
     clearTimeout(timeoutId);
     clearInterval(sessionCheckInterval);
+
     logout()
         .catch(() => {})
         .finally(() => {
@@ -52,15 +53,12 @@ function resetTimer() {
     if (isLoggingOut) return;
     const now = Date.now();
     if (now - lastActivity < IDLE_THROTTLE_MS) return;
+
     lastActivity = now;
     clearTimeout(timeoutId);
     timeoutId = setTimeout(handleSessionExpired, IDLE_TIMEOUT);
 }
 
-/**
- * Pause idle countdown (call when signup form opens).
- * The timer is cleared so no logout can fire while paused.
- */
 function pauseIdleTimer() {
     clearTimeout(timeoutId);
     timeoutId = null;
@@ -68,10 +66,6 @@ function pauseIdleTimer() {
     console.log('⏸️ Idle timer paused (signup form open)');
 }
 
-/**
- * Resume idle countdown (call when signup form closes).
- * Restarts a fresh IDLE_TIMEOUT window from now.
- */
 function resumeIdleTimer() {
     isSignupFormOpen = false;
     lastActivity = Date.now();
@@ -85,10 +79,14 @@ function resumeIdleTimer() {
 // ================================================================================================
 
 function startSessionValidation() {
+    if (sessionCheckInterval) {
+        clearInterval(sessionCheckInterval);
+        sessionCheckInterval = null;
+    }
+
     sessionCheckInterval = setInterval(async () => {
         if (isLoggingOut) return;
 
-        // Don't interrupt user while they are actively filling the signup form
         if (isSignupFormOpen) {
             console.log('⏭️ Session check skipped — signup form is open');
             return;
@@ -109,9 +107,15 @@ function startSessionValidation() {
 
 async function initializeSession() {
     console.log('🔍 Checking session...');
+
     const loginSection = document.getElementById('loginSection');
     const mainApp = document.getElementById('mainApp');
     const logoutBtn = document.getElementById('logoutBtn');
+
+    if (!loginSection || !mainApp || !logoutBtn) {
+        console.error('Required auth DOM elements not found');
+        return;
+    }
 
     try {
         const data = await checkSession();
@@ -144,12 +148,12 @@ async function initializeSession() {
     document.addEventListener(evt, resetTimer, { passive: true, capture: true });
 });
 
-// Recheck session when tab becomes visible again
 document.addEventListener('visibilitychange', () => {
     if (!document.hidden && !isLoggingOut) {
-        // Don't logout-check if signup form is open — user may just be switching tabs briefly
         if (isSignupFormOpen) return;
-        checkSession().then(result => { if (!result.ok) handleSessionExpired(); });
+        checkSession().then(result => {
+            if (!result.ok) handleSessionExpired();
+        });
     }
 }, { passive: true });
 
@@ -161,8 +165,8 @@ window.login = login;
 window.logout = logout;
 window.checkSession = checkSession;
 window.resetUserTimer = resetTimer;
-window.pauseIdleTimer = pauseIdleTimer;    // ← called by signup module when form opens
-window.resumeIdleTimer = resumeIdleTimer;  // ← called by signup module when form closes
+window.pauseIdleTimer = pauseIdleTimer;
+window.resumeIdleTimer = resumeIdleTimer;
 
 window.addEventListener('user-login-success', () => {
     initializeSession();
