@@ -10,11 +10,11 @@
 export function formatDate(date) {
     const d = new Date(date);
     let month = '' + (d.getMonth() + 1);
-    let day   = '' + d.getDate();
+    let day = '' + d.getDate();
     const year = d.getFullYear();
 
     if (month.length < 2) month = '0' + month;
-    if (day.length < 2)   day   = '0' + day;
+    if (day.length < 2) day = '0' + day;
 
     return [month, day, year].join('/');
 }
@@ -32,14 +32,11 @@ export function isPastDate(dateStr) {
     let targetDate;
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        // YYYY-MM-DD — from backend API (slots loaded from Google Sheets)
         targetDate = new Date(dateStr + 'T00:00:00');
     } else if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
-        // MM/DD/YYYY — from formatDate() used in date chip selector
         const [month, day, year] = dateStr.split('/').map(Number);
         targetDate = new Date(year, month - 1, day);
     } else {
-        // Unrecognized format — fail safe: treat as not past
         console.warn(`isPastDate: unrecognized date format "${dateStr}"`);
         return false;
     }
@@ -59,7 +56,6 @@ export function displayMessage(msgId, message, type = 'success') {
     const msgBox = document.getElementById(msgId);
     if (!msgBox) return;
 
-    // Clear any previous auto-hide timer on this element
     if (msgBox._hideTimer) {
         clearTimeout(msgBox._hideTimer);
         msgBox._hideTimer = null;
@@ -70,14 +66,13 @@ export function displayMessage(msgId, message, type = 'success') {
     msgBox.textContent = message;
     msgBox.style.display = 'block';
 
-    // error = 0 → stays visible until next message (admin must acknowledge)
     const DURATIONS = { success: 5000, info: 5000, warning: 8000, error: 0 };
-    const duration  = DURATIONS[type] ?? 5000;
+    const duration = DURATIONS[type] ?? 5000;
 
     if (duration > 0) {
         msgBox._hideTimer = setTimeout(() => {
             msgBox.style.display = 'none';
-            msgBox._hideTimer   = null;
+            msgBox._hideTimer = null;
         }, duration);
     }
 }
@@ -87,7 +82,7 @@ export function displayMessage(msgId, message, type = 'success') {
  * @returns {Array<Date>}
  */
 export function getNextSixtyDays() {
-    const days  = [];
+    const days = [];
     const today = new Date();
 
     for (let i = 0; i < 60; i++) {
