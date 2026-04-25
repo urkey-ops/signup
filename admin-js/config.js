@@ -17,7 +17,29 @@ export const DEFAULT_SLOTS = [
 // imported or called anywhere in the codebase.
 // ================================================================================================
 
-export const STATE = {
-  loadedSlots:   [],
-  selectedDates: [],
-};
+// ================================================================================================
+// ENCAPSULATED STATE (FIXED - No direct mutation)
+let _loadedSlots = [];
+let _selectedDates = [];
+
+export function getLoadedSlots() { return [..._loadedSlots]; }
+export function getSelectedDates() { return [..._selectedDates]; }
+
+export function updateLoadedSlots(newSlots) {
+  // Validate + immutable update
+  const validSlots = Array.isArray(newSlots) ? newSlots.filter(slot => 
+    slot?.id && typeof slot.date === 'string' && slot.capacity >= 0
+  ) : [];
+  _loadedSlots = validSlots;
+  
+  // Notify UI
+  window.dispatchEvent(new CustomEvent('slotsLoaded', { 
+    detail: { slots: validSlots } 
+  }));
+  console.log(`✅ Loaded slots updated: ${validSlots.length}`);
+}
+
+export function setSelectedDates(dates) {
+  _selectedDates = Array.isArray(dates) ? [...new Set(dates)] : []; // Dedupe
+  window.dispatchEvent(new CustomEvent('datesUpdated'));
+}
